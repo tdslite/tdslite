@@ -1,0 +1,31 @@
+# _______________________________________________________
+# GNU toolchain conan profile file
+#
+# @file   clang
+# @author Mustafa K. GILOR <mustafagilor@gmail.com>
+# @date   12.04.2022
+#
+# SPDX-License-Identifier:    MIT
+# _______________________________________________________
+
+DEFAULT_CXX_COMPILER=/usr/bin/g++-11
+DEFAULT_C_COMPILER=/usr/bin/gcc-11
+DEFAULT_ARCH=x86_64
+
+include(./common)
+
+[settings]
+os=Linux
+os_build=Linux
+os_target=Linux
+arch=$DEFAULT_ARCH
+arch_build=$DEFAULT_ARCH
+arch_target=$DEFAULT_ARCH
+compiler=gcc
+compiler.libcxx=libstdc++11
+compiler.version=11
+compiler.cppstd=11
+
+[env]
+CC=$DEFAULT_C_COMPILER
+CXX=$DEFAULT_CXX_COMPILER

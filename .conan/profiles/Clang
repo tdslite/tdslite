@@ -1,0 +1,34 @@
+# _______________________________________________________
+# clang conan profile file
+#
+# @file   clang
+# @author Mustafa K. GILOR <mustafagilor@gmail.com>
+# @date   12.04.2022
+#
+# SPDX-License-Identifier:    MIT
+# _______________________________________________________
+
+DEFAULT_CXX_COMPILER=/usr/bin/clang++-14
+DEFAULT_C_COMPILER=/usr/bin/clang-14
+DEFAULT_ARCH=x86_64
+
+include(./common)
+
+[settings]
+os=Linux
+os_build=Linux
+os_target=Linux
+arch=$DEFAULT_ARCH
+arch_build=$DEFAULT_ARCH
+arch_target=$DEFAULT_ARCH
+compiler=clang
+compiler.libcxx=libc++
+compiler.version=14
+compiler.cppstd=11
+
+[env]
+CC=$DEFAULT_C_COMPILER
+CXX=$DEFAULT_CXX_COMPILER
+CXXFLAGS=-stdlib=libc++
+benchmark:CXXFLAGS=-stdlib=libc++ -lc++ -Wno-error=deprecated-copy -Wno-unused-variable -Wno-unused -Wunused-but-set-variable -Wno-everything -Wno-error -Wno-deprecated -w
+gtest:CXXFLAGS=-stdlib=libc++ -lc++ -Wno-error=deprecated-copy -Wno-deprecated -Wno-deprecated-declarations -Wno-deprecated-copy -Wno-error -w

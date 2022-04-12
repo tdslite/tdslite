@@ -1,0 +1,269 @@
+# _________________________________________________________
+# clang-format configuration file
+#
+# @file   .clang-format
+# @author Mustafa K. GILOR <mustafagilor@gmail.com>
+# @date   12.04.2022
+#
+# SPDX-License-Identifier:    MIT
+# _________________________________________________________
+
+---
+Language: Cpp
+
+Standard: c++20 # C++20
+IndentWidth: 4 # Each `indent` is indented to 4 spaces
+TabWidth: 4 # Each `tab` is indented to 4 spaces
+UseTab: Never # Do not use tab for indentation
+UseCRLF: false # Do not use windows style (CRLF) line endings
+ColumnLimit: 140 # Each line is 140 characters
+SortIncludes: false # Enable include sorting
+SortUsingDeclarations: true # Enable include sorting
+IndentCaseLabels: true
+
+# ###################
+# Macro related stuff
+# ###################
+
+# #define SHORT_NAME       42
+# #define LONGER_NAME      0x007f
+AlignConsecutiveMacros: true # Align consecutive macro values
+
+# #define A                                                                     \
+#  int aaaa;                                                                    \
+#  int b;                                                                       \
+#  int dddddddddd;
+AlignEscapedNewlines: Right # Align escaped newlines to right
+
+# #####################
+# Comment related stuff
+# #####################
+AlignTrailingComments: true # Align comments
+
+# int aaaa = 12;
+# int b    = 23;
+# int ccc  = 23;
+AlignConsecutiveAssignments: AcrossEmptyLinesAndComments
+
+# false:
+# // veryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryLongComment with plenty of information
+# /* second veryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryLongComment with plenty of information */
+#
+# true:
+# // veryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryLongComment with plenty of
+# // information
+# /* second veryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryLongComment with plenty of
+#  * information */
+ReflowComments: true
+
+# someLongFunction(argument1,
+#                  argument2);
+AlignAfterOpenBracket: Align
+
+# class Foo {
+#   void f() { foo(); }
+# };
+# void f() {
+#   foo();
+# }
+# void f() {
+# }
+AllowShortFunctionsOnASingleLine: Empty # Short functions single line (empty only)
+
+# if (a) return;
+# else
+#   return;
+AllowShortIfStatementsOnASingleLine: Never
+
+# while (true) { continue; }
+AllowShortBlocksOnASingleLine: Never
+
+#  switch (a) {
+#  case 1:
+#    x = 1;
+#    break;
+#  case 2:
+#    return;
+#  }
+AllowShortCaseLabelsOnASingleLine: False
+
+# false:
+# enum {
+#   A,
+#   B
+# } myEnum;
+AllowShortEnumsOnASingleLine: False
+
+AllowShortLambdasOnASingleLine: Empty
+
+AllowShortLoopsOnASingleLine: False
+
+# template <typename T>
+# T foo() {
+# }
+# template <typename T>
+# T foo(int aaaaaaaaaaaaaaaaaaaaa,
+#       int bbbbbbbbbbbbbbbbbbbbb) {
+# }
+AlwaysBreakTemplateDeclarations: Yes
+
+# Brace wrapping configuration
+BraceWrapping:
+  AfterEnum: true
+  AfterStruct: false
+  AfterClass: false
+  AfterFunction: false
+  AfterNamespace: false
+  AfterUnion: false
+  AfterExternBlock: false
+  BeforeCatch: true
+  BeforeElse: true
+  # BeforeLambdaBody: false
+
+  # int f()
+  # {}
+  SplitEmptyFunction: false
+
+  # namespace foo
+  # {}
+  SplitEmptyNamespace: false
+
+  # class foo
+  # {}
+  SplitEmptyRecord: false
+
+BreakBeforeBraces: Custom
+
+# class Foo : Base1,
+#             Base2
+# {};
+BreakInheritanceList: AfterComma
+
+# LooooooooooongType loooooooooooooooooooooongVariable =
+# someLooooooooooooooooongFunction();
+#
+# bool value = aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa +
+#                     aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa ==
+#                 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa &&
+#             aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa >
+#                 ccccccccccccccccccccccccccccccccccccccccc;
+BreakBeforeBinaryOperators: None
+
+# Constructor() :
+#     initializer1(),
+#     initializer2()
+BreakConstructorInitializers: AfterColon
+
+# true:
+#  template<typename T>
+#  concept ...
+#
+# false:
+#  template<typename T> concept ...
+BreakBeforeConceptDeclarations: true
+
+# true:
+# template <typename It>
+#   requires Iterator<It>
+# void sort(It begin, It end) {
+#   //....
+# }
+#
+# false:
+# template <typename It>
+# requires Iterator<It>
+# void sort(It begin, It end) {
+#   //....
+# }
+IndentRequires: false
+
+# true:
+# void f(int aaaaaaaaaaaaaaaaaaaa, int aaaaaaaaaaaaaaaaaaaa,
+#        int aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa) {}
+BinPackParameters: true
+
+# unsigned bf : 2;
+BitFieldColonSpacing: Both
+
+# true:
+# void f() {
+#   f(aaaaaaaaaaaaaaaaaaaa, aaaaaaaaaaaaaaaaaaaa,
+#     aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa);
+# }
+#
+# false:
+# void f() {
+#   f(aaaaaaaaaaaaaaaaaaaa,
+#     aaaaaaaaaaaaaaaaaaaa,
+#     aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa);
+# }
+BinPackArguments: true
+
+# namespace Foo { namespace Bar {
+# }}
+CompactNamespaces: true
+
+NamespaceIndentation: All
+
+Cpp11BracedListStyle: true # Function call like braced list style
+FixNamespaceComments: true # Correct invalid namespace ending comments and add if not existing
+IndentGotoLabels: false # Flush goto labels to leftmost
+
+SpaceBeforeParens: ControlStatements # Space before control statement parantheses
+SpaceBeforeRangeBasedForLoopColon: true # Space before range-based loop colon
+SpaceBeforeSquareBrackets: true # Space before square brackets (except lambdas)
+SpaceInEmptyParentheses: false # Do not put space in empty parantheses
+SpacesInAngles: false # Do not put space before-after angle brackets
+SpacesInConditionalStatement: false # Do not put space around conditional statements (if/while/for)
+SpacesInParentheses: false # Do not put space before ) and after (
+SpacesInSquareBrackets: false # Do not put space before ] and after [
+SpaceAfterCStyleCast: true # Put space after C-style cast
+SpaceAfterTemplateKeyword: true # Put space after template keyword
+
+AccessModifierOffset: -4 # Do not indent access modifiers (public: private: protected:)
+# EmptyLineAfterAccessModifier: Never
+
+# true:
+# MyClass::MyClass() :
+#     member0(0), member1(2) {}
+
+# false:
+# MyClass::MyClass() :
+#     member0(0),
+#     member1(2) {}
+AllowAllConstructorInitializersOnNextLine: true
+
+# true:
+# SomeClass::Constructor()
+#     : aaaaaaaa(aaaaaaaa), aaaaaaaa(aaaaaaaa), aaaaaaaa(aaaaaaaaaaaaaaaaaaaaaaaaa) {
+#   return 0;
+# }
+
+# false:
+# SomeClass::Constructor()
+#     : aaaaaaaa(aaaaaaaa), aaaaaaaa(aaaaaaaa),
+#       aaaaaaaa(aaaaaaaaaaaaaaaaaaaaaaaaa) {
+#   return 0;
+# }
+ConstructorInitializerAllOnOneLineOrOnePerLine: false
+
+# PAS_Left (in configuration: Left) Align pointer to the left.
+
+# int* a;
+# PAS_Right (in configuration: Right) Align pointer to the right.
+
+# int *a;
+# PAS_Middle (in configuration: Middle) Align pointer in the middle.
+
+# int * a;
+PointerAlignment: Middle
+
+LambdaBodyIndentation: Signature
+
+# struct test demo[] =
+# {
+#     {56,    23, "hello"},
+#     {-1, 93463, "world"},
+#     { 7,     5,    "!!"}
+# };
+AlignArrayOfStructures: Left

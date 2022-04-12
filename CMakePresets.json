@@ -1,0 +1,721 @@
+{
+    "version": 4,
+    "cmakeMinimumRequired": {
+        "major": 3,
+        "minor": 21,
+        "patch": 0
+    },
+    "configurePresets": [
+        {
+            "name": "settings-dev",
+            "description": "Default settings for development environment",
+            "hidden": true,
+            "cacheVariables": {
+                "TDSLITE_PROJECT_MISC_NO_HADOUKEN_BANNER": {
+                    "type": "BOOL",
+                    "value": "OFF"
+                },
+                "TDSLITE_PROJECT_HDK_NO_DEBUG_RELEASE_WARNING": {
+                    "type": "BOOL",
+                    "value": "ON"
+                },
+                "TDSLITE_PROJECT_TOOLCONF_USE_IWYU": {
+                    "type": "BOOL",
+                    "value": "OFF"
+                },
+                "TDSLITE_PROJECT_TOOLCONF_USE_GOOGLE_TEST": {
+                    "type": "BOOL",
+                    "value": "ON"
+                },
+                "TDSLITE_PROJECT_TOOLCONF_USE_GOOGLE_BENCH": {
+                    "type": "BOOL",
+                    "value": "ON"
+                },
+                "TDSLITE_PROJECT_TOOLCONF_USE_CLANG_FORMAT": {
+                    "type": "BOOL",
+                    "value": "ON"
+                },
+                "TDSLITE_PROJECT_TOOLCONF_USE_CLANG_TIDY": {
+                    "type": "BOOL",
+                    "value": "OFF"
+                },
+                "TDSLITE_PROJECT_TOOLCONF_USE_CPPCHECK": {
+                    "type": "BOOL",
+                    "value": "OFF"
+                },
+                "TDSLITE_PROJECT_TOOLCONF_USE_CCACHE": {
+                    "type": "BOOL",
+                    "value": "ON"
+                },
+                "TDSLITE_PROJECT_TOOLCONF_USE_COVERAGE": {
+                    "type": "BOOL",
+                    "value": "ON"
+                },
+                "TDSLITE_PROJECT_TOOLCONF_USE_GCOVR": {
+                    "type": "BOOL",
+                    "value": "ON"
+                },
+                "TDSLITE_PROJECT_TOOLCONF_USE_DOXYGEN": {
+                    "type": "BOOL",
+                    "value": "ON"
+                },
+                "TDSLITE_PROJECT_DISABLE_UNIT_TEST_TARGETS": {
+                    "type": "BOOL",
+                    "value": "OFF"
+                },
+                "TDSLITE_PROJECT_DISABLE_BENCHMARK_TARGETS": {
+                    "type": "BOOL",
+                    "value": "OFF"
+                },
+                "TDSLITE_PROJECT_DISABLE_STATIC_TARGETS": {
+                    "type": "BOOL",
+                    "value": "OFF"
+                },
+                "TDSLITE_PROJECT_DISABLE_SHARED_TARGETS": {
+                    "type": "BOOL",
+                    "value": "OFF"
+                },
+                "TDSLITE_PROJECT_DISABLE_EXECUTABLE_TARGETS": {
+                    "type": "BOOL",
+                    "value": "OFF"
+                },
+                "TDSLITE_PROJECT_DISABLE_INTERFACE_TARGETS": {
+                    "type": "BOOL",
+                    "value": "OFF"
+                },
+                "TDSLITE_PROJECT_DEBUG_TARGET_PRINT_PROPERTIES": {
+                    "type": "BOOL",
+                    "value": "OFF"
+                },
+                "TDSLITE_PROJECT_ENABLE_SANITIZERS_ON_DEBUG": {
+                    "type": "BOOL",
+                    "value": "ON"
+                },
+                "TDSLITE_PROJECT_ENABLE_SANITIZERS_ON_RELEASE": {
+                    "type": "BOOL",
+                    "value": "OFF"
+                },
+                "TDSLITE_PROJECT_ENABLE_IPO_ON_RELEASE": {
+                    "type": "BOOL",
+                    "value": "OFF"
+                },
+                "TDSLITE_PROJECT_STRIP_SYMBOL_AND_RELOCATION_INFO": {
+                    "type": "BOOL",
+                    "value": "OFF"
+                }
+            }
+        },
+        {
+            "name": "settings-prod",
+            "description": "Settings for production environment build",
+            "hidden": true,
+            "cacheVariables": {
+                "TDSLITE_PROJECT_MISC_NO_HADOUKEN_BANNER": {
+                    "type": "BOOL",
+                    "value": "ON"
+                },
+                "TDSLITE_PROJECT_TOOLCONF_USE_IWYU": {
+                    "type": "BOOL",
+                    "value": "OFF"
+                },
+                "TDSLITE_PROJECT_TOOLCONF_USE_GOOGLE_TEST": {
+                    "type": "BOOL",
+                    "value": "ON"
+                },
+                "TDSLITE_PROJECT_TOOLCONF_USE_GOOGLE_BENCH": {
+                    "type": "BOOL",
+                    "value": "ON"
+                },
+                "TDSLITE_PROJECT_TOOLCONF_USE_CLANG_FORMAT": {
+                    "type": "BOOL",
+                    "value": "OFF"
+                },
+                "TDSLITE_PROJECT_TOOLCONF_USE_CLANG_TIDY": {
+                    "type": "BOOL",
+                    "value": "OFF"
+                },
+                "TDSLITE_PROJECT_TOOLCONF_USE_CPPCHECK": {
+                    "type": "BOOL",
+                    "value": "OFF"
+                },
+                "TDSLITE_PROJECT_TOOLCONF_USE_CCACHE": {
+                    "type": "BOOL",
+                    "value": "OFF"
+                },
+                "TDSLITE_PROJECT_TOOLCONF_USE_COVERAGE": {
+                    "type": "BOOL",
+                    "value": "OFF"
+                },
+                "TDSLITE_PROJECT_TOOLCONF_USE_GCOV": {
+                    "type": "BOOL",
+                    "value": "OFF"
+                },
+                "TDSLITE_PROJECT_TOOLCONF_USE_LCOV": {
+                    "type": "BOOL",
+                    "value": "OFF"
+                },
+                "TDSLITE_PROJECT_TOOLCONF_USE_GCOVR": {
+                    "type": "BOOL",
+                    "value": "OFF"
+                },
+                "TDSLITE_PROJECT_TOOLCONF_USE_DOXYGEN": {
+                    "type": "BOOL",
+                    "value": "ON"
+                },
+                "TDSLITE_PROJECT_DISABLE_UNIT_TEST_TARGETS": {
+                    "type": "BOOL",
+                    "value": "OFF"
+                },
+                "TDSLITE_PROJECT_DISABLE_BENCHMARK_TARGETS": {
+                    "type": "BOOL",
+                    "value": "OFF"
+                },
+                "TDSLITE_PROJECT_DISABLE_STATIC_TARGETS": {
+                    "type": "BOOL",
+                    "value": "OFF"
+                },
+                "TDSLITE_PROJECT_DISABLE_SHARED_TARGETS": {
+                    "type": "BOOL",
+                    "value": "OFF"
+                },
+                "TDSLITE_PROJECT_DISABLE_EXECUTABLE_TARGETS": {
+                    "type": "BOOL",
+                    "value": "OFF"
+                },
+                "TDSLITE_PROJECT_DISABLE_INTERFACE_TARGETS": {
+                    "type": "BOOL",
+                    "value": "OFF"
+                },
+                "TDSLITE_PROJECT_CONAN_REMOTES_FORCE_INIT": {
+                    "type": "BOOL",
+                    "value": "ON"
+                },
+                "TDSLITE_PROJECT_ENABLE_SANITIZERS_ON_DEBUG": {
+                    "type": "BOOL",
+                    "value": "OFF"
+                },
+                "TDSLITE_PROJECT_ENABLE_SANITIZERS_ON_RELEASE": {
+                    "type": "BOOL",
+                    "value": "OFF"
+                },
+                "TDSLITE_PROJECT_ENABLE_IPO_ON_RELEASE": {
+                    "type": "BOOL",
+                    "value": "ON"
+                },
+                "TDSLITE_PROJECT_STRIP_SYMBOL_AND_RELOCATION_INFO": {
+                    "type": "BOOL",
+                    "value": "OFF"
+                }
+            }
+        },
+        {
+            "name": "settings-ci",
+            "description": "Default settings for CI/CD environment",
+            "hidden": true,
+            "cacheVariables": {
+                "CMAKE_SKIP_RULE_DEPENDENCY": {
+                    "type": "BOOL",
+                    "value": "ON"
+                },
+                "CMAKE_SKIP_INSTALL_ALL_DEPENDENCY": {
+                    "type": "BOOL",
+                    "value": "ON"
+                },
+                "CMAKE_SUPPRESS_REGENERATION": {
+                    "type": "BOOL",
+                    "value": "ON"
+                },
+                "TDSLITE_PROJECT_TOOLCONF_USE_GOOGLE_TEST": {
+                    "type": "BOOL",
+                    "value": "ON"
+                },
+                "TDSLITE_PROJECT_TOOLCONF_USE_GOOGLE_BENCH": {
+                    "type": "BOOL",
+                    "value": "ON"
+                },
+                "TDSLITE_PROJECT_TOOLCONF_USE_DOXYGEN": {
+                    "type": "BOOL",
+                    "value": "ON"
+                },
+                "TDSLITE_PROJECT_ENABLE_SANITIZERS_ON_DEBUG": {
+                    "type": "BOOL",
+                    "value": "OFF"
+                },
+                "TDSLITE_PROJECT_ENABLE_SANITIZERS_ON_RELEASE": {
+                    "type": "BOOL",
+                    "value": "ON"
+                },
+                "TDSLITE_PROJECT_STRIP_SYMBOL_AND_RELOCATION_INFO": {
+                    "type": "BOOL",
+                    "value": "ON"
+                },
+                "TDSLITE_PROJECT_TOOLCONF_USE_COVERAGE": {
+                    "type": "BOOL",
+                    "value": "ON"
+                },
+                "TDSLITE_PROJECT_TOOLCONF_USE_GCOVR": {
+                    "type": "BOOL",
+                    "value": "ON"
+                },
+                "CMAKE_CXX_FLAGS": {
+                    "type": "STRING",
+                    "value": "-s"
+                },
+                "CMAKE_C_FLAGS": {
+                    "type": "STRING",
+                    "value": "-s"
+                }
+            }
+        },
+        {
+            "name": "settings-barebone",
+            "description": "Bare-bone build without any external tools enabled",
+            "hidden": true,
+            "cacheVariables": {
+                "TDSLITE_PROJECT_MISC_NO_HADOUKEN_BANNER": {
+                    "type": "BOOL",
+                    "value": "ON"
+                },
+                "TDSLITE_PROJECT_TOOLCONF_USE_IWYU": {
+                    "type": "BOOL",
+                    "value": "OFF"
+                },
+                "TDSLITE_PROJECT_TOOLCONF_USE_GOOGLE_TEST": {
+                    "type": "BOOL",
+                    "value": "OFF"
+                },
+                "TDSLITE_PROJECT_TOOLCONF_USE_GOOGLE_BENCH": {
+                    "type": "BOOL",
+                    "value": "OFF"
+                },
+                "TDSLITE_PROJECT_TOOLCONF_USE_CLANG_FORMAT": {
+                    "type": "BOOL",
+                    "value": "OFF"
+                },
+                "TDSLITE_PROJECT_TOOLCONF_USE_CLANG_TIDY": {
+                    "type": "BOOL",
+                    "value": "OFF"
+                },
+                "TDSLITE_PROJECT_TOOLCONF_USE_CPPCHECK": {
+                    "type": "BOOL",
+                    "value": "OFF"
+                },
+                "TDSLITE_PROJECT_TOOLCONF_USE_CCACHE": {
+                    "type": "BOOL",
+                    "value": "OFF"
+                },
+                "TDSLITE_PROJECT_TOOLCONF_USE_COVERAGE": {
+                    "type": "BOOL",
+                    "value": "OFF"
+                },
+                "TDSLITE_PROJECT_TOOLCONF_USE_GCOV": {
+                    "type": "BOOL",
+                    "value": "OFF"
+                },
+                "TDSLITE_PROJECT_TOOLCONF_USE_LCOV": {
+                    "type": "BOOL",
+                    "value": "OFF"
+                },
+                "TDSLITE_PROJECT_TOOLCONF_USE_GCOVR": {
+                    "type": "BOOL",
+                    "value": "OFF"
+                },
+                "TDSLITE_PROJECT_TOOLCONF_USE_DOXYGEN": {
+                    "type": "BOOL",
+                    "value": "OFF"
+                },
+                "TDSLITE_PROJECT_DISABLE_UNIT_TEST_TARGETS": {
+                    "type": "BOOL",
+                    "value": "ON"
+                },
+                "TDSLITE_PROJECT_DISABLE_BENCHMARK_TARGETS": {
+                    "type": "BOOL",
+                    "value": "ON"
+                },
+                "TDSLITE_PROJECT_DISABLE_STATIC_TARGETS": {
+                    "type": "BOOL",
+                    "value": "OFF"
+                },
+                "TDSLITE_PROJECT_DISABLE_SHARED_TARGETS": {
+                    "type": "BOOL",
+                    "value": "OFF"
+                },
+                "TDSLITE_PROJECT_DISABLE_EXECUTABLE_TARGETS": {
+                    "type": "BOOL",
+                    "value": "OFF"
+                },
+                "TDSLITE_PROJECT_DISABLE_INTERFACE_TARGETS": {
+                    "type": "BOOL",
+                    "value": "OFF"
+                },
+                "TDSLITE_PROJECT_CONAN_REMOTES_FORCE_INIT": {
+                    "type": "BOOL",
+                    "value": "OFF"
+                },
+                "TDSLITE_PROJECT_ENABLE_SANITIZERS_ON_DEBUG": {
+                    "type": "BOOL",
+                    "value": "OFF"
+                },
+                "TDSLITE_PROJECT_ENABLE_SANITIZERS_ON_RELEASE": {
+                    "type": "BOOL",
+                    "value": "OFF"
+                },
+                "TDSLITE_PROJECT_ENABLE_IPO_ON_RELEASE": {
+                    "type": "BOOL",
+                    "value": "ON"
+                },
+                "TDSLITE_PROJECT_STRIP_SYMBOL_AND_RELOCATION_INFO": {
+                    "type": "BOOL",
+                    "value": "OFF"
+                }
+            }
+        },
+        {
+            "name": "configure-common-settings",
+            "description": "Path settings for all configuration types",
+            "hidden": true,
+            "binaryDir": "${sourceDir}/build",
+            "generator": "Unix Makefiles",
+            "cacheVariables": {
+                "CMAKE_EXPORT_COMPILE_COMMANDS": {
+                    "type": "BOOL",
+                    "value": "ON"
+                },
+                "CMAKE_CROSSCOMPILING": {
+                    "type": "BOOL",
+                    "value": "OFF"
+                },
+                "CONAN_CMAKE_SILENT_OUTPUT": {
+                    "type": "BOOL",
+                    "value": "ON"
+                }
+            }
+        },
+        {
+            "inherits": "configure-common-settings",
+            "name": "build-variant-debug",
+            "description": "Debug build type",
+            "hidden": true,
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": {
+                    "type": "STRING",
+                    "value": "Debug"
+                }
+            }
+        },
+        {
+            "inherits": "configure-common-settings",
+            "name": "build-variant-release",
+            "description": "Release build type",
+            "hidden": true,
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": {
+                    "type": "STRING",
+                    "value": "Release"
+                }
+            }
+        },
+        {
+            "name": "gcc-11",
+            "description": "GCC 11.1",
+            "hidden": true,
+            "cacheVariables": {
+                "CMAKE_C_COMPILER": {
+                    "type": "STRING",
+                    "value": "/usr/bin/gcc-11"
+                },
+                "CMAKE_CXX_COMPILER": {
+                    "type": "STRING",
+                    "value": "/usr/bin/g++-11"
+                },
+                "TDSLITE_PROJECT_CXX_COMPILE_OPTIONS": {
+                    "type": "STRING",
+                    "value": "-fconcepts-diagnostics-depth=5 -Wunreachable-code"
+                },
+                "TDSLITE_PROJECT_CXX_LINK_OPTIONS": {
+                    "type": "STRING",
+                    "value": ""
+                },
+                "TDSLITE_PROJECT_COMPILE_OPTIONS": {
+                    "type": "STRING",
+                    "value": ""
+                },
+                "TDSLITE_PROJECT_LINK_OPTIONS": {
+                    "type": "STRING",
+                    "value": "-static-libgcc -static-libstdc++"
+                },
+                "TDSLITE_PROJECT_CONAN_PROFILE_FILE": {
+                    "type": "STRING",
+                    "value": "${sourceDir}/.conan/profiles/GNU"
+                },
+                "TDSLITE_PROJECT_HADOUKEN_CONAN_PROFILE_FILE": {
+                    "type": "STRING",
+                    "value": "${sourceDir}/.conan/profiles/GNU"
+                }
+            }
+        },
+        {
+            "inherits": [
+                "gcc-11",
+                "build-variant-debug",
+                "settings-dev"
+            ],
+            "name": "gcc-11-dev-debug",
+            "displayName": "Configure | GCC 11.1 (dev|debug)",
+            "description": "Compile with GCC 11.1 in Debug build variant with `dev` environment settings"
+        },
+        {
+            "inherits": [
+                "gcc-11",
+                "build-variant-release",
+                "settings-dev"
+            ],
+            "name": "gcc-11-dev-release",
+            "displayName": "Configure | GCC 11.1 (dev|release)",
+            "description": "Compile with GCC 11.1 in Release build variant with `dev` environment settings"
+        },
+        {
+            "inherits": [
+                "gcc-11",
+                "build-variant-release",
+                "settings-ci"
+            ],
+            "name": "gcc-11-ci-release",
+            "displayName": "Configure | GCC 11.1 (ci|release)",
+            "description": "Compile with GCC 11.1 in Release build variant with `CI/CD` environment settings"
+        },
+        {
+            "inherits": [
+                "gcc-11",
+                "build-variant-release",
+                "settings-prod"
+            ],
+            "name": "gcc-11-prod-release",
+            "displayName": "Configure | GCC 11.1 (prod|release)",
+            "description": "Compile with GCC 11.1 in Release build variant with `Production` environment settings (official production)"
+        },
+        {
+            "name": "clang-14",
+            "description": "Clang 14 compiler",
+            "hidden": true,
+            "cacheVariables": {
+                "CMAKE_C_COMPILER": {
+                    "type": "STRING",
+                    "value": "/usr/bin/clang-14"
+                },
+                "CMAKE_CXX_COMPILER": {
+                    "type": "STRING",
+                    "value": "/usr/bin/clang++-14"
+                },
+                "TDSLITE_PROJECT_CXX_COMPILE_OPTIONS": {
+                    "type": "STRING",
+                    "value": "-stdlib=libc++"
+                },
+                "TDSLITE_PROJECT_CXX_LINK_OPTIONS": {
+                    "type": "STRING",
+                    "value": "-lc++ -fuse-ld=lld"
+                },
+                "TDSLITE_PROJECT_COMPILE_OPTIONS": {
+                    "type": "STRING",
+                    "value": "-Wno-gnu-zero-variadic-macro-arguments -Wdocumentation -Wno-sign-conversion -Wno-ctad-maybe-unsupported -Wno-documentation-unknown-command -Wno-padded -Wno-packed -Wno-switch-enum -Wno-weak-vtables -Wno-covered-switch-default -Wno-unreachable-code-break -Wno-reserved-identifier -Wno-extra-semi-stmt -Wno-unused-command-line-argument -Wduplicate-enum"
+                },
+                "TDSLITE_PROJECT_LINK_OPTIONS": {
+                    "type": "STRING",
+                    "value": "-Wno-unused-command-line-argument"
+                },
+                "TDSLITE_PROJECT_CONAN_PROFILE_FILE": {
+                    "type": "STRING",
+                    "value": "${sourceDir}/.conan/profiles/Clang"
+                },
+                "TDSLITE_PROJECT_HADOUKEN_CONAN_PROFILE_FILE": {
+                    "type": "STRING",
+                    "value": "${sourceDir}/.conan/profiles/Clang"
+                }
+            }
+        },
+        {
+            "inherits": [
+                "clang-14",
+                "build-variant-debug",
+                "settings-dev"
+            ],
+            "name": "clang-14-dev-debug",
+            "displayName": "Configure | Clang 14.0.0 (dev|debug)",
+            "description": "Compile with Clang 14.0.0 in Debug build variant with `dev` environment settings"
+        },
+        {
+            "inherits": [
+                "clang-14",
+                "build-variant-release",
+                "settings-dev"
+            ],
+            "name": "clang-14-dev-release",
+            "displayName": "Configure | Clang 14.0.0 (dev|release)",
+            "description": "Compile with Clang 14.0.0 in Release build variant with `dev` environment settings"
+        },
+        {
+            "inherits": [
+                "clang-14",
+                "build-variant-release",
+                "settings-ci"
+            ],
+            "name": "clang-14-ci-release",
+            "displayName": "Configure | Clang 14.0.0 (ci|release)",
+            "description": "Compile with Clang 14.0.0 in Release build variant with `CI/CD` environment settings"
+        },
+        {
+            "inherits": [
+                "clang-14",
+                "build-variant-release",
+                "settings-prod"
+            ],
+            "name": "clang-14-prod-release",
+            "displayName": "Configure | Clang 14.0.0 (prod|release)",
+            "description": "Compile with Clang 14.0.0 in Release build variant with `Production` environment settings"
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "default",
+            "hidden": true,
+            "nativeToolOptions": [
+                "-j33"
+            ]
+        },
+        {
+            "inherits": "default",
+            "name": "gcc-11-dev-debug",
+            "displayName": "Build | GCC 11.1 (dev|debug)",
+            "configurePreset": "gcc-11-dev-debug"
+        },
+        {
+            "inherits": "default",
+            "name": "gcc-11-dev-release",
+            "displayName": "Build | GCC 11.1 (dev|release)",
+            "configurePreset": "gcc-11-dev-release"
+        },
+        {
+            "inherits": "default",
+            "name": "clang-14-dev-debug",
+            "displayName": "Build | Clang 14.0.0 (dev|debug)",
+            "configurePreset": "clang-14-dev-debug"
+        },
+        {
+            "inherits": "default",
+            "name": "clang-14-dev-release",
+            "displayName": "Build | Clang 14.0.0 (dev|release)",
+            "configurePreset": "clang-14-dev-release"
+        },
+        {
+            "inherits": "default",
+            "name": "gcc-11-ci-release",
+            "displayName": "Build | GCC 11.1 (ci|release)",
+            "configurePreset": "gcc-11-ci-release"
+        },
+        {
+            "inherits": "default",
+            "name": "clang-14-ci-release",
+            "displayName": "Build | Clang 14.0.0 (ci|release)",
+            "configurePreset": "clang-14-ci-release"
+        },
+        {
+            "inherits": "default",
+            "name": "gcc-11-prod-release",
+            "displayName": "Build | GCC 11.1 (prod|release)",
+            "configurePreset": "gcc-11-prod-release"
+        },
+        {
+            "inherits": "default",
+            "name": "clang-14-prod-release",
+            "displayName": "Build | Clang 14.0.0 (prod|release)",
+            "configurePreset": "clang-14-prod-release"
+        }
+    ],
+    "testPresets": [
+        {
+            "name": "common-settings",
+            "hidden": true,
+            "environment": {
+                "LSAN_OPTIONS": "suppressions=${sourceDir}/.lsan-suppressions print_suppressions=0",
+                "ASAN_OPTIONS": "color=always detect_odr_violation=0"
+            },
+            "output": {
+                "outputOnFailure": true,
+                "labelSummary": true
+            },
+            "execution": {
+                "noTestsAction": "error",
+                "scheduleRandom": true,
+                "repeat": {
+                    "count": 5,
+                    "mode": "until-fail"
+                },
+                "jobs": 64
+            }
+        },
+        {
+            "inherits": [
+                "common-settings"
+            ],
+            "name": "gcc-11-dev-debug",
+            "displayName": "Test | GCC 11.1 (dev|debug)",
+            "configurePreset": "gcc-11-dev-debug"
+        },
+        {
+            "inherits": [
+                "common-settings"
+            ],
+            "name": "gcc-11-dev-release",
+            "displayName": "Test | GCC 11.1 (dev|release)",
+            "configurePreset": "gcc-11-dev-release"
+        },
+        {
+            "inherits": [
+                "common-settings"
+            ],
+            "name": "gcc-11-ci-release",
+            "displayName": "Test | GCC 11.1 (ci|release)",
+            "configurePreset": "gcc-11-ci-release"
+        },
+        {
+            "inherits": [
+                "common-settings"
+            ],
+            "name": "gcc-11-prod-release",
+            "displayName": "Test | GCC 11.1 (prod|release)",
+            "configurePreset": "gcc-11-prod-release"
+        },
+        {
+            "inherits": [
+                "common-settings"
+            ],
+            "name": "clang-14-dev-debug",
+            "displayName": "Test | Clang 14.0.0 (dev|debug)",
+            "configurePreset": "clang-14-dev-debug"
+        },
+        {
+            "inherits": [
+                "common-settings"
+            ],
+            "name": "clang-14-dev-release",
+            "displayName": "Test | Clang 14.0.0 (dev|release)",
+            "configurePreset": "clang-14-dev-release"
+        },
+        {
+            "inherits": [
+                "common-settings"
+            ],
+            "name": "clang-14-ci-release",
+            "displayName": "Test | Clang 14.0.0 (ci|release)",
+            "configurePreset": "clang-14-ci-release"
+        },
+        {
+            "inherits": [
+                "common-settings"
+            ],
+            "name": "clang-14-prod-release",
+            "displayName": "Test | Clang 14.0.0 (prod|release)",
+            "configurePreset": "clang-14-prod-release"
+        }
+    ]
+}

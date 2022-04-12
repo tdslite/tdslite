@@ -1,0 +1,17 @@
+# _______________________________________________________
+# common conan profile file
+#
+# @file   common
+# @author Mustafa K. GILOR <mustafagilor@gmail.com>
+# @date   12.04.2022
+#
+# SPDX-License-Identifier:    MIT
+# _______________________________________________________
+
+
+[settings]
+build_type=RelWithDebInfo
+
+[env]
+gtest:CXXFLAGS=-Wno-error
+gtest:CFLAGS=-Wno-error
