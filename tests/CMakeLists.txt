@@ -22,6 +22,10 @@ make_component(
             SUFFIX .ut.byte_swap
             SOURCES ut_byte_swap.cpp
 
+    TARGET  TYPE UNIT_TEST
+            SUFFIX .ut.span
+            SOURCES ut_span.cpp
+
     ALL_NO_AUTO_COMPILATION_UNIT
     ALL_WITH_COVERAGE
     ALL_COVERAGE_TARGETS tdslite
@@ -29,7 +33,7 @@ make_component(
     ALL_LINK PRIVATE tdslite
 )
 
-set(ALL_UT_SOURCES ut_tdslite.cpp ut_binary_reader.cpp ut_byte_swap.cpp)
+set(ALL_UT_SOURCES ut_tdslite.cpp ut_binary_reader.cpp ut_byte_swap.cpp ut_span.cpp)
 
 make_component(
     tdslite.tests.cxx14

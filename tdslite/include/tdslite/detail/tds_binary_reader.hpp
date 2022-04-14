@@ -50,6 +50,8 @@ namespace tdslite {
         // Expose span constructors
         using span_type::span;
         using span_type::operator bool;
+        using span_type::data;
+        using span_type::size_bytes;
 
         /**
          * Copy constructor
@@ -139,7 +141,7 @@ namespace tdslite {
          */
         inline TDSLITE_CXX14_CONSTEXPR auto current() const noexcept -> const tdslite::uint8_t * {
             TDSLITE_ASSERT(data + offset_ < data + size_bytes());
-            return data + offset_;
+            return data() + offset_;
         }
 
         /**
@@ -151,15 +153,6 @@ namespace tdslite {
         inline TDSLITE_CXX14_CONSTEXPR auto offset() const noexcept -> tdslite::uint32_t {
             TDSLITE_ASSERT(offset_ < size_bytes());
             return offset_;
-        }
-
-        /**
-         * Total bytes in reader, independent from read position
-         *
-         * @return tdslite::uint32_t Total amount of bytes in reader
-         */
-        inline TDSLITE_CXX14_CONSTEXPR auto size_bytes() const noexcept -> tdslite::uint32_t {
-            return size;
         }
 
         /**
@@ -222,7 +215,7 @@ namespace tdslite {
         inline TDSLITE_CXX14_CONSTEXPR bool has_bytes(tdslite::uint32_t amount_of_bytes) const noexcept {
             // Promote offset and v to next greater signed integer type
             // since the result of the sum may overflow
-            return (tdslite::int64_t{offset_} + tdslite::int64_t{amount_of_bytes}) <= tdslite::int64_t{size};
+            return (tdslite::int64_t{offset_} + tdslite::int64_t{amount_of_bytes}) <= tdslite::int64_t{size_bytes()};
         }
 
         /**

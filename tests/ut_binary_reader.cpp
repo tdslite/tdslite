@@ -179,6 +179,7 @@ TEST(binary_reader_test, subreader) {
     auto a = reader.read<tdslite::uint8_t>();
     (void) a;
     auto sr = reader.subreader(sizeof(buffer_to_read) - sizeof(tdslite::uint8_t));
+    EXPECT_TRUE(sr);
     EXPECT_EQ(sr.current(), reader.current());
     EXPECT_EQ(sr.size_bytes(), sizeof(buffer_to_read) - sizeof(tdslite::uint8_t));
 }
