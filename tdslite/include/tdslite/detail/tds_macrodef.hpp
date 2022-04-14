@@ -36,7 +36,7 @@
 /**
  * Mark a variable as unused
  */
-#define TDSLITE_MAYBE_UNUSED (void)
+#define TDSLITE_MAYBE_UNUSED __attribute__(unused)
 
 /**
  * Nodiscard attribute
@@ -47,7 +47,7 @@
 /**
  * Move macro
  */
-#define TDSLITE_MOVE(...) static_cast<tdslite::detail::traits::remove_reference<decltype(__VA_ARGS__)>::type &&>(__VA_ARGS__)
+#define TDSLITE_MOVE(...) static_cast<tdslite::traits::remove_reference<decltype(__VA_ARGS__)>::type &&>(__VA_ARGS__)
 
 /**
  * Forward macro

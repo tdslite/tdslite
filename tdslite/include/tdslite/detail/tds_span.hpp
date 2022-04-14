@@ -14,6 +14,7 @@
 #define TDSLITE_DETAIL_TDS_SPAN_HPP
 
 #include <tdslite/detail/tds_inttypes.hpp>
+#include <tdslite/detail/tds_macrodef.hpp>
 
 namespace tdslite {
 
@@ -53,10 +54,9 @@ namespace tdslite {
          * Copy assignment
          */
         inline constexpr span & operator=(const span<T> & other) noexcept {
-            if (&other != this) {
-                data_ = other.data_;
-                size_ = other.size_;
-            }
+            // For avoiding "compound-statement in `constexpr` function warning in C++11 mode"
+            &other != this ? (data_ = other.data_) : (void) 0;
+            &other != this ? (size_ = other.size_) : (void) 0;
             return *this;
         }
 
@@ -64,10 +64,9 @@ namespace tdslite {
          * Move assignment
          */
         inline constexpr span & operator=(span<T> && other) noexcept {
-            if (&other != this) {
-                data_ = detail::exchange(other.data_, nullptr);
-                size_ = detail::exchange(other.size_, 0);
-            }
+            // For avoiding "compound-statement in `constexpr` function warning in C++11 mode"
+            &other != this ? (data_ = detail::exchange(other.data_, nullptr)) : (void) 0;
+            &other != this ? (size_ = detail::exchange(other.size_, 0)) : (void) 0;
             return *this;
         }
 
@@ -98,7 +97,7 @@ namespace tdslite {
          * @param [in] buffer Fixed-size buffer
          */
         template <tdslite::uint32_t N>
-        inline explicit constexpr span(T (&buffer) [N]) noexcept : data_(buffer), size_(N) {}
+        inline constexpr span(T (&buffer) [N]) noexcept : data_(buffer), size_(N) {}
 
         /**
          * Construct a new span object from explicit begin

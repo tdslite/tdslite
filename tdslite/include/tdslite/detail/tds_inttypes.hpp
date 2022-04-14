@@ -68,4 +68,38 @@ namespace tdslite {
     using ::uintptr_t;
 } // namespace tdslite
 
+// user-defined literals for casting integers
+
+inline static constexpr tdslite::uint8_t operator"" _tdsu8(unsigned long long arg) noexcept {
+    return static_cast<tdslite::uint8_t>(arg);
+}
+
+inline static constexpr tdslite::int8_t operator"" _tdsi8(unsigned long long arg) noexcept {
+    return static_cast<tdslite::int8_t>(arg);
+}
+
+inline static constexpr tdslite::uint16_t operator"" _tdsu16(unsigned long long arg) noexcept {
+    return static_cast<tdslite::uint16_t>(arg);
+}
+
+inline static constexpr tdslite::int16_t operator"" _tdsi16(unsigned long long arg) noexcept {
+    return static_cast<tdslite::int16_t>(arg);
+}
+
+inline static constexpr tdslite::uint32_t operator"" _tdsu32(unsigned long long arg) noexcept {
+    return static_cast<tdslite::uint32_t>(arg);
+}
+
+inline static constexpr tdslite::int32_t operator"" _tdsi32(unsigned long long arg) noexcept {
+    return static_cast<tdslite::int32_t>(arg);
+}
+
+inline static constexpr tdslite::uint64_t operator"" _tdsu64(unsigned long long arg) noexcept {
+    return static_cast<tdslite::uint64_t>(arg);
+}
+
+inline static constexpr tdslite::int64_t operator"" _tdsi64(unsigned long long arg) noexcept {
+    return static_cast<tdslite::int64_t>(arg);
+}
+
 #endif

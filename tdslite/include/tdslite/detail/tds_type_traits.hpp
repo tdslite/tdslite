@@ -13,7 +13,7 @@
 #ifndef TDSLITE_DETAIL_TDS_TYPE_TRAITS_HPP
 #define TDSLITE_DETAIL_TDS_TYPE_TRAITS_HPP
 
-namespace tdslite { namespace detail { namespace traits {
+namespace tdslite { namespace traits {
 
     // These type traits are exactly same with the traditional
     // C++ standard library implementation. Some of the platforms
@@ -36,6 +36,7 @@ namespace tdslite { namespace detail { namespace traits {
     using true_type  = integral_constant<bool, true>;
     using false_type = integral_constant<bool, false>;
 
+    // enable_if
     template <bool, typename T = void>
     struct enable_if;
 
@@ -44,11 +45,13 @@ namespace tdslite { namespace detail { namespace traits {
         using type = T;
     };
 
+    // is_same
     template <typename T, typename U>
     struct is_same : false_type {};
     template <typename T>
     struct is_same<T, T> : true_type {};
 
+    // remove_reference
     template <typename T>
     struct remove_reference {
         typedef T type;
@@ -63,6 +66,73 @@ namespace tdslite { namespace detail { namespace traits {
     struct remove_reference<T &&> {
         typedef T type;
     };
-}}} // namespace tdslite::detail::traits
+
+    /// remove_cv
+    template <typename T>
+    struct remove_cv {
+        using type = T;
+    };
+
+    template <typename T>
+    struct remove_cv<const T> {
+        using type = T;
+    };
+
+    template <typename T>
+    struct remove_cv<volatile T> {
+        using type = T;
+    };
+
+    template <typename T>
+    struct remove_cv<const volatile T> {
+        using type = T;
+    };
+
+    // is_integral
+    template <typename>
+    struct is_integral : public false_type {};
+
+    template <>
+    struct is_integral<bool> : public true_type {};
+
+    template <>
+    struct is_integral<char> : public true_type {};
+
+    template <>
+    struct is_integral<signed char> : public true_type {};
+
+    template <>
+    struct is_integral<unsigned char> : public true_type {};
+
+    template <>
+    struct is_integral<short> : public true_type {};
+
+    template <>
+    struct is_integral<unsigned short> : public true_type {};
+
+    template <>
+    struct is_integral<int> : public true_type {};
+
+    template <>
+    struct is_integral<unsigned int> : public true_type {};
+
+    template <>
+    struct is_integral<long> : public true_type {};
+
+    template <>
+    struct is_integral<unsigned long> : public true_type {};
+
+    template <>
+    struct is_integral<long long> : public true_type {};
+
+    template <>
+    struct is_integral<unsigned long long> : public true_type {};
+
+    // enable_if_integral
+
+    template <typename T>
+    using enable_if_integral = typename enable_if<is_integral<T>::value, bool>::type;
+
+}} // namespace tdslite::traits
 
 #endif
