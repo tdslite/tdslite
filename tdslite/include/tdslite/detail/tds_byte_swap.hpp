@@ -21,45 +21,45 @@
 namespace tdslite { namespace detail {
 
     template <typename T>
-    inline constexpr auto byte_swap(T v) -> T;
+    inline constexpr auto byte_swap(T v) noexcept -> T;
 
     template <>
-    inline constexpr auto byte_swap<tdslite::int8_t>(tdslite::int8_t v) -> tdslite::int8_t {
+    inline constexpr auto byte_swap<tdslite::int8_t>(tdslite::int8_t v) noexcept -> tdslite::int8_t {
         return v;
     }
 
     template <>
-    inline constexpr auto byte_swap<tdslite::uint8_t>(tdslite::uint8_t v) -> tdslite::uint8_t {
+    inline constexpr auto byte_swap<tdslite::uint8_t>(tdslite::uint8_t v) noexcept -> tdslite::uint8_t {
         return v;
     }
 
     template <>
-    inline constexpr auto byte_swap<tdslite::int16_t>(tdslite::int16_t v) -> tdslite::int16_t {
+    inline constexpr auto byte_swap<tdslite::int16_t>(tdslite::int16_t v) noexcept -> tdslite::int16_t {
         return static_cast<tdslite::int16_t>(__builtin_bswap16(v));
     }
 
     template <>
-    inline constexpr auto byte_swap<tdslite::uint16_t>(tdslite::uint16_t v) -> tdslite::uint16_t {
+    inline constexpr auto byte_swap<tdslite::uint16_t>(tdslite::uint16_t v) noexcept -> tdslite::uint16_t {
         return __builtin_bswap16(v);
     }
 
     template <>
-    inline constexpr auto byte_swap<tdslite::int32_t>(tdslite::int32_t v) -> tdslite::int32_t {
+    inline constexpr auto byte_swap<tdslite::int32_t>(tdslite::int32_t v) noexcept -> tdslite::int32_t {
         return static_cast<tdslite::int32_t>(__builtin_bswap32(v));
     }
 
     template <>
-    inline constexpr auto byte_swap<tdslite::uint32_t>(tdslite::uint32_t v) -> tdslite::uint32_t {
+    inline constexpr auto byte_swap<tdslite::uint32_t>(tdslite::uint32_t v) noexcept -> tdslite::uint32_t {
         return __builtin_bswap32(v);
     }
 
     template <>
-    inline constexpr auto byte_swap<tdslite::int64_t>(tdslite::int64_t v) -> tdslite::int64_t {
+    inline constexpr auto byte_swap<tdslite::int64_t>(tdslite::int64_t v) noexcept -> tdslite::int64_t {
         return static_cast<tdslite::int64_t>(__builtin_bswap64(v));
     }
 
     template <>
-    inline constexpr auto byte_swap<tdslite::uint64_t>(tdslite::uint64_t v) -> tdslite::uint64_t {
+    inline constexpr auto byte_swap<tdslite::uint64_t>(tdslite::uint64_t v) noexcept -> tdslite::uint64_t {
         return __builtin_bswap64(v);
     }
 
@@ -75,7 +75,7 @@ namespace tdslite { namespace detail {
      */
     template <tdslite::endian FromEndianness = tdslite::endian::native, tdslite::endian ToEndianness = tdslite::endian::non_native,
               typename T>
-    inline constexpr typename traits::enable_if<FromEndianness == ToEndianness, T>::type swap_endianness(T v) {
+    inline constexpr auto swap_endianness(T v) noexcept -> typename traits::enable_if<FromEndianness == ToEndianness, T>::type {
         return v;
     }
 
@@ -91,17 +91,17 @@ namespace tdslite { namespace detail {
      */
     template <tdslite::endian FromEndianness = tdslite::endian::native, tdslite::endian ToEndianness = tdslite::endian::non_native,
               typename T>
-    inline constexpr typename traits::enable_if<!(FromEndianness == ToEndianness), T>::type swap_endianness(T v) {
+    inline constexpr auto swap_endianness(T v) noexcept -> typename traits::enable_if<!(FromEndianness == ToEndianness), T>::type {
         return byte_swap<decltype(v)>(v);
     }
 
     template <typename T>
-    inline constexpr auto network_to_host(T v) -> T {
+    inline constexpr auto network_to_host(T v) noexcept -> T {
         return swap_endianness<tdslite::endian::big, tdslite::endian::native, T>(v);
     }
 
     template <typename T>
-    inline constexpr auto host_to_network(T v) -> T {
+    inline constexpr auto host_to_network(T v) noexcept -> T {
         return swap_endianness<tdslite::endian::native, tdslite::endian::big, T>(v);
     }
 }} // namespace tdslite::detail

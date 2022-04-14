@@ -10,6 +10,8 @@
  * _________________________________________________
  */
 
+#include <tdslite/detail/tds_type_traits.hpp>
+
 #ifndef TDSLITE_DETAIL_TDS_MACRODEF_HPP
 #define TDSLITE_DETAIL_TDS_MACRODEF_HPP
 
@@ -24,6 +26,33 @@
  * Assert that COND is satisfied
  */
 #define TDSLITE_ASSERT(COND)
+
+/**
+ * Assert with message
+ *
+ */
+#define TDSLITE_ASSERT_MSG(COND, MSG)
+
+/**
+ * Mark a variable as unused
+ */
+#define TDSLITE_MAYBE_UNUSED (void)
+
+/**
+ * Nodiscard attribute
+ *
+ */
+#define TDSLITE_NODISCARD __attribute__((warn_unused_result))
+
+/**
+ * Move macro
+ */
+#define TDSLITE_MOVE(...) static_cast<tdslite::detail::traits::remove_reference<decltype(__VA_ARGS__)>::type &&>(__VA_ARGS__)
+
+/**
+ * Forward macro
+ */
+#define TDSLITE_FORWARD(...) static_cast<decltype(__VA_ARGS__) &&>(__VA_ARGS__)
 
 /**
  * Assert that COND is satisfied (with custom message)

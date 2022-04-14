@@ -48,6 +48,21 @@ namespace tdslite { namespace detail { namespace traits {
     struct is_same : false_type {};
     template <typename T>
     struct is_same<T, T> : true_type {};
+
+    template <typename T>
+    struct remove_reference {
+        typedef T type;
+    };
+
+    template <typename T>
+    struct remove_reference<T &> {
+        typedef T type;
+    };
+
+    template <typename T>
+    struct remove_reference<T &&> {
+        typedef T type;
+    };
 }}} // namespace tdslite::detail::traits
 
 #endif

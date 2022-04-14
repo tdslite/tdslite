@@ -27,4 +27,3 @@ include(.cmake/project-configuration.cmake)
 # Components of the project
 add_subdirectory(tdslite)
 add_subdirectory(tests)
-

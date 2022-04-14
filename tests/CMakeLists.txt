@@ -28,3 +28,62 @@ make_component(
     ALL_COVERAGE_REPORT_OUTPUT_DIRECTORY "${ACU_PPC_BUILD_DIRECTORY}/cc_reports" 
     ALL_LINK PRIVATE tdslite
 )
+
+set(ALL_UT_SOURCES ut_tdslite.cpp ut_binary_reader.cpp ut_byte_swap.cpp)
+
+make_component(
+    tdslite.tests.cxx14
+    TARGET  TYPE UNIT_TEST
+            SUFFIX .ut.all
+            SOURCES ${ALL_UT_SOURCES} 
+    ALL_NO_AUTO_COMPILATION_UNIT
+    ALL_WITH_COVERAGE
+    ALL_COVERAGE_TARGETS tdslite
+    ALL_COVERAGE_REPORT_OUTPUT_DIRECTORY "${ACU_PPC_BUILD_DIRECTORY}/cc_reports" 
+    ALL_LINK PRIVATE tdslite
+)
+
+make_component(
+    tdslite.tests.cxx17
+    TARGET  TYPE UNIT_TEST
+            SUFFIX .ut.all
+            SOURCES ${ALL_UT_SOURCES} 
+    ALL_NO_AUTO_COMPILATION_UNIT
+    ALL_WITH_COVERAGE
+    ALL_COVERAGE_TARGETS tdslite
+    ALL_COVERAGE_REPORT_OUTPUT_DIRECTORY "${ACU_PPC_BUILD_DIRECTORY}/cc_reports" 
+    ALL_LINK PRIVATE tdslite
+)
+
+make_component(
+    tdslite.tests.cxx20
+    TARGET  TYPE UNIT_TEST
+            SUFFIX .ut.all
+            SOURCES ${ALL_UT_SOURCES} 
+    ALL_NO_AUTO_COMPILATION_UNIT
+    ALL_WITH_COVERAGE
+    ALL_COVERAGE_TARGETS tdslite
+    ALL_COVERAGE_REPORT_OUTPUT_DIRECTORY "${ACU_PPC_BUILD_DIRECTORY}/cc_reports" 
+    ALL_LINK PRIVATE tdslite
+)
+
+set_target_properties(
+    tdslite.tests.cxx14.ut.all
+    PROPERTIES CXX_STANDARD 14
+               CXX_STANDARD_REQUIRED YES
+               CXX_EXTENSIONS NO
+)
+
+set_target_properties(
+    tdslite.tests.cxx17.ut.all
+    PROPERTIES CXX_STANDARD 17
+               CXX_STANDARD_REQUIRED YES
+               CXX_EXTENSIONS NO
+)
+
+set_target_properties(
+    tdslite.tests.cxx20.ut.all
+    PROPERTIES CXX_STANDARD 20
+               CXX_STANDARD_REQUIRED YES
+               CXX_EXTENSIONS NO
+)
