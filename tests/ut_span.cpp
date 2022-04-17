@@ -14,6 +14,13 @@
 #include <tdslite/detail/tds_macrodef.hpp>
 #include <gtest/gtest.h>
 
+TEST(span, default_construct) {
+    tdslite::span<tdslite::uint8_t> buf_span{};
+    EXPECT_EQ(buf_span.data(), nullptr);
+    EXPECT_EQ(buf_span.size_bytes(), 0);
+    EXPECT_FALSE(buf_span);
+}
+
 TEST(span, construct_from_fs_array) {
     tdslite::uint8_t buf [4];
     tdslite::span<tdslite::uint8_t> buf_span{buf};
@@ -114,4 +121,14 @@ TEST(span, move_assign) {
     EXPECT_EQ(buf_span_mc.begin(), buf);
     EXPECT_EQ(buf_span_mc.end(), &buf [4]);
     EXPECT_TRUE(buf_span_mc);
+}
+
+TEST(span, string_view_construct) {
+    tdslite::span<const char> buf_span{"test"};
+    (void) buf_span;
+}
+
+TEST(span, string_view_assign) {
+    tdslite::span<const char> buf_span{};
+    EXPECT_NO_THROW({ buf_span = "test"; });
 }

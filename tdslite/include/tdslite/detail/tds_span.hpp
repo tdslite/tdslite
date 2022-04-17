@@ -35,7 +35,7 @@ namespace tdslite {
 
         /**
          */
-        span()           = delete;
+        span() noexcept : data_(nullptr), size_(0){};
 
         /**
          * Destructor
@@ -53,20 +53,20 @@ namespace tdslite {
         /**
          * Copy assignment
          */
-        inline constexpr span & operator=(const span<T> & other) noexcept {
+        inline TDSLITE_CXX14_CONSTEXPR span & operator=(const span<T> & other) noexcept {
             // For avoiding "compound-statement in `constexpr` function warning in C++11 mode"
-            &other != this ? (data_ = other.data_) : (void) 0;
-            &other != this ? (size_ = other.size_) : (void) 0;
+            &other != this ? (data_ = other.data_) : (T *) 0;
+            &other != this ? (size_ = other.size_) : (T *) 0;
             return *this;
         }
 
         /**
          * Move assignment
          */
-        inline constexpr span & operator=(span<T> && other) noexcept {
+        inline TDSLITE_CXX14_CONSTEXPR span & operator=(span<T> && other) noexcept {
             // For avoiding "compound-statement in `constexpr` function warning in C++11 mode"
-            &other != this ? (data_ = detail::exchange(other.data_, nullptr)) : (void) 0;
-            &other != this ? (size_ = detail::exchange(other.size_, 0)) : (void) 0;
+            &other != this ? (data_ = detail::exchange(other.data_, nullptr)) : (T *) 0;
+            &other != this ? (size_ = detail::exchange(other.size_, 0)) : 0;
             return *this;
         }
 
@@ -84,8 +84,8 @@ namespace tdslite {
         /**
          * Construct a new span object
          *
-         * @param [in] data
-         * @param [in] size
+         * @param [in] data Pointer to the data
+         * @param [in] size Size of the data
          */
         inline explicit constexpr span(T * data, tdslite::uint32_t size) noexcept : data_(data), size_(size) {}
 
