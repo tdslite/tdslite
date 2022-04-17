@@ -22,7 +22,6 @@ ARG USER_UID=1000
 ARG USER_GID=$USER_UID
 
 COPY .docker/devenv/bootstrap.sh /scripts/bootstrap.sh
-COPY .conan/conanfile.py /scripts/.conan/conanfile.py
 COPY .conan/profiles/common /scripts/.conan/profiles/common
 COPY .conan/profiles/GNU /scripts/.conan/profiles/GNU
 COPY .conan/profiles/Clang /scripts/.conan/profiles/Clang

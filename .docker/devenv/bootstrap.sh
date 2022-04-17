@@ -41,6 +41,8 @@ readonly apt_package_list=(
     zsh locales less
     # Verify ssh, git, git-lfs process tools, lsb-release (useful for CLI installs) installed
     ssh git git-extras git-lfs iproute2 procps lsb-release
+    # Install GCC Toolchain, version 11
+    gcc-11 g++-11
     # Install LLVM Toolchain, version 13
     llvm-${LLVM_VERSION} lld-${LLVM_VERSION} clang-${LLVM_VERSION} libc++-${LLVM_VERSION}-dev libc++abi-${LLVM_VERSION}-dev libunwind-${LLVM_VERSION}-dev clang-format-${LLVM_VERSION} clang-tidy-${LLVM_VERSION} clangd-${LLVM_VERSION}
     # Install debugger, build generator & dependency resolution and build accelarator tools
@@ -163,8 +165,8 @@ function install_zsh_and_oh_my_zsh {
     # Copy oh-my-zsh config beforehand
     # sudo su ${1} -c "cp /home/${1}/.oh-my-zsh/templates/zshrc.zsh-template /home/${1}/.zshrc"
     
-    # Replace the default theme with `jonathan` theme
-    sudo sed -i 's/^ZSH_THEME="robbyrussell"/ZSH_THEME="jonathan"/' /home/${1}/.zshrc
+    # Replace the default theme with `funky` theme
+    sudo sed -i 's/^ZSH_THEME="robbyrussell"/ZSH_THEME="linuxonly"/' /home/${1}/.zshrc
     
     # Install oh-my-zsh plugins
     
@@ -236,12 +238,6 @@ function install_conan_packages {
         (sudo -u ${1} ${conan_command} install --profile=$SCRIPT_ROOT/.conan/profiles/Clang ${pkg}@_/_ --build missing) || return $?
     done
     
-    (sudo -u ${1} python3 $SCRIPT_ROOT/.conan/conanfile.py init_remotes) || return $?
-    # Install conan packages into container
-    # Install conan deps for GCC
-    (sudo -u ${1} conan install $SCRIPT_ROOT/.conan/conanfile.py -pr=$SCRIPT_ROOT/.conan/profiles/GNU --build=missing -if /tmp) || return $?
-    # Install conan deps for clang
-    (sudo -u ${1} conan install $SCRIPT_ROOT/.conan/conanfile.py -pr=$SCRIPT_ROOT/.conan/profiles/Clang --build=missing -if /tmp) || return $?
     return 0
 }
 
@@ -265,21 +261,8 @@ function adjust_symlinks {
     # Create new symlinks
     sudo ln -sf /usr/bin/python3 /usr/bin/python
     
-    # GCC symlink
-    sudo ln -sf /toolchains/x86_64-centos6-linux-gnu/bin/x86_64-centos6-linux-gnu-gcc /toolchains/x86_64-centos6-linux-gnu/bin/gcc
-    sudo ln -sf /toolchains/x86_64-centos6-linux-gnu/bin/gcc /usr/bin/gcc
-    
-    # G++ symlink
-    sudo ln -sf /toolchains/x86_64-centos6-linux-gnu/bin/x86_64-centos6-linux-gnu-g++ /toolchains/x86_64-centos6-linux-gnu/bin/g++
-    sudo ln -sf /toolchains/x86_64-centos6-linux-gnu/bin/g++ /usr/bin/g++
-    
     # (mgilor): Required for `gcovr`
-    sudo ln -sf /toolchains/x86_64-centos6-linux-gnu/bin/x86_64-centos6-linux-gnu-gcov /toolchains/x86_64-centos6-linux-gnu/bin/gcov
-    sudo ln -sf /toolchains/x86_64-centos6-linux-gnu/bin/x86_64-centos6-linux-gnu-gcov /usr/bin/gcov
-    
-    # (mgilor): Workaround for `gdb` bug
-    sudo mv /toolchains/x86_64-centos6-linux-gnu/bin/x86_64-centos6-linux-gnu-gdb /toolchains/x86_64-centos6-linux-gnu/bin/x86_64-centos6-linux-gnu-gdb-orig
-    sudo ln -sf /usr/bin/gdb /toolchains/x86_64-centos6-linux-gnu/bin/x86_64-centos6-linux-gnu-gdb
+    sudo ln -sf /usr/bin/gcov-11 /usr/bin/gcov
     
     # Conan
     sudo ln -sf /usr/local/bin/conan /usr/bin/conan
