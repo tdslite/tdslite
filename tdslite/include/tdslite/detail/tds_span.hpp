@@ -15,6 +15,7 @@
 
 #include <tdslite/detail/tds_inttypes.hpp>
 #include <tdslite/detail/tds_macrodef.hpp>
+#include <tdslite/detail/tds_type_traits.hpp>
 
 namespace tdslite {
 
@@ -33,40 +34,51 @@ namespace tdslite {
     template <typename T = const tdslite::uint8_t>
     struct span {
 
+        using element_type    = T;
+        using value_type      = typename traits::remove_cv<T>::type;
+        using size_type       = tdslite::uint32_t;
+        using pointer         = T *;
+        using const_pointer   = const T *;
+        using reference       = T &;
+        using const_reference = const T &;
+        using iterator        = pointer;
+        using const_iterator  = const_pointer;
+        using self_type       = span<element_type>;
+
         /**
          */
-        span() noexcept : data_(nullptr), size_(0){};
+        inline TDSLITE_CXX14_CONSTEXPR span() noexcept : data_(nullptr), size_(0){};
 
         /**
          * Destructor
          */
-        ~span() noexcept = default;
+        inline ~span() noexcept = default;
 
-        inline constexpr span(const span<T> & other) noexcept : data_(other.data_), size_(other.size_) {}
+        inline constexpr span(const self_type & other) noexcept : data_(other.data_), size_(other.size_) {}
 
         /**
          * Move constructor
          */
-        inline constexpr span(span<T> && other) noexcept :
+        inline constexpr span(self_type && other) noexcept :
             data_(detail::exchange(other.data_, nullptr)), size_(detail::exchange(other.size_, 0)) {}
 
         /**
          * Copy assignment
          */
-        inline TDSLITE_CXX14_CONSTEXPR span & operator=(const span<T> & other) noexcept {
+        inline TDSLITE_CXX14_CONSTEXPR span & operator=(const self_type & other) noexcept {
             // For avoiding "compound-statement in `constexpr` function warning in C++11 mode"
-            &other != this ? (data_ = other.data_) : (T *) 0;
-            &other != this ? (size_ = other.size_) : (T *) 0;
+            &other != this ? (data_ = other.data_) : static_cast<element_type *>(nullptr);
+            &other != this ? (size_ = other.size_) : static_cast<decltype(size_)>(0);
             return *this;
         }
 
         /**
          * Move assignment
          */
-        inline TDSLITE_CXX14_CONSTEXPR span & operator=(span<T> && other) noexcept {
+        inline TDSLITE_CXX14_CONSTEXPR span & operator=(self_type && other) noexcept {
             // For avoiding "compound-statement in `constexpr` function warning in C++11 mode"
-            &other != this ? (data_ = detail::exchange(other.data_, nullptr)) : (T *) 0;
-            &other != this ? (size_ = detail::exchange(other.size_, 0)) : 0;
+            &other != this ? (data_ = detail::exchange(other.data_, nullptr)) : static_cast<element_type *>(0);
+            &other != this ? (size_ = detail::exchange(other.size_, 0)) : static_cast<decltype(size_)>(0);
             return *this;
         }
 
@@ -77,7 +89,7 @@ namespace tdslite {
          * @return true Spans are equal
          * @return false otherwise
          */
-        inline constexpr bool operator==(const span<T> & other) const noexcept {
+        inline constexpr bool operator==(const self_type & other) const noexcept {
             return data_ == other.data_ && size_ == other.size_;
         }
 
@@ -87,7 +99,7 @@ namespace tdslite {
          * @param [in] data Pointer to the data
          * @param [in] size Size of the data
          */
-        inline explicit constexpr span(T * data, tdslite::uint32_t size) noexcept : data_(data), size_(size) {}
+        inline explicit constexpr span(element_type * data, size_type size) noexcept : data_(data), size_(size) {}
 
         /**
          * Construct a new span object from a fixed-size
@@ -96,8 +108,8 @@ namespace tdslite {
          * @tparam N Auto-deduced length of the array
          * @param [in] buffer Fixed-size buffer
          */
-        template <tdslite::uint32_t N>
-        inline constexpr span(T (&buffer) [N]) noexcept : data_(buffer), size_(N) {}
+        template <size_type N>
+        inline constexpr span(element_type (&buffer) [N]) noexcept : data_(buffer), size_(N) {}
 
         /**
          * Construct a new span object from explicit begin
@@ -110,14 +122,14 @@ namespace tdslite {
          * @note @p start must be always lesser than @p end
          * @note @p end must be always greater than @p start
          */
-        inline explicit constexpr span(T * begin, const T * end) noexcept : data_(begin), size_(end - begin) {}
+        inline explicit constexpr span(element_type * begin, element_type * end) noexcept : data_(begin), size_(end - begin) {}
 
         /**
          * Get the amount of the bytes in the span
          *
-         * @return tdslite::uint32_t Amount of the bytes in the span
+         * @return size_type Amount of the bytes in the span
          */
-        inline constexpr auto size_bytes() const noexcept -> tdslite::uint32_t {
+        inline constexpr auto size_bytes() const noexcept -> size_type {
             return size_;
         }
 
@@ -126,7 +138,7 @@ namespace tdslite {
          *
          * @return T* Pointer to the beginning of the span
          */
-        inline constexpr auto data() const noexcept -> T * {
+        inline constexpr auto data() const noexcept -> pointer {
             return data_;
         }
 
@@ -135,7 +147,7 @@ namespace tdslite {
          *
          * @return T* Pointer to the beginning of the span
          */
-        inline constexpr auto begin() const noexcept -> T * {
+        inline constexpr auto begin() const noexcept -> iterator {
             return data_;
         }
 
@@ -144,7 +156,7 @@ namespace tdslite {
          *
          * @return T* Pointer to the one past last element of the span
          */
-        inline constexpr auto end() const noexcept -> T * {
+        inline constexpr auto end() const noexcept -> iterator {
             return (data_ + size_);
         }
 
@@ -164,8 +176,9 @@ namespace tdslite {
         }
 
     private:
-        T * data_{nullptr};         /**< Pointer to the beginning of the span */
-        tdslite::uint32_t size_{0}; /**< Size of the span (in bytes) */
+        pointer data_{nullptr}; /**< Pointer to the beginning of the span */
+    protected:
+        size_type size_{0}; /**< Size of the span (in bytes) */
 
     }; // struct span
 

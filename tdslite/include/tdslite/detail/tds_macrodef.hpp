@@ -23,6 +23,48 @@
 #define TDSLITE_UNREACHABLE __builtin_unreachable();
 
 /**
+ * @brief [intrinsics.gcc] Specify minimum alignment for given type. This causes target type to
+ * be allocated and aligned at least Alignment bytes boundary.
+ *
+ * @note The `aligned` attribute can only increase alignment boundary. To decrease, see `packed` attribute as well.
+ *
+ * @note Maximum alignment may depend on your linker.
+ *
+ * @param Alignment Alignment byte boundary
+ */
+#define TDSLITE_ALIGNED(Alignment) __attribute__((aligned(Alignment)))
+
+/**
+ * @brief [intrinsics.gcc] Pack a struct or union type to layout which allows smallest possible space.
+ *
+ * This prevents compiler to pad variables inside struct or union type to largest possible
+ * type alignment available for target platform.
+ *
+ * @note Packed types are usually used for mapping transmitted messages directly to data types,
+ * or space-limited environments.
+ *
+ * @warning Taking address of a variable declared inside of a packed type may result in undefined behavior.
+ */
+#define TDSLITE_PACKED __attribute__((packed))
+
+/**
+ * @brief [intrinsics.gcc] Pack and align a type to alignment boundary of X
+ *
+ * @param Alignment Alignment boundary
+ *
+ * @note Packed types are usually used for mapping transmitted messages directly to data types,
+ * or space-limited environments.
+ *
+ * @warning Taking address of a variable declared inside of a packed type may result in undefined behavior.
+ */
+#define TDSLITE_PACKED_ALIGNED(Alignment) __attribute__((packed, aligned(Alignment)))
+
+/**
+ * Retrieve the offset of the member @p m on struct @p st
+ */
+#define TDSLITE_OFFSETOF(st, m) (reinterpret_cast<unsigned long long>(&((static_cast<st *>(0))->m)))
+
+/**
  * Assert that COND is satisfied
  */
 #define TDSLITE_ASSERT(COND)

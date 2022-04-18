@@ -128,10 +128,22 @@ namespace tdslite { namespace traits {
     template <>
     struct is_integral<unsigned long long> : public true_type {};
 
+    template <>
+    struct is_integral<char16_t> : public true_type {};
+
+    template <>
+    struct is_integral<char32_t> : public true_type {};
+
     // enable_if_integral
 
     template <typename T>
     using enable_if_integral = typename enable_if<is_integral<T>::value, bool>::type;
+
+    template <typename T, typename Q>
+    using enable_if_same = typename enable_if<is_same<T, Q>::value, bool>::type;
+
+    template <typename T, typename Q>
+    using enable_if_not_same = typename enable_if<!is_same<T, Q>::value, bool>::type;
 
 }} // namespace tdslite::traits
 
