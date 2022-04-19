@@ -1,0 +1,107 @@
+// ____________________________________________________
+// Configuration file for VSCode remote-containers 
+// development environment
+//
+// @file   devcontainer.json
+// @author Mustafa K. GILOR <mustafagilor@gmail.com>
+// @date   12.04.2022
+//
+// SPDX-License-Identifier:    MIT
+// ____________________________________________________
+{
+    "name": "default-devenv",
+    // (mgilor) We're now using docker-compose instead, to extend possibilities.
+    "dockerComposeFile": [
+        "docker-compose.yml"
+    ],
+    // Service name defined by docker-compose to be used as remote container 
+    "service": "devenv",
+    // Workspace to display in vscode
+    "workspaceFolder": "/workspace",
+    "runArgs": [
+        "--cap-add=SYS_PTRACE",
+        "--security-opt",
+        "seccomp=unconfined"
+    ],
+    // Use 'settings' to set *default* container specific settings.json values on container create. 
+    // You can edit these settings after create using File > Preferences > Settings > Remote.
+    "settings": {
+        "terminal.integrated.profiles.linux": {
+            "default-zsh": {
+                "path": "/usr/bin/zsh",
+                "args": [
+                    "--login"
+                ]
+            }
+        },
+        "terminal.integrated.defaultProfile.linux": "default-zsh"
+    },
+    "containerEnv": {},
+    "remoteEnv": {},
+    "build": {
+        "args": {}
+    },
+    // Run user-specified post creation script (if exist)
+    // Also initialize git flow for repository.
+    "postCreateCommand": "",
+    // Run as user `vscode`
+    "remoteUser": "dev",
+    // Add the IDs of extensions you want installed when the container is created in the array below.
+    "extensions": [
+        "ms-vscode.cpptools",
+        // Bash Beautify
+        "shakram02.bash-beautify",
+        // C++ Algorithm Mnemonics
+        "davidbroetje.algorithm-mnemonics-vscode",
+        // CMake Language Support
+        "twxs.cmake",
+        // CMake Tools
+        "ms-vscode.cmake-tools",
+        // Python extension
+        "ms-python.python",
+        // GitLens
+        "eamodio.gitlens",
+        // Doxygen Language Support
+        "bbenoist.doxygen",
+        // Doxygen Documentation
+        "cschlosser.doxdocgen",
+        // Gitconfig Syntax
+        "sidneys1.gitconfig",
+        // Markdown All in one
+        "yzhang.markdown-all-in-one",
+        //Markdown PDF
+        "yzane.markdown-pdf",
+        // Markdown Lint
+        "davidanson.vscode-markdownlint",
+        // Shebang Snippets
+        "rpinski.shebang-snippets",
+        // TLDR Pages
+        "bmuskalla.vscode-tldr",
+        // TODO Tree
+        "gruntfuggly.todo-tree",
+        // VS IntelliCode
+        "visualstudioexptteam.vscodeintellicode",
+        // vscode-spotify
+        "shyykoserhiy.vscode-spotify",
+        // Test Explorer UI
+        "hbenl.vscode-test-explorer",
+        // Word Count
+        "ms-vscode.wordcount",
+        // vscode-clangd
+        "llvm-vs-code-extensions.vscode-clangd",
+        // Resource monitor
+        "mutantdino.resourcemonitor",
+        // CMake Test Adapter for Test Explorer Sidebar
+        "fredericbonnet.cmake-test-adapter",
+        // Integrated hex editor
+        "ms-vscode.hexeditor",
+        // Better C++ Syntax
+        "jeff-hykin.better-cpp-syntax",
+        // YAML language support
+        "redhat.vscode-yaml",
+        // Back and forward buttons
+        "grimmer.vscode-back-forward-button",
+        // Crumbs (PCAP viewer)
+        "lukaschneider.crumbs"
+    ]
+}

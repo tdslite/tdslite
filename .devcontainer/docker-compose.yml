@@ -1,0 +1,37 @@
+# ____________________________________________________
+# Docker compose file for development environment
+#
+# @file   docker-compose.yml
+# @author Mustafa K. GILOR <mustafagilor@gmail.com>
+# @date   12.04.2022
+#
+# SPDX-License-Identifier:    MIT
+# ____________________________________________________
+
+version: '3'
+services:
+  mssql-2017:
+    image: mcr.microsoft.com/mssql/server:2017-latest
+    ports:
+      - "1433:14333"
+    environment:
+      SA_PASSWORD: "devtest"
+      ACCEPT_EULA: "Y"
+  devenv:
+    image: ghcr.io/mustafakemalgilor/tdslite/tdslite-devenv:0.1.0
+    dns:
+      - 8.8.8.8 # Public DNS server (google)
+    volumes:
+      # This is where VS Code should expect to find your project's source code
+      # and the value of "workspaceFolder" in .devcontainer/devcontainer.json
+      - ..:/workspace:cached
+      # Use host's time zone info
+      - "/etc/timezone:/etc/timezone:ro"
+      - "/etc/localtime:/etc/localtime:ro"
+    # Required for PTRACE based debuggers (such as C++ debuggers)
+    cap_add:
+      - SYS_PTRACE
+    security_opt:
+      - seccomp:unconfined
+    # Overrides default command so things don't shut down after the process ends.
+    command: /bin/sh -c "while sleep 1000; do :; done"

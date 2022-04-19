@@ -130,6 +130,15 @@ namespace tdslite {
          * @return size_type Amount of the bytes in the span
          */
         inline constexpr auto size_bytes() const noexcept -> size_type {
+            return size() * sizeof(element_type);
+        }
+
+        /**
+         * Get the amount of the elements in the span
+         *
+         * @return size_type Amount of the element in the span
+         */
+        inline constexpr auto size() const noexcept -> size_type {
             return size_;
         }
 

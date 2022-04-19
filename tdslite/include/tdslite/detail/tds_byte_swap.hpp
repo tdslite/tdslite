@@ -96,13 +96,33 @@ namespace tdslite { namespace detail {
     }
 
     template <typename T>
-    inline constexpr auto network_to_host(T v) noexcept -> T {
+    inline constexpr auto native_to_le(T v) noexcept -> T {
+        return swap_endianness<tdslite::endian::native, tdslite::endian::little, T>(v);
+    }
+
+    template <typename T>
+    inline constexpr auto le_to_native(T v) noexcept -> T {
+        return swap_endianness<tdslite::endian::little, tdslite::endian::native, T>(v);
+    }
+
+    template <typename T>
+    inline constexpr auto native_to_be(T v) noexcept -> T {
+        return swap_endianness<tdslite::endian::native, tdslite::endian::big, T>(v);
+    }
+
+    template <typename T>
+    inline constexpr auto be_to_native(T v) noexcept -> T {
         return swap_endianness<tdslite::endian::big, tdslite::endian::native, T>(v);
     }
 
     template <typename T>
+    inline constexpr auto network_to_host(T v) noexcept -> T {
+        return be_to_native(v);
+    }
+
+    template <typename T>
     inline constexpr auto host_to_network(T v) noexcept -> T {
-        return swap_endianness<tdslite::endian::native, tdslite::endian::big, T>(v);
+        return native_to_be(v);
     }
 }} // namespace tdslite::detail
 
