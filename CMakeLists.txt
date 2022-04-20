@@ -13,13 +13,32 @@ cmake_minimum_required(VERSION 3.23)
 # Enabled languages for the project
 enable_language(C CXX)
 
-project(tdslite-project VERSION 0.0.1 LANGUAGES CXX)
+# Include miscallenaous functions defined by us, such as 
+# `read_environment_file(...)` and `maybe_run_conan()`.
+include(.cmake/project-functions.cmake)
+
+# `project-metadata.env` file contains properties such as project name, version 
+# description. These variables are shared between several entities  so they're 
+# aggregated into single file for convenience. 
+read_environment_file("project-metadata.env")
+
+# Define the top-level project. This defines the version for subsequen project(...) calls and
+# also the stuff like CPack package name, version etc. 
+project(
+    ${PROJECT_METADATA_NAME}
+    VERSION ${PROJECT_METADATA_VERSION_MAJOR}.${PROJECT_METADATA_VERSION_MINOR}.${PROJECT_METADATA_VERSION_REVISION}
+    LANGUAGES CXX
+    DESCRIPTION ${PROJECT_METADATA_DESCRIPTION}
+)
 
 # Include hadouken
 include(.hadouken/hadouken.cmake)
 
 # Print VCS status to stdout
 hdk_git_print_status()
+
+# Project external dependencies
+include(.cmake/project-dependencies.cmake)
 
 # Project-specific configurations
 include(.cmake/project-configuration.cmake)

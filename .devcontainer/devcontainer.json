@@ -16,6 +16,9 @@
     ],
     // Service name defined by docker-compose to be used as remote container 
     "service": "devenv",
+    "runServices": [
+        "mssql-2017"
+    ],
     // Workspace to display in vscode
     "workspaceFolder": "/workspace",
     "runArgs": [
@@ -102,6 +105,8 @@
         // Back and forward buttons
         "grimmer.vscode-back-forward-button",
         // Crumbs (PCAP viewer)
-        "lukaschneider.crumbs"
+        "lukaschneider.crumbs",
+        // MSSQL
+        "ms-mssql.mssql"
     ]
 }

@@ -12,6 +12,7 @@
 
 #include <tdslite/tds/tds_login_context.hpp>
 #include <tdslite/tds/ms_lang_code_id.hpp>
+#include <tdslite/util/hex_dump.hpp>
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 
@@ -20,23 +21,6 @@
 #include <array>
 
 namespace {
-
-    void hexdump(const void * ptr, unsigned long long buflen) {
-        const unsigned char * buf = static_cast<const unsigned char *>(ptr);
-        for (unsigned long i = 0; i < buflen; i += 16) {
-            printf("%06lx: ", i);
-            for (unsigned long j = 0; j < 16; j++)
-                if (i + j < buflen)
-                    printf("%02x ", buf [i + j]);
-                else
-                    printf("   ");
-            printf(" ");
-            for (unsigned long j = 0; j < 16; j++)
-                if (i + j < buflen)
-                    printf("%c", isprint(buf [i + j]) ? buf [i + j] : '.');
-            printf("\n");
-        }
-    }
 
     struct mock_network_impl {
 
@@ -70,10 +54,10 @@ namespace {
  */
 using uut_t = tdslite::tds::login_context<mock_network_impl>;
 
-struct tds_login_fixture : public ::testing::Test {
+struct tds_login_ctx_it_fixture : public ::testing::Test {
 
     virtual void TearDown() override {
-        hexdump(login.buffer.data(), login.buffer.size());
+        tdslite::util::hexdump(login.buffer.data(), login.buffer.size());
     }
 
     uut_t login;
@@ -81,7 +65,7 @@ struct tds_login_fixture : public ::testing::Test {
 
 // --------------------------------------------------------------------------------
 
-TEST_F(tds_login_fixture, encode_password) {
+TEST_F(tds_login_ctx_it_fixture, encode_password) {
 
     char16_t buf [] = u"JaxView";
     EXPECT_NO_THROW(uut_t::encode_password(reinterpret_cast<tdslite::uint8_t(&) [sizeof(buf) - 2]>(buf)));
@@ -96,7 +80,7 @@ TEST_F(tds_login_fixture, encode_password) {
 
 // --------------------------------------------------------------------------------
 
-TEST_F(tds_login_fixture, test_01) {
+TEST_F(tds_login_ctx_it_fixture, test_01) {
 
     uut_t::login_parameters params;
     params.server_name = "localhost";
@@ -109,7 +93,7 @@ TEST_F(tds_login_fixture, test_01) {
 
 // --------------------------------------------------------------------------------
 
-TEST_F(tds_login_fixture, test_jaxview) {
+TEST_F(tds_login_ctx_it_fixture, test_jaxview) {
     uut_t::login_parameters params;
     params.server_name            = "192.168.2.38";
     params.db_name                = "JaxView";
@@ -135,7 +119,7 @@ TEST_F(tds_login_fixture, test_jaxview) {
 
     login.do_login(params);
     printf("sizeof char16_t %ld\n”", sizeof(char16_t));
-    hexdump(&expected_packet_bytes [0], sizeof(expected_packet_bytes));
+    tdslite::util::hexdump(&expected_packet_bytes [0], sizeof(expected_packet_bytes));
     printf("\n %ld vs. %ld \n", sizeof(expected_packet_bytes), login.buffer.size());
 
     ASSERT_EQ(sizeof(expected_packet_bytes), login.buffer.size());
@@ -145,7 +129,7 @@ TEST_F(tds_login_fixture, test_jaxview) {
 
 // --------------------------------------------------------------------------------
 
-TEST_F(tds_login_fixture, test_mdac) {
+TEST_F(tds_login_ctx_it_fixture, test_mdac) {
 
     uut_t::login_parameters params;
     params.server_name            = "217.77.3.25";
@@ -180,7 +164,7 @@ TEST_F(tds_login_fixture, test_mdac) {
 
     login.do_login(params);
     printf("sizeof char16_t %ld\n”", sizeof(char16_t));
-    hexdump(&expected_packet_bytes [0], sizeof(expected_packet_bytes));
+    tdslite::util::hexdump(&expected_packet_bytes [0], sizeof(expected_packet_bytes));
     printf("\n %ld vs. %ld \n", sizeof(expected_packet_bytes), login.buffer.size());
 
     ASSERT_EQ(sizeof(expected_packet_bytes), login.buffer.size());

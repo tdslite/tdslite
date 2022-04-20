@@ -13,10 +13,13 @@ services:
   mssql-2017:
     image: mcr.microsoft.com/mssql/server:2017-latest
     ports:
-      - "1433:14333"
+      #  host :container
+      - "14333:1433"
     environment:
-      SA_PASSWORD: "devtest"
+      SA_PASSWORD: "2022-tds-lite-test!"
       ACCEPT_EULA: "Y"
+    networks:
+      - tds-devenv-network
   devenv:
     image: ghcr.io/mustafakemalgilor/tdslite/tdslite-devenv:0.1.0
     dns:
@@ -31,7 +34,15 @@ services:
     # Required for PTRACE based debuggers (such as C++ debuggers)
     cap_add:
       - SYS_PTRACE
+      - NET_RAW
+      - NET_ADMIN
     security_opt:
       - seccomp:unconfined
     # Overrides default command so things don't shut down after the process ends.
     command: /bin/sh -c "while sleep 1000; do :; done"
+    networks:
+      - tds-devenv-network
+
+networks:
+  tds-devenv-network:
+    driver: bridge

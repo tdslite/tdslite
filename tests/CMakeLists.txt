@@ -8,26 +8,28 @@
 # SPDX-License-Identifier:    MIT
 # _______________________________________________________
 
+add_subdirectory(mock/mock_net_impl)
+
 make_component(
-    tdslite.tests
+    tdslite.tests.ut
     TARGET  TYPE UNIT_TEST
-            SUFFIX .ut.tdslite
+            SUFFIX .tdslite
             SOURCES ut_tdslite.cpp
 
     TARGET  TYPE UNIT_TEST
-            SUFFIX .ut.binary_reader
+            SUFFIX .binary_reader
             SOURCES ut_binary_reader.cpp
 
     TARGET  TYPE UNIT_TEST
-            SUFFIX .ut.byte_swap
+            SUFFIX .byte_swap
             SOURCES ut_byte_swap.cpp
 
     TARGET  TYPE UNIT_TEST
-            SUFFIX .ut.span
+            SUFFIX  .span
             SOURCES ut_span.cpp
 
     TARGET  TYPE UNIT_TEST
-            SUFFIX .ut.tds_login
+            SUFFIX .tds_login
             SOURCES ut_tds_login.cpp
 
     ALL_NO_AUTO_COMPILATION_UNIT
@@ -37,7 +39,21 @@ make_component(
     ALL_LINK PRIVATE tdslite
 )
 
-set(ALL_UT_SOURCES ut_tdslite.cpp ut_binary_reader.cpp ut_byte_swap.cpp ut_span.cpp ut_tds_login.cpp)
+make_component(
+    tdslite.tests.it
+    TARGET  TYPE UNIT_TEST
+            SUFFIX .tds_login
+            SOURCES it_tds_login.cpp
+
+    ALL_NO_AUTO_COMPILATION_UNIT
+    ALL_WITH_COVERAGE
+    ALL_COVERAGE_TARGETS tdslite
+    ALL_COVERAGE_REPORT_OUTPUT_DIRECTORY "${ACU_PPC_BUILD_DIRECTORY}/cc_reports" 
+    ALL_LINK PRIVATE tdslite tdslite.mock.asio_net_impl
+)
+
+
+set(ALL_UT_SOURCES ut_tdslite.cpp ut_binary_reader.cpp ut_byte_swap.cpp ut_span.cpp ut_tds_login.cpp it_tds_login.cpp)
 
 make_component(
     tdslite.tests.cxx14
@@ -48,7 +64,7 @@ make_component(
     ALL_WITH_COVERAGE
     ALL_COVERAGE_TARGETS tdslite
     ALL_COVERAGE_REPORT_OUTPUT_DIRECTORY "${ACU_PPC_BUILD_DIRECTORY}/cc_reports" 
-    ALL_LINK PRIVATE tdslite
+    ALL_LINK PRIVATE tdslite tdslite.mock.asio_net_impl
 )
 
 make_component(
@@ -60,7 +76,7 @@ make_component(
     ALL_WITH_COVERAGE
     ALL_COVERAGE_TARGETS tdslite
     ALL_COVERAGE_REPORT_OUTPUT_DIRECTORY "${ACU_PPC_BUILD_DIRECTORY}/cc_reports" 
-    ALL_LINK PRIVATE tdslite
+    ALL_LINK PRIVATE tdslite tdslite.mock.asio_net_impl
 )
 
 make_component(
@@ -72,7 +88,7 @@ make_component(
     ALL_WITH_COVERAGE
     ALL_COVERAGE_TARGETS tdslite
     ALL_COVERAGE_REPORT_OUTPUT_DIRECTORY "${ACU_PPC_BUILD_DIRECTORY}/cc_reports" 
-    ALL_LINK PRIVATE tdslite
+    ALL_LINK PRIVATE tdslite tdslite.mock.asio_net_impl
 )
 
 set_target_properties(

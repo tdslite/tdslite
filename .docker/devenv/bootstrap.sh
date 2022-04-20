@@ -211,6 +211,8 @@ function install_pip_packages {
 }
 
 
+
+
 function conan_init {
     echo "Initializing conan"
     
@@ -237,9 +239,14 @@ function install_conan_packages {
         (sudo -u ${1} ${conan_command} install --profile=$SCRIPT_ROOT/.conan/profiles/GNU ${pkg}@_/_ --build missing) || return $?
         (sudo -u ${1} ${conan_command} install --profile=$SCRIPT_ROOT/.conan/profiles/Clang ${pkg}@_/_ --build missing) || return $?
     done
-    
+    # Install conan packages into container
+    # Install conan deps for GCC
+    (sudo -u ${1} conan install $SCRIPT_ROOT/.conan/conanfile.py -pr=$SCRIPT_ROOT/.conan/profiles/GNU --build=missing -if /tmp) || return $?
+    # Install conan deps for clang
+    (sudo -u ${1} conan install $SCRIPT_ROOT/.conan/conanfile.py -pr=$SCRIPT_ROOT/.conan/profiles/Clang --build=missing -if /tmp) || return $?
     return 0
 }
+
 
 function adjust_symlinks {
     # Remove existing symlinks

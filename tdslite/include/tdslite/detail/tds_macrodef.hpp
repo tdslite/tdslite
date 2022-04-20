@@ -35,6 +35,27 @@
 #define TDSLITE_ALIGNED(Alignment) __attribute__((aligned(Alignment)))
 
 /**
+ * @brief [intrinsics.gcc] Change visibility of a function.
+ *
+ * @param Visibility Visibility value of the function. May be "default" or "hidden".
+ */
+#define TDSLITE_SYMBOL_VISIBILITY(Visibility) __attribute__((visibility(Visibility)))
+
+/**
+ * @brief [intrinsics.gcc] Mark a function as public.
+ *
+ * This changes function's visibility to `default`.
+ */
+#define TDSLITE_SYMBOL_VISIBLE TDSLITE_SYMBOL_VISIBILITY("default")
+
+/**
+ * @brief [intrinsics.gcc] Mark a function as internal.
+ *
+ * This changes function's visibility to `hidden`.
+ */
+#define TDSLITE_SYMBOL_HIDDEN TDSLITE_SYMBOL_VISIBILITY("hidden")
+
+/**
  * @brief [intrinsics.gcc] Pack a struct or union type to layout which allows smallest possible space.
  *
  * This prevents compiler to pad variables inside struct or union type to largest possible
