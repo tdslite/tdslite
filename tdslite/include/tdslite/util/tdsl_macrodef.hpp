@@ -10,7 +10,7 @@
  * _________________________________________________
  */
 
-#include <tdslite/detail/tds_type_traits.hpp>
+#include <tdslite/util/tdsl_type_traits.hpp>
 
 #ifndef TDSLITE_DETAIL_TDS_MACRODEF_HPP
 #define TDSLITE_DETAIL_TDS_MACRODEF_HPP
@@ -110,7 +110,7 @@
 /**
  * Move macro
  */
-#define TDSLITE_MOVE(...) static_cast<tdslite::traits::remove_reference<decltype(__VA_ARGS__)>::type &&>(__VA_ARGS__)
+#define TDSLITE_MOVE(...) static_cast<tdsl::traits::remove_reference<decltype(__VA_ARGS__)>::type &&>(__VA_ARGS__)
 
 /**
  * Forward macro

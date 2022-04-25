@@ -12,15 +12,15 @@
 
 #pragma once
 
-#include <tdslite/detail/tds_inttypes.hpp>
+#include <tdslite/util/tdsl_inttypes.hpp>
 
-namespace tdslite {
+namespace tdsl { namespace detail {
 
     /**
      * The codes represent languages and dialects used in Microsoft products
      * @see https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-lcid/
      */
-    enum class e_ms_lang_code_id : tdslite::uint32_t
+    enum class e_ms_lang_code_id : tdsl::uint32_t
     {
         aa_afar                  = 0x1000,
         aa_dj_afar               = 0x1000,
@@ -858,5 +858,4 @@ namespace tdslite {
         zu_zulu                  = 0x0035,
         zu_za_zulu               = 0x0435,
     };
-
-} // namespace tdslite
+}} // namespace tdsl::detail

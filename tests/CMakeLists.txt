@@ -8,8 +8,6 @@
 # SPDX-License-Identifier:    MIT
 # _______________________________________________________
 
-add_subdirectory(mock/mock_net_impl)
-
 make_component(
     tdslite.tests.ut
     TARGET  TYPE UNIT_TEST
@@ -49,7 +47,7 @@ make_component(
     ALL_WITH_COVERAGE
     ALL_COVERAGE_TARGETS tdslite
     ALL_COVERAGE_REPORT_OUTPUT_DIRECTORY "${ACU_PPC_BUILD_DIRECTORY}/cc_reports" 
-    ALL_LINK PRIVATE tdslite tdslite.mock.asio_net_impl
+    ALL_LINK PRIVATE tdslite tdslite.net.asio
 )
 
 
@@ -64,7 +62,7 @@ make_component(
     ALL_WITH_COVERAGE
     ALL_COVERAGE_TARGETS tdslite
     ALL_COVERAGE_REPORT_OUTPUT_DIRECTORY "${ACU_PPC_BUILD_DIRECTORY}/cc_reports" 
-    ALL_LINK PRIVATE tdslite tdslite.mock.asio_net_impl
+    ALL_LINK PRIVATE tdslite tdslite tdslite.net.asio
 )
 
 make_component(
@@ -76,7 +74,7 @@ make_component(
     ALL_WITH_COVERAGE
     ALL_COVERAGE_TARGETS tdslite
     ALL_COVERAGE_REPORT_OUTPUT_DIRECTORY "${ACU_PPC_BUILD_DIRECTORY}/cc_reports" 
-    ALL_LINK PRIVATE tdslite tdslite.mock.asio_net_impl
+    ALL_LINK PRIVATE tdslite tdslite tdslite.net.asio
 )
 
 make_component(
@@ -88,7 +86,7 @@ make_component(
     ALL_WITH_COVERAGE
     ALL_COVERAGE_TARGETS tdslite
     ALL_COVERAGE_REPORT_OUTPUT_DIRECTORY "${ACU_PPC_BUILD_DIRECTORY}/cc_reports" 
-    ALL_LINK PRIVATE tdslite tdslite.mock.asio_net_impl
+    ALL_LINK PRIVATE tdslite tdslite tdslite.net.asio
 )
 
 set_target_properties(

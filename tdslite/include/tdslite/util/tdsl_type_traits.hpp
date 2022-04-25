@@ -13,7 +13,7 @@
 #ifndef TDSLITE_DETAIL_TDS_TYPE_TRAITS_HPP
 #define TDSLITE_DETAIL_TDS_TYPE_TRAITS_HPP
 
-namespace tdslite { namespace traits {
+namespace tdsl { namespace traits {
 
     // These type traits are exactly same with the traditional
     // C++ standard library implementation. Some of the platforms
@@ -145,6 +145,56 @@ namespace tdslite { namespace traits {
     template <typename T, typename Q>
     using enable_if_not_same = typename enable_if<!is_same<T, Q>::value, bool>::type;
 
-}} // namespace tdslite::traits
+    // void_t
+    template <class...>
+    using void_t = void;
+
+    // declval
+
+    namespace detail {
+        template <class T>
+        T && declval_impl(int);
+        template <class T>
+        T declval_impl(long);
+    } // namespace detail
+
+    template <class T>
+    decltype(detail::declval_impl<T>(0)) declval() noexcept;
+
+    //
+
+    namespace detail {
+        template <class Default, class AlwaysVoid, template <class...> class Op, class... Args>
+        struct detector {
+            using value_t = false_type;
+            using type    = Default;
+        };
+
+        template <class Default, template <class...> class Op, class... Args>
+        struct detector<Default, void_t<Op<Args...>>, Op, Args...> {
+            using value_t = true_type;
+            using type    = Op<Args...>;
+        };
+
+    } // namespace detail
+
+    struct nonesuch {
+        ~nonesuch()                      = delete;
+        nonesuch(nonesuch const &)       = delete;
+        void operator=(nonesuch const &) = delete;
+    };
+
+    template <template <class...> class Op, class... Args>
+    using is_detected = typename detail::detector<nonesuch, void, Op, Args...>::value_t;
+
+    template <template <class...> class Op, class... Args>
+    using detected_t = typename detail::detector<nonesuch, void, Op, Args...>::type;
+
+    template <class Default, template <class...> class Op, class... Args>
+    using detected_or = detail::detector<Default, void, Op, Args...>;
+
+}} // namespace tdsl::traits
+
+#include <type_traits>
 
 #endif

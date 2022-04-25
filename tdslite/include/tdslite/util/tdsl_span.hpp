@@ -13,11 +13,11 @@
 #ifndef TDSLITE_DETAIL_TDS_SPAN_HPP
 #define TDSLITE_DETAIL_TDS_SPAN_HPP
 
-#include <tdslite/detail/tds_inttypes.hpp>
-#include <tdslite/detail/tds_macrodef.hpp>
-#include <tdslite/detail/tds_type_traits.hpp>
+#include <tdslite/util/tdsl_inttypes.hpp>
+#include <tdslite/util/tdsl_macrodef.hpp>
+#include <tdslite/util/tdsl_type_traits.hpp>
 
-namespace tdslite {
+namespace tdsl {
 
     namespace detail {
         template <typename T, typename Q>
@@ -31,12 +31,12 @@ namespace tdslite {
     /**
      * Span of bytes
      */
-    template <typename T = const tdslite::uint8_t>
+    template <typename T = const tdsl::uint8_t>
     struct span {
 
         using element_type    = T;
         using value_type      = typename traits::remove_cv<T>::type;
-        using size_type       = tdslite::uint32_t;
+        using size_type       = tdsl::uint32_t;
         using pointer         = T *;
         using const_pointer   = const T *;
         using reference       = T &;
@@ -191,6 +191,6 @@ namespace tdslite {
 
     }; // struct span
 
-} // namespace tdslite
+} // namespace tdsl
 
 #endif

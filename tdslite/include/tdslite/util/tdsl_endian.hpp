@@ -13,7 +13,7 @@
 #ifndef TDSLITE_DETAIL_TDS_ENDIAN_HPP
 #define TDSLITE_DETAIL_TDS_ENDIAN_HPP
 
-namespace tdslite {
+namespace tdsl {
 
     /**
      * Endianness kinds
@@ -33,6 +33,6 @@ namespace tdslite {
 #endif
     };
 
-} // namespace tdslite
+} // namespace tdsl
 
 #endif

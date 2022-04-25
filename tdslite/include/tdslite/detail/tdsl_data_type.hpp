@@ -13,15 +13,15 @@
 #ifndef TDSLITE_DETAIL_TDS_DATA_TYPE_HPP
 #define TDSLITE_DETAIL_TDS_DATA_TYPE_HPP
 
-#include <tdslite/detail/tds_stdint.hpp>
+#include <tdslite/util/tdsl_inttypes.hpp>
 
-namespace tdslite {
+namespace tdsl { namespace detail {
 
     /**
      *
      *
      */
-    enum class e_tds_data_type : tdslite::uint8_t
+    enum class e_tds_data_type : tdsl::uint8_t
     {
         /* Null */
         NULLTYPE      = 0x1,
@@ -93,7 +93,6 @@ namespace tdslite {
         /* Ntext */
         NTEXTTYPE     = 0x63
     };
-
-} // namespace tdslite
+}} // namespace tdsl::detail
 
 #endif

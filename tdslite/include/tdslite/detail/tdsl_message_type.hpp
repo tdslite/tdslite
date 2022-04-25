@@ -11,9 +11,9 @@
 
 #pragma once
 
-#include <tdslite/detail/tds_inttypes.hpp>
+#include <tdslite/util/tdsl_inttypes.hpp>
 
-namespace tdslite {
+namespace tdsl { namespace detail {
     /**
      * TDS protocol mesasge type codes
      *
@@ -22,7 +22,7 @@ namespace tdslite {
      * If an unknown Type is specified, the message receiver SHOULD
      * disconnect the connection.
      */
-    enum class e_tds_message_type : tdslite::uint8_t
+    enum class e_tds_message_type : tdsl::uint8_t
     {
         /**
          * Message types:
@@ -85,4 +85,4 @@ namespace tdslite {
          */
         pre_login               = 18
     };
-} // namespace tdslite
+}} // namespace tdsl::detail

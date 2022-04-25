@@ -45,4 +45,6 @@ include(.cmake/project-configuration.cmake)
 
 # Components of the project
 add_subdirectory(tdslite)
+add_subdirectory(tdslite-net/tdslite-net-base)
+add_subdirectory(tdslite-net/tdslite-net-asio)
 add_subdirectory(tests)

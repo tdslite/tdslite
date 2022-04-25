@@ -11,10 +11,10 @@
 
 #pragma once
 
-#include <tdslite/detail/tds_inttypes.hpp>
+#include <tdslite/util/tdsl_inttypes.hpp>
 
-namespace tdslite {
-    enum class e_tds_version : tdslite::uint32_t
+namespace tdsl { namespace detail {
+    enum class e_tds_version : tdsl::uint32_t
     {
         sql_server_7_0      = 0x00000070,
         sql_server_2000     = 0x00000071,
@@ -28,5 +28,4 @@ namespace tdslite {
         sql_server_2017     = sql_server_2012,
         sql_server_2019     = sql_server_2012,
     };
-
-} // namespace tdslite
+}} // namespace tdsl::detail

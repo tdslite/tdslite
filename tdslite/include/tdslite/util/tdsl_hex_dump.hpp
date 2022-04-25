@@ -14,7 +14,7 @@
 #include <stdio.h>
 #include <ctype.h>
 
-namespace tdslite { namespace util {
+namespace tdsl { namespace util {
 
     /**
      * Dump a byte buffer as hex to the console
@@ -38,4 +38,4 @@ namespace tdslite { namespace util {
             printf("\n");
         }
     }
-}} // namespace tdslite::util
+}} // namespace tdsl::util

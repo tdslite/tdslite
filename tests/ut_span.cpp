@@ -10,20 +10,20 @@
  * _________________________________________________
  */
 
-#include <tdslite/detail/tds_span.hpp>
-#include <tdslite/detail/tds_macrodef.hpp>
+#include <tdslite/util/tdsl_span.hpp>
+#include <tdslite/util/tdsl_macrodef.hpp>
 #include <gtest/gtest.h>
 
 TEST(span, default_construct) {
-    tdslite::span<tdslite::uint8_t> buf_span{};
+    tdsl::span<tdsl::uint8_t> buf_span{};
     EXPECT_EQ(buf_span.data(), nullptr);
     EXPECT_EQ(buf_span.size_bytes(), 0);
     EXPECT_FALSE(buf_span);
 }
 
 TEST(span, construct_from_fs_array) {
-    tdslite::uint8_t buf [4];
-    tdslite::span<tdslite::uint8_t> buf_span{buf};
+    tdsl::uint8_t buf [4];
+    tdsl::span<tdsl::uint8_t> buf_span{buf};
     EXPECT_EQ(buf_span.data(), buf);
     EXPECT_EQ(buf_span.size_bytes(), sizeof(buf));
     EXPECT_EQ(buf_span.begin(), buf);
@@ -32,8 +32,8 @@ TEST(span, construct_from_fs_array) {
 }
 
 TEST(span, construct_from_buf_with_size) {
-    tdslite::uint8_t buf [4];
-    tdslite::span<tdslite::uint8_t> buf_span{buf, sizeof(buf)};
+    tdsl::uint8_t buf [4];
+    tdsl::span<tdsl::uint8_t> buf_span{buf, sizeof(buf)};
     EXPECT_EQ(buf_span.data(), buf);
     EXPECT_EQ(buf_span.size_bytes(), sizeof(buf));
     EXPECT_EQ(buf_span.begin(), buf);
@@ -42,8 +42,8 @@ TEST(span, construct_from_buf_with_size) {
 }
 
 TEST(span, construct_from_buf_with_begin_end) {
-    tdslite::uint8_t buf [4];
-    tdslite::span<tdslite::uint8_t> buf_span{buf, &buf [4]};
+    tdsl::uint8_t buf [4];
+    tdsl::span<tdsl::uint8_t> buf_span{buf, &buf [4]};
     EXPECT_EQ(buf_span.data(), buf);
     EXPECT_EQ(buf_span.size_bytes(), sizeof(buf));
     EXPECT_EQ(buf_span.begin(), buf);
@@ -52,9 +52,9 @@ TEST(span, construct_from_buf_with_begin_end) {
 }
 
 TEST(span, copy_construct) {
-    tdslite::uint8_t buf [4];
-    tdslite::span<tdslite::uint8_t> buf_span{buf};
-    tdslite::span<tdslite::uint8_t> buf_span_cc{buf_span};
+    tdsl::uint8_t buf [4];
+    tdsl::span<tdsl::uint8_t> buf_span{buf};
+    tdsl::span<tdsl::uint8_t> buf_span_cc{buf_span};
     EXPECT_EQ(buf_span, buf_span_cc);
     EXPECT_EQ(buf_span.data(), buf);
     EXPECT_EQ(buf_span.size_bytes(), sizeof(buf));
@@ -70,9 +70,9 @@ TEST(span, copy_construct) {
 }
 
 TEST(span, copy_assign) {
-    tdslite::uint8_t buf [4];
-    tdslite::span<tdslite::uint8_t> buf_span{buf};
-    tdslite::span<tdslite::uint8_t> buf_span_cc = buf_span;
+    tdsl::uint8_t buf [4];
+    tdsl::span<tdsl::uint8_t> buf_span{buf};
+    tdsl::span<tdsl::uint8_t> buf_span_cc = buf_span;
     EXPECT_EQ(buf_span, buf_span_cc);
     EXPECT_EQ(buf_span.data(), buf);
     EXPECT_EQ(buf_span.size_bytes(), sizeof(buf));
@@ -88,9 +88,9 @@ TEST(span, copy_assign) {
 }
 
 TEST(span, move_construct) {
-    tdslite::uint8_t buf [4];
-    tdslite::span<tdslite::uint8_t> buf_span{buf};
-    tdslite::span<tdslite::uint8_t> buf_span_mc{TDSLITE_MOVE(buf_span)};
+    tdsl::uint8_t buf [4];
+    tdsl::span<tdsl::uint8_t> buf_span{buf};
+    tdsl::span<tdsl::uint8_t> buf_span_mc{TDSLITE_MOVE(buf_span)};
     EXPECT_NE(buf_span, buf_span_mc);
     EXPECT_EQ(buf_span.data(), nullptr);
     EXPECT_EQ(buf_span.size_bytes(), 0);
@@ -106,9 +106,9 @@ TEST(span, move_construct) {
 }
 
 TEST(span, move_assign) {
-    tdslite::uint8_t buf [4];
-    tdslite::span<tdslite::uint8_t> buf_span{buf};
-    tdslite::span<tdslite::uint8_t> buf_span_mc = TDSLITE_MOVE(buf_span);
+    tdsl::uint8_t buf [4];
+    tdsl::span<tdsl::uint8_t> buf_span{buf};
+    tdsl::span<tdsl::uint8_t> buf_span_mc = TDSLITE_MOVE(buf_span);
     EXPECT_NE(buf_span, buf_span_mc);
     EXPECT_EQ(buf_span.data(), nullptr);
     EXPECT_EQ(buf_span.size_bytes(), 0);
@@ -124,11 +124,11 @@ TEST(span, move_assign) {
 }
 
 TEST(span, string_view_construct) {
-    tdslite::span<const char> buf_span{"test"};
+    tdsl::span<const char> buf_span{"test"};
     (void) buf_span;
 }
 
 TEST(span, string_view_assign) {
-    tdslite::span<const char> buf_span{};
+    tdsl::span<const char> buf_span{};
     EXPECT_NO_THROW({ buf_span = "test"; });
 }
