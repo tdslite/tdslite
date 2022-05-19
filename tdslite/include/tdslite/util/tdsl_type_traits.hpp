@@ -195,6 +195,4 @@ namespace tdsl { namespace traits {
 
 }} // namespace tdsl::traits
 
-#include <type_traits>
-
 #endif

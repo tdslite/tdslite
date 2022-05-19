@@ -44,7 +44,7 @@ namespace {
 
         inline void do_send(void) noexcept {}
 
-        void do_set_receive_callback(void *, void (*)(void *, tdsl::span<const tdsl::uint8_t>)) {}
+        // void do_set_receive_callback(void *, void (*)(void *, tdsl::span<const tdsl::uint8_t>)) {}
 
         std::vector<uint8_t> buffer;
     };

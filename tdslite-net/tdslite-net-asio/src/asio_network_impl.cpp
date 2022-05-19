@@ -14,11 +14,13 @@
 
 #define BOOST_ASIO_ENABLE_HANDLER_TRACKING 1
 #include <boost/asio.hpp>
+#include <boost/asio/read.hpp>
 #include <thread>
 
-using io_context_t   = boost::asio::io_context;
-using work_guard_t   = boost::asio::executor_work_guard<io_context_t::executor_type>;
-using tcp_t          = boost::asio::ip::tcp;
+namespace asio       = boost::asio;
+using io_context_t   = asio::io_context;
+using work_guard_t   = asio::executor_work_guard<io_context_t::executor_type>;
+using tcp_t          = asio::ip::tcp;
 using tcp_socket_t   = tcp_t::socket;
 using tcp_resolver_t = tcp_t::resolver;
 
@@ -111,7 +113,7 @@ namespace tdsl { namespace net {
                         printf("connected\n");
                         // Connected, initiate async_receive
                         socket_handle = std::move(sock);
-                        dispatch_receive();
+                        dispatch_receive(/*transfer_at_least=*/8);
                         break;
                     }
                 }
@@ -129,17 +131,20 @@ namespace tdsl { namespace net {
         return e_result::in_progress;
     }
 
-    void asio_network_impl::dispatch_receive() {
+    void asio_network_impl::dispatch_receive(std::uint32_t transfer_at_least = 1) {
         TDSLITE_ASSERT(socket_handle);
-        // Re-invoke receive
-        as_socket(socket_handle)->async_receive(boost::asio::buffer(recv_buffer), [this](boost::system::error_code ec, std::size_t amount) {
-            if (not ec) {
-                on_recv(amount);
-                return;
-            }
 
-            // There is an error, we should handle it appropriately
-        });
+        // Re-invoke receive
+        asio::async_read(*as_socket(socket_handle), asio::buffer(recv_buffer), asio::transfer_at_least(transfer_at_least),
+                         [this](const boost::system::error_code & ec, std::size_t amount) {
+                             if (not ec) {
+                                 on_recv(amount);
+                                 return;
+                             }
+
+                             // There is an error, we should handle it appropriately
+                             // FIXME(mgilor): Handle it
+                         });
     }
 
     void asio_network_impl::on_recv(tdsl::uint32_t amount) {
@@ -151,12 +156,9 @@ namespace tdsl { namespace net {
         // Process the buffer
         printf("Received packet:\n");
         util::hexdump(recv_buffer.data(), amount);
-
-        if (recv_cb_ctx.callback) {
-            tdsl::span<const tdsl::uint8_t> rd(recv_buffer.data(), amount);
-            recv_cb_ctx.callback(recv_cb_ctx.user_ptr, rd);
-        }
-        dispatch_receive();
+        tdsl::span<const tdsl::uint8_t> rd(recv_buffer.data(), amount);
+        const auto need_bytes = handle_tds_response(rd);
+        dispatch_receive(need_bytes);
     }
 
     int asio_network_impl::do_disconnect() noexcept {
@@ -188,26 +190,29 @@ namespace tdsl { namespace net {
             return e_result::send_in_flight;
         }
         flags.send_in_flight.store(true);
-        as_socket(socket_handle)->async_send(boost::asio::buffer(send_buffer), [this](boost::system::error_code ec, std::size_t amount) {
-            if (not ec) {
-                printf("sent %ld byte(s)!\n", amount);
-            }
 
-            switch (ec.value()) {
-                case 0: // success
-                case boost::asio::error::in_progress:
-                    break;
-                case boost::asio::error::operation_aborted:
-                    flags.send_in_flight.store(false);
-                    return;
-                default: {
-                    do_disconnect();
-                    return;
-                } break;
-            }
+        asio::async_write(*as_socket(socket_handle), boost::asio::buffer(send_buffer),
+                          [this](boost::system::error_code ec, std::size_t amount) {
+                              if (not ec) {
+                                  printf("sent %ld byte(s)!\n", amount);
+                              }
 
-            flags.send_in_flight.store(false);
-        });
+                              switch (ec.value()) {
+                                  case 0: // success
+                                  case boost::asio::error::in_progress:
+                                      break;
+                                  case boost::asio::error::operation_aborted:
+                                      flags.send_in_flight.store(false);
+                                      return;
+                                  default: {
+                                      do_disconnect();
+                                      return;
+                                  } break;
+                              }
+
+                              flags.send_in_flight.store(false);
+                          });
+
         return e_result::in_progress;
     }
 }} // namespace tdsl::net

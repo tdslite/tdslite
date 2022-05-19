@@ -18,7 +18,7 @@ namespace tdsl { namespace detail {
     /**
      * Message token types, as per described in [MS-TDS]
      */
-    enum class message_token_type : tdsl::uint8_t
+    enum class e_tds_message_token_type : tdsl::uint8_t
     {
         // A notification of an environment change (for example, database, language, and so on).
         envchange          = 0xe3,

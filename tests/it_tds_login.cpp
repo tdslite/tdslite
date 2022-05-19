@@ -53,5 +53,6 @@ TEST_F(tds_login_ctx_it_fixture, login) {
     params.db_name      = "master";
     login.do_login(
         params, +[](uut_t::e_login_status) {});
+
     std::this_thread::sleep_for(std::chrono::seconds{5});
 }

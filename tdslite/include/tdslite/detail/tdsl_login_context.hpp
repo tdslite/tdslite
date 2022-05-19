@@ -46,7 +46,7 @@ namespace tdsl { namespace detail {
          * @param [in] tc The TDS context
          */
         inline login_context(tds_context_type & tc) noexcept : tds_ctx(tc) {
-            tds_ctx.set_receive_callback(this, &handle_response);
+            // tds_ctx.set_receive_callback(this, &handle_response);
         }
 
         /**
@@ -300,7 +300,7 @@ namespace tdsl { namespace detail {
             // Assign login callback first
             login_callback = lcb;
             tds_ctx.write_tds_header(e_tds_message_type::login);
-            tds_ctx.write_le(0_tdsu32);                                                        // placeholder for packet length
+            tds_ctx.write_le(/*arg=*/0_tdsu32);                                                // placeholder for packet length
             tds_ctx.write_be(static_cast<tdsl::uint32_t>(e_tds_version::sql_server_2000_sp1)); // TDS version
             tds_ctx.write_le(params.packet_size);                                              // Requested packet size by the client
             tds_ctx.write_le(params.client_program_version);                                   // Client program version

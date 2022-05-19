@@ -118,7 +118,14 @@ namespace tdsl { namespace net {
         std::vector<tdsl::uint8_t> recv_buffer;
 
     private:
-        void dispatch_receive();
+        /**
+         * Dispatch asynchronous receive on socket
+         *
+         * @param [in] transfer_at_least Minimum amount of bytes to be received
+         *                               before invoking the receive callback
+         */
+        void dispatch_receive(tdsl::uint32_t transfer_at_least);
+
         std::shared_ptr<void> worker_thread{nullptr};
         std::shared_ptr<void> socket_handle{nullptr};
         std::shared_ptr<void> io_context{nullptr};
