@@ -21,6 +21,7 @@
 #include <tdslite/util/tdsl_span.hpp>
 #include <tdslite/util/tdsl_type_traits.hpp>
 #include <tdslite/util/tdsl_byte_swap.hpp>
+#include <tdslite/util/tdsl_debug_print.hpp>
 
 namespace tdsl { namespace detail {
 
@@ -46,7 +47,33 @@ namespace tdsl { namespace detail {
          * @param [in] tc The TDS context
          */
         inline login_context(tds_context_type & tc) noexcept : tds_ctx(tc) {
-            // tds_ctx.set_receive_callback(this, &handle_response);
+            tds_ctx.do_register_envchange_callback(
+                this, +[](void *, const tds_envchange_info & eci) -> tdsl::uint32_t {
+                    TDSLITE_DEBUG_PRINT("received environment change -> type [%d] | ", static_cast<int>(eci.type));
+                    TDSLITE_DEBUG_PRINT("new_value: [");
+                    TDSLITE_DEBUG_PRINT_U16_AS_MB(eci.new_value);
+                    TDSLITE_DEBUG_PRINT("] | ");
+                    TDSLITE_DEBUG_PRINT("old_value: [");
+                    TDSLITE_DEBUG_PRINT_U16_AS_MB(eci.old_value);
+                    TDSLITE_DEBUG_PRINT("]\n");
+                    return 0;
+                });
+
+            tds_ctx.do_register_info_callback(
+                this, +[](void *, const tds_info_msg & info) -> tdsl::uint32_t {
+                    TDSLITE_DEBUG_PRINT("received info message -> number [%d] | state [%d] | class [%d] | line number [%d] | ", info.number,
+                                        info.state, info.class_, info.line_number);
+                    TDSLITE_DEBUG_PRINT("msgtext: [");
+                    TDSLITE_DEBUG_PRINT_U16_AS_MB(info.msgtext);
+                    TDSLITE_DEBUG_PRINT("] | ");
+                    TDSLITE_DEBUG_PRINT("server_name: [");
+                    TDSLITE_DEBUG_PRINT_U16_AS_MB(info.server_name);
+                    TDSLITE_DEBUG_PRINT("] | ");
+                    TDSLITE_DEBUG_PRINT("proc_name: [");
+                    TDSLITE_DEBUG_PRINT_U16_AS_MB(info.proc_name);
+                    TDSLITE_DEBUG_PRINT("]\n");
+                    return 0;
+                });
         }
 
         /**

@@ -139,7 +139,7 @@ namespace tdsl {
          * @return size_type Amount of the element in the span
          */
         inline constexpr auto size() const noexcept -> size_type {
-            return size_;
+            return (size_ / sizeof(element_type));
         }
 
         /**
@@ -166,7 +166,7 @@ namespace tdsl {
          * @return T* Pointer to the one past last element of the span
          */
         inline constexpr auto end() const noexcept -> iterator {
-            return (data_ + size_);
+            return (data_ + (size_ / sizeof(element_type)));
         }
 
         /**
@@ -182,6 +182,17 @@ namespace tdsl {
          */
         inline operator bool() const noexcept {
             return data_ && size_;
+        }
+
+        /**
+         * Cast span to another span with new element type
+         *
+         * @tparam Q New element type
+         * @return span<const Q> New span
+         */
+        template <typename Q, traits::enable_if_integral<Q> = true>
+        inline constexpr auto rebind_cast() const noexcept -> span<const Q> {
+            return span<const Q>{reinterpret_cast<const Q *>(data()), size_bytes()};
         }
 
     private:

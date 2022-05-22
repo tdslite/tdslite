@@ -15,7 +15,8 @@
 #include <tdslite/detail/tdsl_message_token_type.hpp>
 #include <tdslite/detail/tdsl_envchange_type.hpp>
 #include <tdslite/detail/tdsl_callback_ctx.hpp>
-// #include <tdslite/net/base/msg_callback.hpp>
+#include <tdslite/detail/tdsl_envchange_info.hpp>
+#include <tdslite/detail/tdsl_info_msg.hpp>
 
 #include <tdslite/util/tdsl_binary_reader.hpp>
 #include <tdslite/util/tdsl_byte_swap.hpp>
@@ -23,6 +24,7 @@
 #include <tdslite/util/tdsl_type_traits.hpp>
 #include <tdslite/util/tdsl_inttypes.hpp>
 #include <tdslite/util/tdsl_macrodef.hpp>
+#include <tdslite/util/tdsl_debug_print.hpp>
 
 #define TDSLITE_TRY_READ_VARCHAR(TYPE, VARNAME, READER)                                                                                    \
     const auto VARNAME##_octets = (READER.read<TYPE>() * 2);                                                                               \
@@ -148,17 +150,34 @@ namespace tdsl { namespace detail {
                          public detail::net_packet_recv_context<tds_context<NetImpl>>,
                          private detail::is_network_interface_implemented<tds_context<NetImpl>> {
 
-        using tds_context_type           = tds_context<NetImpl>;
-        using xmit_context               = detail::net_packet_xmit_context<tds_context_type>;
-        using recv_context               = detail::net_packet_recv_context<tds_context_type>;
+        using tds_context_type = tds_context<NetImpl>;
+        using xmit_context     = detail::net_packet_xmit_context<tds_context_type>;
+        using recv_context     = detail::net_packet_recv_context<tds_context_type>;
+
+        template <typename T>
+        struct token_callback_decl {
+            using function_type = tdsl::uint32_t (*)(/*user_ptr*/ void *, /*env_change_info*/ const T &);
+            using context_type  = tdsl::callback_ctx<function_type>;
+        };
+
+        template <typename T>
+        struct token_callback : public token_callback_decl<T>::context_type {
+            using function_type = typename token_callback_decl<T>::function_type;
+            using context_type  = typename token_callback_decl<T>::context_type;
+            using context_type::callback;
+            using context_type::user_ptr;
+            template <typename... Args>
+            inline auto maybe_invoke(Args &&... args) -> tdsl::uint32_t {
+                return (callback ? callback(user_ptr, TDSLITE_FORWARD(args)...) : tdsl::uint32_t{0});
+            }
+        };
 
         /**
          * The function type of the callback function that is going to be invoked
          * when data is received in a network implementation
          */
-        using envchange_callback_fn_type = tdsl::uint32_t (*)(/*user_ptr*/ void *, /*msg_type*/ tdsl::detail::e_tds_envchange_type,
-                                                              /*new_value*/ tdsl::span<const tdsl::uint8_t>,
-                                                              /*old_value*/ tdsl::span<const tdsl::uint8_t>);
+        using envchange_callback_fn_type = tdsl::uint32_t (*)(/*user_ptr*/ void *, /*env_change_info*/ const tds_envchange_info &);
+        using info_callback_fn_type      = tdsl::uint32_t (*)(/*user_ptr*/ void *, /*info_msg*/ const tds_info_msg & msg);
 
         // Environment change callback context
         using envchange_callback_ctx     = tdsl::callback_ctx<envchange_callback_fn_type>;
@@ -265,14 +284,17 @@ namespace tdsl { namespace detail {
                             case token_type::envchange: {
                                 subhandler_nb = self->handle_envchange_token(token_reader);
                             } break;
-                            case token_type::error: {
-                                subhandler_nb = self->handle_error_token(token_reader);
-                            } break;
+                            case token_type::error:
                             case token_type::info: {
                                 subhandler_nb = self->handle_info_token(token_reader);
                             } break;
                             case token_type::done: {
                                 subhandler_nb = self->handle_done_token(token_reader);
+                            } break;
+
+                            default: {
+                                TDSLITE_DEBUG_PRINT("Unhandled TOKEN type [%d (%s)]\n", static_cast<int>(tt),
+                                                    message_token_type_to_str(static_cast<token_type>(tt)));
                             } break;
                         }
 
@@ -301,9 +323,21 @@ namespace tdsl { namespace detail {
          *
          * @param [in] rcb New callback
          */
-        TDSLITE_SYMBOL_VISIBLE void do_register_envchange_callback(void * user_ptr, envchange_callback_fn_type rcb) {
+        TDSLITE_SYMBOL_VISIBLE void do_register_envchange_callback(void * user_ptr,
+                                                                   typename token_callback_decl<tds_envchange_info>::function_type cb) {
             envinfochg_cb_ctx.user_ptr = user_ptr;
-            envinfochg_cb_ctx.callback = rcb;
+            envinfochg_cb_ctx.callback = cb;
+        }
+
+        /**
+         * Set environment info change callback
+         *
+         * @param [in] rcb New callback
+         */
+        TDSLITE_SYMBOL_VISIBLE void do_register_info_callback(void * user_ptr,
+                                                              typename token_callback_decl<tds_info_msg>::function_type cb) {
+            info_cb_ctx.user_ptr = user_ptr;
+            info_cb_ctx.callback = cb;
         }
 
     private:
@@ -330,17 +364,23 @@ namespace tdsl { namespace detail {
                     }
                     const auto nvval        = rr.read(nvlen_octets);
 
-                    // Read old value
+                    // Read old valu
                     const auto ovlen_octets = (rr.read<tdsl::uint8_t>() * 2);
                     if (not rr.has_bytes(ovlen_octets)) {
                         return ovlen_octets - rr.remaining_bytes();
                     }
                     const auto ovval = rr.read(ovlen_octets);
 
-                    // Call envchange callback here
-
-                    envinfochg_cb_ctx.callback ? envinfochg_cb_ctx.callback(envinfochg_cb_ctx.user_ptr, ect, nvval, ovval)
-                                               : static_cast<tdsl::uint32_t>(0);
+                    tds_envchange_info envchange_info{};
+                    envchange_info.type      = ect;
+                    envchange_info.new_value = nvval.rebind_cast<char16_t>();
+                    envchange_info.old_value = ovval.rebind_cast<char16_t>();
+                    TDSLITE_ASSERT_MSG(rr.remaining_bytes() == 0,
+                                       "There are unhandled stray bytes in ENVCHANGE token, probably something is wrong!");
+                    return envinfochg_cb_ctx.maybe_invoke(envchange_info);
+                } break;
+                default: {
+                    TDSLITE_DEBUG_PRINT("Unhandled ENVCHANGE type [%d]\n", static_cast<int>(ect));
                 } break;
             }
             return 0;
@@ -352,33 +392,40 @@ namespace tdsl { namespace detail {
                 return k_min_info_bytes - rr.remaining_bytes();
             }
 
+            tds_info_msg info_msg{};
+
             // Number, State, Class, MsgText, ServerName, ProcName, LineNumber
-            const auto number = rr.read<tdsl::uint32_t>();
-            const auto state  = rr.read<tdsl::uint8_t>();
-            const auto class_ = rr.read<tdsl::uint8_t>();
+            info_msg.number = rr.read<tdsl::uint32_t>();
+            info_msg.state  = rr.read<tdsl::uint8_t>();
+            info_msg.class_ = rr.read<tdsl::uint8_t>();
 
             TDSLITE_TRY_READ_U16_VARCHAR(msgtext, rr);
             TDSLITE_TRY_READ_U8_VARCHAR(server_name, rr);
             TDSLITE_TRY_READ_U8_VARCHAR(proc_name, rr);
 
-            const auto line_number = rr.read<tdsl::uint16_t>();
+            info_msg.line_number = rr.read<tdsl::uint16_t>();
 
-            (void) number, (void) state, (void) class_, (void) msgtext, (void) server_name, (void) proc_name, (void) line_number;
+            info_msg.msgtext     = msgtext.rebind_cast<char16_t>();
+            info_msg.server_name = server_name.rebind_cast<char16_t>();
+            info_msg.proc_name   = proc_name.rebind_cast<char16_t>();
+
             TDSLITE_ASSERT_MSG(rr.remaining_bytes() == 0, "There are unhandled stray bytes in INFO token, probably something is wrong!");
-            return 0;
-        }
 
-        inline tdsl::uint32_t handle_error_token(tdsl::binary_reader<tdsl::endian::little> & rr) {
-            (void) rr;
-            return 0;
+            return info_cb_ctx.maybe_invoke(info_msg);
         }
 
         inline tdsl::uint32_t handle_done_token(tdsl::binary_reader<tdsl::endian::little> & rr) {
             (void) rr;
             return 0;
         }
+
         // Environment info change callback context
-        envchange_callback_ctx envinfochg_cb_ctx{};
+        token_callback<tds_envchange_info> envinfochg_cb_ctx{};
+        // Info message callback context
+        token_callback<tds_info_msg> info_cb_ctx{};
+
+        //         envchange_callback_ctx envinfochg_cb_ctx{};
+
         friend struct detail::net_packet_xmit_context<tds_context<NetImpl>>;
         friend struct detail::net_packet_recv_context<tds_context<NetImpl>>;
     };
