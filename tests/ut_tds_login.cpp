@@ -44,7 +44,9 @@ namespace {
 
         inline void do_send(void) noexcept {}
 
-        // void do_set_receive_callback(void *, void (*)(void *, tdsl::span<const tdsl::uint8_t>)) {}
+        void register_msg_recv_callback(void *,
+                                        tdsl::uint32_t (*)(void *, tdsl::detail::e_tds_message_type, tdsl::span<const tdsl::uint8_t> rcb)) {
+        }
 
         std::vector<uint8_t> buffer;
     };
@@ -75,7 +77,7 @@ struct tds_login_ctx_ut_fixture : public ::testing::Test {
 TEST_F(tds_login_ctx_ut_fixture, encode_password) {
 
     char16_t buf [] = u"JaxView";
-    EXPECT_NO_THROW(uut_t::encode_password(reinterpret_cast<tdsl::uint8_t(&) [sizeof(buf) - 2]>(buf)));
+    EXPECT_NO_THROW(uut_t::encode_password(reinterpret_cast<tdsl::uint8_t *>(buf), sizeof(buf) - 2));
 
     constexpr tdsl::uint8_t expected_buf [] = {0x01, 0xa5, 0xb3, 0xa5, 0x22, 0xa5, 0xc0, 0xa5,
                                                0x33, 0xa5, 0xf3, 0xa5, 0xd2, 0xa5
@@ -96,7 +98,9 @@ TEST_F(tds_login_ctx_ut_fixture, test_01) {
     params.password    = "test";
     params.client_name = "unit test";
     login.do_login(
-        params, +[](uut_t::e_login_status) {});
+        params, nullptr, +[](void *, const uut_t::e_login_status &) -> tdsl::uint32_t {
+            return 0;
+        });
 }
 
 // --------------------------------------------------------------------------------
@@ -126,7 +130,9 @@ TEST_F(tds_login_ctx_ut_fixture, test_jaxview) {
         0x54, 0x00, 0x44, 0x00, 0x53, 0x00, 0x4a, 0x00, 0x61, 0x00, 0x78, 0x00, 0x56, 0x00, 0x69, 0x00, 0x65, 0x00, 0x77, 0x00};
 
     login.do_login(
-        params, +[](uut_t::e_login_status) {});
+        params, nullptr, +[](void *, const uut_t::e_login_status &) -> tdsl::uint32_t {
+            return 0;
+        });
     printf("sizeof char16_t %ld\n”", sizeof(char16_t));
     tdsl::util::hexdump(&expected_packet_bytes [0], sizeof(expected_packet_bytes));
     printf("\n %ld vs. %ld \n", sizeof(expected_packet_bytes), tds_ctx.buffer.size());
@@ -172,7 +178,9 @@ TEST_F(tds_login_ctx_ut_fixture, test_mdac) {
         0x2e, 0x00, 0x32, 0x00, 0x35, 0x00, 0x4f, 0x00, 0x44, 0x00, 0x42, 0x00, 0x43, 0x00};
 
     login.do_login(
-        params, +[](uut_t::e_login_status) {});
+        params, nullptr, +[](void *, const uut_t::e_login_status &) -> tdsl::uint32_t {
+            return 0;
+        });
     printf("sizeof char16_t %ld\n”", sizeof(char16_t));
     tdsl::util::hexdump(&expected_packet_bytes [0], sizeof(expected_packet_bytes));
     printf("\n %ld vs. %ld \n", sizeof(expected_packet_bytes), tds_ctx.buffer.size());

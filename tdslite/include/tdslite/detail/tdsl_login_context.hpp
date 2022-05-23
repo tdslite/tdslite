@@ -15,10 +15,14 @@
 #include <tdslite/detail/tdsl_lang_code_id.hpp>
 #include <tdslite/detail/tdsl_version.hpp>
 #include <tdslite/detail/tdsl_tds_context.hpp>
+#include <tdslite/detail/tdsl_mssql_error_codes.hpp>
+#include <tdslite/detail/tdsl_callback_context.hpp>
+#include <tdslite/detail/tdsl_string_writer.hpp>
 
 #include <tdslite/util/tdsl_inttypes.hpp>
 #include <tdslite/util/tdsl_macrodef.hpp>
 #include <tdslite/util/tdsl_span.hpp>
+#include <tdslite/util/tdsl_string_view.hpp>
 #include <tdslite/util/tdsl_type_traits.hpp>
 #include <tdslite/util/tdsl_byte_swap.hpp>
 #include <tdslite/util/tdsl_debug_print.hpp>
@@ -40,41 +44,7 @@ namespace tdsl { namespace detail {
     template <typename NetImpl>
     struct login_context {
         using tds_context_type = tds_context<NetImpl>;
-
-        /**
-         * Construct a new login context object
-         *
-         * @param [in] tc The TDS context
-         */
-        inline login_context(tds_context_type & tc) noexcept : tds_ctx(tc) {
-            tds_ctx.do_register_envchange_callback(
-                this, +[](void *, const tds_envchange_info & eci) -> tdsl::uint32_t {
-                    TDSLITE_DEBUG_PRINT("received environment change -> type [%d] | ", static_cast<int>(eci.type));
-                    TDSLITE_DEBUG_PRINT("new_value: [");
-                    TDSLITE_DEBUG_PRINT_U16_AS_MB(eci.new_value);
-                    TDSLITE_DEBUG_PRINT("] | ");
-                    TDSLITE_DEBUG_PRINT("old_value: [");
-                    TDSLITE_DEBUG_PRINT_U16_AS_MB(eci.old_value);
-                    TDSLITE_DEBUG_PRINT("]\n");
-                    return 0;
-                });
-
-            tds_ctx.do_register_info_callback(
-                this, +[](void *, const tds_info_msg & info) -> tdsl::uint32_t {
-                    TDSLITE_DEBUG_PRINT("received info message -> number [%d] | state [%d] | class [%d] | line number [%d] | ", info.number,
-                                        info.state, info.class_, info.line_number);
-                    TDSLITE_DEBUG_PRINT("msgtext: [");
-                    TDSLITE_DEBUG_PRINT_U16_AS_MB(info.msgtext);
-                    TDSLITE_DEBUG_PRINT("] | ");
-                    TDSLITE_DEBUG_PRINT("server_name: [");
-                    TDSLITE_DEBUG_PRINT_U16_AS_MB(info.server_name);
-                    TDSLITE_DEBUG_PRINT("] | ");
-                    TDSLITE_DEBUG_PRINT("proc_name: [");
-                    TDSLITE_DEBUG_PRINT_U16_AS_MB(info.proc_name);
-                    TDSLITE_DEBUG_PRINT("]\n");
-                    return 0;
-                });
-        }
+        using self_type        = login_context<NetImpl>;
 
         /**
          * The tabular data stream protocol header
@@ -97,48 +67,62 @@ namespace tdsl { namespace detail {
 
         static_assert(sizeof(tds_login7_header) == 44, "Invalid TDS Login7 header size");
 
-        /**
-         * Wide-character (16 bit) string view
-         */
-        struct wstring_view : public tdsl::span<const char16_t> {
-
-            using ::tdsl::span<const char16_t>::span;
-
-            wstring_view() : span() {}
-
-            template <tdsl::uint32_t N>
-            wstring_view(const char (&str) [N]) : span(str, N) {
-                // If the string is NUL-terminated, omit the NUL terminator.
-                if (N > 1 && str [N - 2] == '\0' && str [N - 1] == '\0') {
-                    size_ -= 2;
-                }
-            }
-        };
-
-        /**
-         * String view
-         */
-        struct string_view : public tdsl::span<const char> {
-            using ::tdsl::span<const char>::span;
-
-            string_view() : span() {}
-
-            template <tdsl::uint32_t N>
-            string_view(const char (&str) [N]) : span(str, N) {
-                // If the string is NUL-terminated, omit the NUL terminator.
-                if (N > 0 && str [N - 1] == '\0') {
-                    size_ -= 1;
-                }
-            }
-        };
-
         enum class e_login_status : tdsl::int8_t
         {
             success = 0,
             failure = -1
         };
 
-        using login_callback_type = void (*)(e_login_status);
+    private:
+        tds_context_type & tds_ctx;
+        callback_context<e_login_status> login_cb_ctx;
+
+    public:
+        /**
+         * Construct a new login context object
+         *
+         * @param [in] tc The TDS context
+         */
+        inline login_context(tds_context_type & tc) noexcept : tds_ctx(tc) {
+
+            tds_ctx.do_register_envchange_token_callback(
+                this, +[](void *, const tds_envchange_token &) -> tdsl::uint32_t {
+                    return 0;
+                });
+
+            tds_ctx.do_register_info_token_callback(
+                this, +[](void * uptr, const tds_info_token & info) -> tdsl::uint32_t {
+                    auto self = reinterpret_cast<self_type *>(uptr);
+
+                    switch (static_cast<e_mssql_error_code>(info.number)) {
+                        case tdsl::e_mssql_error_code::logon_failed: {
+                            // Mark current context as `not authenticated`
+                            self->tds_ctx.flags.authenticated = {false};
+                            self->login_cb_ctx.maybe_invoke(e_login_status::failure);
+                        } break;
+                    }
+
+                    return 0;
+                });
+
+            tds_ctx.do_register_loginack_token_callback(
+                this, +[](void * uptr, const tds_login_ack_token &) -> tdsl::uint32_t {
+                    auto self                         = reinterpret_cast<self_type *>(uptr);
+
+                    // Mark current context as `authenticated`
+                    self->tds_ctx.flags.authenticated = {true};
+                    // succeeded
+                    self->login_cb_ctx.maybe_invoke(e_login_status::success);
+                    return 0;
+                });
+        }
+
+        ~login_context() {
+            // TODO: Unregister from tds_context safely
+            // tds_ctx.do_register_envchange_token_callback(nullptr, nullptr);
+            // tds_ctx.do_register_info_token_callback(nullptr, nullptr);
+            // tds_ctx.do_register_loginack_token_callback(nullptr, nullptr);
+        }
 
         /**
          * The arguments for the login operation
@@ -206,96 +190,15 @@ namespace tdsl { namespace detail {
          *
          * @param [in] buf Buffer to encode
          */
-        template <tdsl::uint32_t N>
-        static inline void encode_password(tdsl::uint8_t (&buf) [N]) noexcept {
+        static inline void encode_password(tdsl::uint8_t * buf, tdsl::uint32_t sz) {
             // Quoting TDS:
             // "Before submitting a password from the client to the server, for every byte in the password buffer"
             // "starting with the position pointed to by ibPassword or ibChangePassword, the client SHOULD first
             // swap" "the four high bits with the four low bits and then do a bit-XOR with 0xA5 (10100101).""
-            for (auto & ch : buf) {
-                ch = (((ch & 0x0F) << 4 | (ch & 0xF0) >> 4) ^ 0xA5);
+            for (tdsl::uint32_t i = 0; i < sz; i++) {
+                auto & ch = buf [i];
+                ch        = (((ch & 0x0F) << 4 | (ch & 0xF0) >> 4) ^ 0xA5);
             }
-        }
-
-        // --------------------------------------------------------------------------------
-
-        /**
-         * Helper type for writing string parameters into a TDS packet.
-         *
-         * The string parameters are handled depending on source string type
-         * (i.e. single-char string, wide (utf-16) string)).
-         *
-         */
-        struct string_parameter_writer {
-            /**
-             * Write single-byte string in @p sv to transmit context @p xc as multi-byte
-             * UTF-16 string.
-             *
-             * @param [in,out] xc Transmit context
-             * @param [in] sv String to write
-             * @param [in] parameter_type Type of the string parameter.
-             *
-             * @note The password string also get encoded by the algorithm specified in the MS-TDS document
-             * @note The password encoding is performed after multi-byte string expansion
-             */
-            static void write(typename tds_context_type::xmit_context & xc, const string_view & sv,
-                              e_tds_login_parameter_idx parameter_type) {
-                // We're filling the strings
-                for (auto ch : sv) {
-                    char16_t c = ch;
-                    e_tds_login_parameter_idx::password == parameter_type
-                        ? encode_password(reinterpret_cast<tdsl::uint8_t(&) [sizeof(char16_t)]>(c))
-                        : (void) 0;
-
-                    xc.write(c);
-                }
-            }
-
-            /**
-             * Write multi-byte string in @p sv to transmit context @p xc as-is.
-             *
-             * @param [in] xc Transmit context
-             * @param [in] sv String to write
-             * @param [in] parameter_type Type of the string parameter
-             *
-             * @note The password string also get encoded by the algorithm specified in the MS-TDS document
-             */
-            static void write(typename tds_context_type::xmit_context & xc, const wstring_view & sv,
-                              e_tds_login_parameter_idx parameter_type) {
-
-                if (not(e_tds_login_parameter_idx::password == parameter_type)) {
-                    xc.write(sv);
-                    return;
-                }
-
-                // Password needs special treatment before sending.
-                for (auto ch : sv) {
-                    char16_t c = ch;
-                    encode_password(reinterpret_cast<tdsl::uint8_t(&) [sizeof(char16_t)]>(ch));
-                    xc.write(c);
-                }
-            }
-
-            static inline auto calculate_write_size(const wstring_view & sv) noexcept -> tdsl::uint32_t {
-                return sv.size_bytes();
-            }
-
-            static inline auto calculate_write_size(const string_view & sv) noexcept -> tdsl::uint32_t {
-                return sv.size_bytes() * sizeof(char16_t);
-            }
-        };
-
-        // --------------------------------------------------------------------------------
-
-        /**
-         * Attempt to login into the database engine with the specified login parameters
-         *
-         * @note Parameters on this overload are single-byte character strings.
-         *
-         * @param [in] params Login parameters
-         */
-        inline void do_login(const wlogin_parameters & params, login_callback_type lcb) noexcept {
-            do_login_impl<wlogin_parameters>(params, lcb);
         }
 
         // --------------------------------------------------------------------------------
@@ -307,8 +210,21 @@ namespace tdsl { namespace detail {
          *
          * @param [in] params Login parameters
          */
-        inline void do_login(const login_parameters & params, login_callback_type lcb) noexcept {
-            do_login_impl<login_parameters>(params, lcb);
+        inline void do_login(const wlogin_parameters & params, void * uptr, typename decltype(login_cb_ctx)::function_type lcb) noexcept {
+            do_login_impl<wlogin_parameters>(params, uptr, lcb);
+        }
+
+        // --------------------------------------------------------------------------------
+
+        /**
+         * Attempt to login into the database engine with the specified login parameters
+         *
+         * @note Parameters on this overload are single-byte character strings.
+         *
+         * @param [in] params Login parameters
+         */
+        inline void do_login(const login_parameters & params, void * uptr, typename decltype(login_cb_ctx)::function_type lcb) noexcept {
+            do_login_impl<login_parameters>(params, uptr, lcb);
         }
 
     private:
@@ -323,9 +239,11 @@ namespace tdsl { namespace detail {
          * @param [in] params Login parameters
          */
         template <typename LoginParamsType>
-        void do_login_impl(const LoginParamsType & params, login_callback_type lcb) noexcept {
+        void do_login_impl(const LoginParamsType & params, void * uptr, typename decltype(login_cb_ctx)::function_type lcb) noexcept {
+            TDSLITE_ASSERT_MSG(lcb, "Login callback function cannot be nullptr!");
             // Assign login callback first
-            login_callback = lcb;
+            login_cb_ctx.callback = lcb;
+            login_cb_ctx.user_ptr = uptr;
             tds_ctx.write_tds_header(e_tds_message_type::login);
             tds_ctx.write_le(/*arg=*/0_tdsu32);                                                // placeholder for packet length
             tds_ctx.write_be(static_cast<tdsl::uint32_t>(e_tds_version::sql_server_2000_sp1)); // TDS version
@@ -432,7 +350,7 @@ namespace tdsl { namespace detail {
                         // Character count, not length in bytes
                         tds_ctx.write_le(static_cast<tdsl::uint16_t>((*tw).size()));
 
-                        current_string_offset += string_parameter_writer::calculate_write_size((*tw));
+                        current_string_offset += string_parameter_writer<tds_context_type>::calculate_write_size((*tw));
                     }
                     else {
 
@@ -443,8 +361,9 @@ namespace tdsl { namespace detail {
 
                         // Write the string itself.
                         if (*tw) {
-                            string_parameter_writer::write(tds_ctx, *tw, static_cast<e_tds_login_parameter_idx>(pi));
-                            string_section_size += string_parameter_writer::calculate_write_size((*tw));
+                            string_parameter_writer<tds_context_type>::write(tds_ctx, *tw,
+                                                                             (pi == param_idx::password ? &encode_password : nullptr));
+                            string_section_size += string_parameter_writer<tds_context_type>::calculate_write_size((*tw));
                         }
                     }
                 } // ... for (int j = 0; j < parameter_count; j++) {
@@ -464,18 +383,6 @@ namespace tdsl { namespace detail {
             tds_ctx.put_tds_header_length(total_packet_data_size);
             // Send the packet.
             tds_ctx.send();
-            // on_data_recv
         } // ... void do_login_impl(const LoginParamsType & params) noexcept {
-
-        static void handle_response(void * self, tdsl::span<const tdsl::uint8_t> resp) {
-            (void) self;
-            (void) resp;
-            // should expect what?
-            // Invoke login callback
-        }
-
-    private:
-        tds_context_type & tds_ctx;
-        login_callback_type login_callback;
     };
 }} // namespace tdsl::detail

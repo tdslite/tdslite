@@ -11,6 +11,7 @@
  */
 
 #include <tdslite/detail/tdsl_login_context.hpp>
+#include <tdslite/detail/tdsl_command_context.hpp>
 #include <tdslite/net/asio/asio_network_impl.hpp>
 #include <tdslite/util/tdsl_hex_dump.hpp>
 
@@ -19,6 +20,8 @@
 
 #include <thread>
 #include <chrono>
+
+#include "include/semaphore.hpp"
 
 // --------------------------------------------------------------------------------
 
@@ -38,6 +41,7 @@ struct tds_login_ctx_it_fixture : public ::testing::Test {
     virtual void TearDown() override {}
     tds_ctx_t tds_ctx;
     uut_t login{tds_ctx};
+    tdsl::test::semaphore sema{};
 };
 
 TEST_F(tds_login_ctx_it_fixture, login) {
@@ -52,7 +56,36 @@ TEST_F(tds_login_ctx_it_fixture, login) {
     params.library_name = "tdslite";
     params.db_name      = "master";
     login.do_login(
-        params, +[](uut_t::e_login_status) {});
+        params, &sema, +[](void * uptr, const uut_t::e_login_status & s) -> tdsl::uint32_t {
+            EXPECT_NE(nullptr, uptr);
+            EXPECT_EQ(uut_t::e_login_status::success, s);
+            auto sema = reinterpret_cast<tdsl::test::semaphore *>(uptr);
+            sema->notify();
+            return 0;
+        });
 
+    EXPECT_TRUE(sema.wait_for(std::chrono::seconds{30}));
+}
+
+TEST_F(tds_login_ctx_it_fixture, login_invalid_uname) {
+    EXPECT_TRUE(tds_ctx.recv_buffer.size());
     std::this_thread::sleep_for(std::chrono::seconds{5});
+    uut_t::login_parameters params;
+    params.server_name  = "mssql-2017";
+    params.user_name    = "as";
+    params.password     = "2022-tds-lite-test!";
+    params.client_name  = "tdslite integration test case";
+    params.app_name     = "tdslite integration test";
+    params.library_name = "tdslite";
+    params.db_name      = "master";
+    login.do_login(
+        params, &sema, +[](void * uptr, const uut_t::e_login_status & s) -> tdsl::uint32_t {
+            EXPECT_NE(nullptr, uptr);
+            EXPECT_EQ(s, uut_t::e_login_status::failure);
+            auto sema = reinterpret_cast<tdsl::test::semaphore *>(uptr);
+            sema->notify();
+            return 0;
+        });
+
+    EXPECT_TRUE(sema.wait_for(std::chrono::seconds{30}));
 }

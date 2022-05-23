@@ -11,7 +11,7 @@
 
 #pragma once
 
-#include <tdslite/net/base/msg_callback.hpp>
+#include <tdslite/detail/tdsl_callback_context.hpp>
 #include <tdslite/detail/tdsl_message_type.hpp>
 #include <tdslite/detail/tdsl_message_token_type.hpp>
 #include <tdslite/detail/tdsl_envchange_type.hpp>
@@ -23,6 +23,21 @@
 namespace tdsl { namespace net {
 
     struct network_impl_base {
+
+        // Message callback context
+        using msg_callback_ctx = callback_context<void, tdsl::uint32_t (*)(/*user_ptr*/ void *, /*msg_type*/ detail::e_tds_message_type,
+                                                                           /*msg*/ tdsl::span<const tdsl::uint8_t>)>;
+
+        enum class e_conection_state : tdsl::int8_t
+        {
+            attempt_in_progress = 0,
+            connected           = 1,
+            disconnected        = -1,
+            connection_failed   = -2,
+            resolve_failed      = -3,
+        };
+
+        using connection_state_callback_ctx = callback_context<void, void (*)(/*user_ptr*/ void *, e_conection_state)>;
 
         network_impl_base() noexcept {
             // Disabled by default
@@ -73,15 +88,26 @@ namespace tdsl { namespace net {
         /**
          * Set receive callback
          *
+         * @param [in] cb New callback
+         */
+        TDSLITE_SYMBOL_VISIBLE void register_msg_recv_callback(void * user_ptr, msg_callback_ctx::function_type cb) {
+            msg_cb_ctx.user_ptr = user_ptr;
+            msg_cb_ctx.callback = cb;
+        }
+
+        /**
+         * Set receive callback
+         *
          * @param [in] rcb New callback
          */
-        TDSLITE_SYMBOL_VISIBLE void register_msg_recv_callback(void * user_ptr, msg_callback_fn_type rcb) {
-            msg_cb_ctx.user_ptr = user_ptr;
-            msg_cb_ctx.callback = rcb;
+        TDSLITE_SYMBOL_VISIBLE void register_connection_state_callback(void * user_ptr, connection_state_callback_ctx::function_type cb) {
+            conn_cb_ctx.user_ptr = user_ptr;
+            conn_cb_ctx.callback = cb;
         }
 
     protected:
         msg_callback_ctx msg_cb_ctx{};
+        connection_state_callback_ctx conn_cb_ctx{};
         struct {
             bool expect_full_tds_pdu : 1;
             bool reserved : 7;

@@ -117,6 +117,13 @@ namespace tdsl { namespace net {
         // The receive buffer
         std::vector<tdsl::uint8_t> recv_buffer;
 
+        /**
+         * Wait for all asynchronous operations
+         * to finish.
+
+         */
+        void wait() const noexcept;
+
     private:
         /**
          * Dispatch asynchronous receive on socket
@@ -131,6 +138,8 @@ namespace tdsl { namespace net {
         std::shared_ptr<void> io_context{nullptr};
         std::shared_ptr<void> io_context_work_guard{nullptr};
         std::shared_ptr<void> resolver{nullptr};
+        std::shared_ptr<void> send_strand{nullptr};
+        std::shared_ptr<void> recv_strand{nullptr};
 
         struct {
             std::atomic_bool resolve_in_flight{false};

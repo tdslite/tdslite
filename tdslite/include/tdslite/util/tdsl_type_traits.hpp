@@ -36,6 +36,11 @@ namespace tdsl { namespace traits {
     using true_type  = integral_constant<bool, true>;
     using false_type = integral_constant<bool, false>;
 
+    template <bool T>
+    struct dependent_bool {
+        static constexpr bool value = T;
+    };
+
     // enable_if
     template <bool, typename T = void>
     struct enable_if;
@@ -134,6 +139,27 @@ namespace tdsl { namespace traits {
     template <>
     struct is_integral<char32_t> : public true_type {};
 
+    // Conditional
+
+    template <bool B, class T, class F>
+    struct conditional {
+        using type = T;
+    };
+
+    template <class T, class F>
+    struct conditional<false, T, F> {
+        using type = F;
+    };
+
+    // Disjunction
+
+    template <class...>
+    struct disjunction : false_type {};
+    template <class B1>
+    struct disjunction<B1> : B1 {};
+    template <class B1, class... Bn>
+    struct disjunction<B1, Bn...> : conditional<bool(B1::value), B1, disjunction<Bn...>>::type {};
+
     // enable_if_integral
 
     template <typename T>
@@ -141,6 +167,15 @@ namespace tdsl { namespace traits {
 
     template <typename T, typename Q>
     using enable_if_same = typename enable_if<is_same<T, Q>::value, bool>::type;
+
+    /**
+     * Enable if the given type T is same with any of the types listed in type list Q
+     *
+     * @tparam [in] T The type
+     * @tparam [in] Q The type list
+     */
+    template <typename T, typename... Q>
+    using enable_if_same_any = typename enable_if<disjunction<is_same<T, Q>...>::value, bool>::type;
 
     template <typename T, typename Q>
     using enable_if_not_same = typename enable_if<!is_same<T, Q>::value, bool>::type;

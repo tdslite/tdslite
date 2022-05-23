@@ -1,7 +1,7 @@
 /**
  * _________________________________________________
  *
- * @file   tdsl_info_msg.hpp
+ * @file   tdsl_info_token.hpp
  * @author Mustafa Kemal GILOR <mustafagilor@gmail.com>
  * @date   22.05.2022
  *
@@ -15,10 +15,26 @@
 #include <tdslite/util/tdsl_inttypes.hpp>
 
 namespace tdsl {
-    struct tds_info_msg {
+    struct tds_info_token {
 
+        /**
+         * Check whether the token is an ERROR token or not
+         *
+         * @return true Token is an ERROR token
+         * @return false Token is an INFO token
+         */
         inline auto is_error() const -> bool {
             return class_ > 10;
+        }
+
+        /**
+         * Check whether the token is an INFO token or not
+         *
+         * @return true Token is an INFO token
+         * @return false Token is an ERROR token
+         */
+        inline auto is_info() const -> bool {
+            return !is_error();
         }
 
         tdsl::uint32_t number;

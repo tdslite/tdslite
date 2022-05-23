@@ -29,7 +29,7 @@ namespace tdsl {
     } // namespace detail
 
     /**
-     * Span of bytes
+     * Span of T
      */
     template <typename T = const tdsl::uint8_t>
     struct span {
@@ -46,60 +46,17 @@ namespace tdsl {
         using self_type       = span<element_type>;
 
         /**
+         * Default c-tor
          */
-        inline TDSLITE_CXX14_CONSTEXPR span() noexcept : data_(nullptr), size_(0){};
-
-        /**
-         * Destructor
-         */
-        inline ~span() noexcept = default;
-
-        inline constexpr span(const self_type & other) noexcept : data_(other.data_), size_(other.size_) {}
-
-        /**
-         * Move constructor
-         */
-        inline constexpr span(self_type && other) noexcept :
-            data_(detail::exchange(other.data_, nullptr)), size_(detail::exchange(other.size_, 0)) {}
-
-        /**
-         * Copy assignment
-         */
-        inline TDSLITE_CXX14_CONSTEXPR span & operator=(const self_type & other) noexcept {
-            // For avoiding "compound-statement in `constexpr` function warning in C++11 mode"
-            &other != this ? (data_ = other.data_) : static_cast<element_type *>(nullptr);
-            &other != this ? (size_ = other.size_) : static_cast<decltype(size_)>(0);
-            return *this;
-        }
-
-        /**
-         * Move assignment
-         */
-        inline TDSLITE_CXX14_CONSTEXPR span & operator=(self_type && other) noexcept {
-            // For avoiding "compound-statement in `constexpr` function warning in C++11 mode"
-            &other != this ? (data_ = detail::exchange(other.data_, nullptr)) : static_cast<element_type *>(0);
-            &other != this ? (size_ = detail::exchange(other.size_, 0)) : static_cast<decltype(size_)>(0);
-            return *this;
-        }
-
-        /**
-         * Equality comparison operator
-         *
-         * @param [in] other Span to compare against
-         * @return true Spans are equal
-         * @return false otherwise
-         */
-        inline constexpr bool operator==(const self_type & other) const noexcept {
-            return data_ == other.data_ && size_ == other.size_;
-        }
+        inline TDSLITE_CXX14_CONSTEXPR span() noexcept : data_(nullptr), element_count(0){};
 
         /**
          * Construct a new span object
          *
-         * @param [in] data Pointer to the data
-         * @param [in] size Size of the data
+         * @param [in] data Pointer to the starting element
+         * @param [in] size Element count
          */
-        inline explicit constexpr span(element_type * data, size_type size) noexcept : data_(data), size_(size) {}
+        inline explicit constexpr span(element_type * elem, size_type elem_count) noexcept : data_(elem), element_count(elem_count) {}
 
         /**
          * Construct a new span object from a fixed-size
@@ -109,7 +66,7 @@ namespace tdsl {
          * @param [in] buffer Fixed-size buffer
          */
         template <size_type N>
-        inline constexpr span(element_type (&buffer) [N]) noexcept : data_(buffer), size_(N) {}
+        inline constexpr span(element_type (&buffer) [N]) noexcept : data_(buffer), element_count(N) {}
 
         /**
          * Construct a new span object from explicit begin
@@ -122,7 +79,54 @@ namespace tdsl {
          * @note @p start must be always lesser than @p end
          * @note @p end must be always greater than @p start
          */
-        inline explicit constexpr span(element_type * begin, element_type * end) noexcept : data_(begin), size_(end - begin) {}
+        inline explicit constexpr span(element_type * begin, element_type * end) noexcept : data_(begin), element_count(end - begin) {}
+
+        /**
+         * Copy c-tor
+         */
+        inline constexpr span(const self_type & other) noexcept : data_(other.data_), element_count(other.element_count) {}
+
+        /**
+         * Move c-tor
+         */
+        inline constexpr span(self_type && other) noexcept :
+            data_(detail::exchange(other.data_, nullptr)), element_count(detail::exchange(other.element_count, 0)) {}
+
+        /**
+         * Copy assignment
+         */
+        inline TDSLITE_CXX14_CONSTEXPR span & operator=(const self_type & other) noexcept {
+            // For avoiding "compound-statement in `constexpr` function warning in C++11 mode"
+            &other != this ? (data_ = other.data_) : static_cast<element_type *>(nullptr);
+            &other != this ? (element_count = other.element_count) : static_cast<decltype(element_count)>(0);
+            return *this;
+        }
+
+        /**
+         * Move assignment
+         */
+        inline TDSLITE_CXX14_CONSTEXPR span & operator=(self_type && other) noexcept {
+            // For avoiding "compound-statement in `constexpr` function warning in C++11 mode"
+            &other != this ? (data_ = detail::exchange(other.data_, nullptr)) : static_cast<element_type *>(0);
+            &other != this ? (element_count = detail::exchange(other.element_count, 0)) : static_cast<decltype(element_count)>(0);
+            return *this;
+        }
+
+        /**
+         * D-tor
+         */
+        inline ~span() noexcept = default;
+
+        /**
+         * Equality comparison operator
+         *
+         * @param [in] other Span to compare against
+         * @return true Spans are equal
+         * @return false otherwise
+         */
+        inline constexpr bool operator==(const self_type & other) const noexcept {
+            return data_ == other.data_ && element_count == other.element_count;
+        }
 
         /**
          * Get the amount of the bytes in the span
@@ -130,7 +134,7 @@ namespace tdsl {
          * @return size_type Amount of the bytes in the span
          */
         inline constexpr auto size_bytes() const noexcept -> size_type {
-            return size() * sizeof(element_type);
+            return element_count * sizeof(element_type);
         }
 
         /**
@@ -139,7 +143,7 @@ namespace tdsl {
          * @return size_type Amount of the element in the span
          */
         inline constexpr auto size() const noexcept -> size_type {
-            return (size_ / sizeof(element_type));
+            return element_count;
         }
 
         /**
@@ -166,7 +170,7 @@ namespace tdsl {
          * @return T* Pointer to the one past last element of the span
          */
         inline constexpr auto end() const noexcept -> iterator {
-            return (data_ + (size_ / sizeof(element_type)));
+            return (data_ + element_count);
         }
 
         /**
@@ -181,7 +185,7 @@ namespace tdsl {
          * @returns false otherwise
          */
         inline operator bool() const noexcept {
-            return data_ && size_;
+            return data_ && element_count;
         }
 
         /**
@@ -189,18 +193,27 @@ namespace tdsl {
          *
          * @tparam Q New element type
          * @return span<const Q> New span
+         *
+         * @note If the original span's size_bytes() is not a multiple of sizeof(Q),
+         * the element count of the resulting span will be rounded down.
          */
         template <typename Q, traits::enable_if_integral<Q> = true>
         inline constexpr auto rebind_cast() const noexcept -> span<const Q> {
-            return span<const Q>{reinterpret_cast<const Q *>(data()), size_bytes()};
+            using rebound_span_type = span<const Q>;
+            return rebound_span_type{reinterpret_cast<typename rebound_span_type::const_pointer>(data()),
+                                     static_cast<typename rebound_span_type::size_type>(size_bytes() / sizeof(Q))};
         }
 
     private:
         pointer data_{nullptr}; /**< Pointer to the beginning of the span */
     protected:
-        size_type size_{0}; /**< Size of the span (in bytes) */
+        size_type element_count{0}; /**< Size of the span (in element count) */
 
     }; // struct span
+
+    using char_span      = tdsl::span<const char>;
+    using u16char_span   = tdsl::span<const char16_t>;
+    using u32string_view = tdsl::span<const char32_t>;
 
 } // namespace tdsl
 
