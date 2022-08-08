@@ -210,8 +210,8 @@ namespace tdsl { namespace detail {
          *
          * @param [in] params Login parameters
          */
-        inline void do_login(const wlogin_parameters & params, void * uptr, typename decltype(login_cb_ctx)::function_type lcb) noexcept {
-            do_login_impl<wlogin_parameters>(params, uptr, lcb);
+        inline auto do_login(const wlogin_parameters & params) noexcept -> e_login_status {
+            return do_login_impl<wlogin_parameters>(params);
         }
 
         // --------------------------------------------------------------------------------
@@ -223,8 +223,8 @@ namespace tdsl { namespace detail {
          *
          * @param [in] params Login parameters
          */
-        inline void do_login(const login_parameters & params, void * uptr, typename decltype(login_cb_ctx)::function_type lcb) noexcept {
-            do_login_impl<login_parameters>(params, uptr, lcb);
+        inline auto do_login(const login_parameters & params) noexcept -> e_login_status {
+            return do_login_impl<login_parameters>(params);
         }
 
     private:
@@ -239,11 +239,11 @@ namespace tdsl { namespace detail {
          * @param [in] params Login parameters
          */
         template <typename LoginParamsType>
-        void do_login_impl(const LoginParamsType & params, void * uptr, typename decltype(login_cb_ctx)::function_type lcb) noexcept {
+        e_login_status do_login_impl(const LoginParamsType & params) noexcept {
             TDSLITE_ASSERT_MSG(lcb, "Login callback function cannot be nullptr!");
             // Assign login callback first
-            login_cb_ctx.callback = lcb;
-            login_cb_ctx.user_ptr = uptr;
+            // login_cb_ctx.callback = lcb;
+            // login_cb_ctx.user_ptr = uptr;
             tds_ctx.write_tds_header(e_tds_message_type::login);
             tds_ctx.write_le(/*arg=*/0_tdsu32);                                                // placeholder for packet length
             tds_ctx.write_be(static_cast<tdsl::uint32_t>(e_tds_version::sql_server_2000_sp1)); // TDS version
@@ -381,8 +381,13 @@ namespace tdsl { namespace detail {
             put_login_header_length(total_packet_data_size);
             // ... then, the TDS packet length
             tds_ctx.put_tds_header_length(total_packet_data_size);
-            // Send the packet.
+            // Send the login request.
             tds_ctx.send();
+
+            // Receive the login response
+            tds_ctx.recv(8);
+
+            return tds_ctx.is_authenticated() ? e_login_status::success : e_login_status::failure;
         } // ... void do_login_impl(const LoginParamsType & params) noexcept {
     };
 }} // namespace tdsl::detail

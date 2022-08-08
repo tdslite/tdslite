@@ -21,8 +21,6 @@
 #include <thread>
 #include <chrono>
 
-#include "include/semaphore.hpp"
-
 // --------------------------------------------------------------------------------
 
 /**
@@ -35,18 +33,15 @@ using tds_ctx_t = uut_t::tds_context_type;
 struct tds_login_ctx_it_fixture : public ::testing::Test {
 
     virtual void SetUp() override {
-        tds_ctx.do_connect("mssql-2017", /*port=*/1433);
+        ASSERT_EQ(0, tds_ctx.do_connect("mssql-2017", /*port=*/1433));
     }
 
     virtual void TearDown() override {}
     tds_ctx_t tds_ctx;
     uut_t login{tds_ctx};
-    tdsl::test::semaphore sema{};
 };
 
 TEST_F(tds_login_ctx_it_fixture, login) {
-    EXPECT_TRUE(tds_ctx.recv_buffer.size());
-    std::this_thread::sleep_for(std::chrono::seconds{5});
     uut_t::login_parameters params;
     params.server_name  = "mssql-2017";
     params.user_name    = "sa";
@@ -55,21 +50,10 @@ TEST_F(tds_login_ctx_it_fixture, login) {
     params.app_name     = "tdslite integration test";
     params.library_name = "tdslite";
     params.db_name      = "master";
-    login.do_login(
-        params, &sema, +[](void * uptr, const uut_t::e_login_status & s) -> tdsl::uint32_t {
-            EXPECT_NE(nullptr, uptr);
-            EXPECT_EQ(uut_t::e_login_status::success, s);
-            auto sema = reinterpret_cast<tdsl::test::semaphore *>(uptr);
-            sema->notify();
-            return 0;
-        });
-
-    EXPECT_TRUE(sema.wait_for(std::chrono::seconds{30}));
+    EXPECT_EQ(login.do_login(params), uut_t::e_login_status::success);
 }
 
 TEST_F(tds_login_ctx_it_fixture, login_invalid_uname) {
-    EXPECT_TRUE(tds_ctx.recv_buffer.size());
-    std::this_thread::sleep_for(std::chrono::seconds{5});
     uut_t::login_parameters params;
     params.server_name  = "mssql-2017";
     params.user_name    = "as";
@@ -78,14 +62,29 @@ TEST_F(tds_login_ctx_it_fixture, login_invalid_uname) {
     params.app_name     = "tdslite integration test";
     params.library_name = "tdslite";
     params.db_name      = "master";
-    login.do_login(
-        params, &sema, +[](void * uptr, const uut_t::e_login_status & s) -> tdsl::uint32_t {
-            EXPECT_NE(nullptr, uptr);
-            EXPECT_EQ(s, uut_t::e_login_status::failure);
-            auto sema = reinterpret_cast<tdsl::test::semaphore *>(uptr);
-            sema->notify();
-            return 0;
-        });
+    EXPECT_EQ(login.do_login(params), uut_t::e_login_status::failure);
+}
 
-    EXPECT_TRUE(sema.wait_for(std::chrono::seconds{30}));
+TEST_F(tds_login_ctx_it_fixture, login_invalid_pwd) {
+    uut_t::login_parameters params;
+    params.server_name  = "mssql-2017";
+    params.user_name    = "sa";
+    params.password     = "2022-tds-lite-test?";
+    params.client_name  = "tdslite integration test case";
+    params.app_name     = "tdslite integration test";
+    params.library_name = "tdslite";
+    params.db_name      = "master";
+    EXPECT_EQ(login.do_login(params), uut_t::e_login_status::failure);
+}
+
+TEST_F(tds_login_ctx_it_fixture, login_invalid_db) {
+    uut_t::login_parameters params;
+    params.server_name  = "mssql-2017";
+    params.user_name    = "sa";
+    params.password     = "2022-tds-lite-test!";
+    params.client_name  = "tdslite integration test case";
+    params.app_name     = "tdslite integration test";
+    params.library_name = "tdslite";
+    params.db_name      = "masterofpuppets";
+    EXPECT_EQ(login.do_login(params), uut_t::e_login_status::failure);
 }

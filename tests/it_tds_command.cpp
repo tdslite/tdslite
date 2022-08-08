@@ -18,8 +18,6 @@
 
 #include <chrono>
 
-#include "include/semaphore.hpp"
-
 // --------------------------------------------------------------------------------
 
 /**
@@ -41,23 +39,8 @@ struct tds_command_ctx_it_fixture : public ::testing::Test {
         params.library_name = "tdslite";
         params.db_name      = "master";
 
-        tds_ctx.do_connect("mssql-2017", /*port=*/1433);
-        tds_ctx.register_connection_state_callback(
-            this, +[](void * uptr, decltype(tds_ctx)::e_conection_state cs) {
-                auto self = reinterpret_cast<tds_command_ctx_it_fixture *>(uptr);
-                switch (cs) {
-                    case decltype(tds_ctx)::e_conection_state::connected:
-                        self->login.do_login(
-                            self->params, self, +[](void * uptr, const login_ctx_t::e_login_status & s) -> tdsl::uint32_t {
-                                auto self = reinterpret_cast<tds_command_ctx_it_fixture *>(uptr);
-                                self->sema.notify();
-                                return 0;
-                            });
-                        break;
-                }
-            });
-
-        ASSERT_TRUE(sema.wait_for(std::chrono::seconds{30}));
+        ASSERT_EQ(tds_ctx.do_connect("mssql-2017", /*port=*/1433), 0);
+        ASSERT_EQ(login.do_login(params), login_ctx_t::e_login_status::success);
         ASSERT_TRUE(tds_ctx.is_authenticated());
     }
 
@@ -66,10 +49,8 @@ struct tds_command_ctx_it_fixture : public ::testing::Test {
     uut_t command_ctx{tds_ctx};
     login_ctx_t::login_parameters params;
     login_ctx_t login{tds_ctx};
-    tdsl::test::semaphore sema{};
 };
 
 TEST_F(tds_command_ctx_it_fixture, test) {
-    command_ctx.execute_non_query(tdsl::string_view{"DROP TABLE test;CREATE TABLE test(q int,y int);"}); // callback
-    sema.wait_for(std::chrono::seconds{30});
+    command_ctx.execute_non_query(tdsl::string_view{/*str=*/"DROP TABLE test;CREATE TABLE test(q int,y int);"}); // callback
 }

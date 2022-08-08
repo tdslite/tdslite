@@ -44,6 +44,8 @@ namespace {
 
         inline void do_send(void) noexcept {}
 
+        inline void do_recv(tdsl::uint32_t) noexcept {}
+
         void register_msg_recv_callback(void *,
                                         tdsl::uint32_t (*)(void *, tdsl::detail::e_tds_message_type, tdsl::span<const tdsl::uint8_t> rcb)) {
         }
@@ -97,10 +99,8 @@ TEST_F(tds_login_ctx_ut_fixture, test_01) {
     params.user_name   = "sa";
     params.password    = "test";
     params.client_name = "unit test";
-    login.do_login(
-        params, nullptr, +[](void *, const uut_t::e_login_status &) -> tdsl::uint32_t {
-            return 0;
-        });
+    login.do_login(params);
+    // FIXME: No expected conditions?
 }
 
 // --------------------------------------------------------------------------------
@@ -129,10 +129,7 @@ TEST_F(tds_login_ctx_ut_fixture, test_jaxview) {
         0x32, 0x00, 0x2e, 0x00, 0x31, 0x00, 0x36, 0x00, 0x38, 0x00, 0x2e, 0x00, 0x32, 0x00, 0x2e, 0x00, 0x33, 0x00, 0x38, 0x00, 0x6a, 0x00,
         0x54, 0x00, 0x44, 0x00, 0x53, 0x00, 0x4a, 0x00, 0x61, 0x00, 0x78, 0x00, 0x56, 0x00, 0x69, 0x00, 0x65, 0x00, 0x77, 0x00};
 
-    login.do_login(
-        params, nullptr, +[](void *, const uut_t::e_login_status &) -> tdsl::uint32_t {
-            return 0;
-        });
+    login.do_login(params);
     printf("sizeof char16_t %ld\n”", sizeof(char16_t));
     tdsl::util::hexdump(&expected_packet_bytes [0], sizeof(expected_packet_bytes));
     printf("\n %ld vs. %ld \n", sizeof(expected_packet_bytes), tds_ctx.buffer.size());
@@ -177,10 +174,7 @@ TEST_F(tds_login_ctx_ut_fixture, test_mdac) {
         0x6e, 0x00, 0x74, 0x00, 0x73, 0x00, 0x32, 0x00, 0x31, 0x00, 0x37, 0x00, 0x2e, 0x00, 0x37, 0x00, 0x37, 0x00, 0x2e, 0x00, 0x33, 0x00,
         0x2e, 0x00, 0x32, 0x00, 0x35, 0x00, 0x4f, 0x00, 0x44, 0x00, 0x42, 0x00, 0x43, 0x00};
 
-    login.do_login(
-        params, nullptr, +[](void *, const uut_t::e_login_status &) -> tdsl::uint32_t {
-            return 0;
-        });
+    login.do_login(params);
     printf("sizeof char16_t %ld\n”", sizeof(char16_t));
     tdsl::util::hexdump(&expected_packet_bytes [0], sizeof(expected_packet_bytes));
     printf("\n %ld vs. %ld \n", sizeof(expected_packet_bytes), tds_ctx.buffer.size());

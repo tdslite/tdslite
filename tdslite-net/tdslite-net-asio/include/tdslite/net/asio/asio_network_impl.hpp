@@ -1,7 +1,7 @@
 /**
  * _________________________________________________
  *
- * @file   mock_network_impl.hpp
+ * @file   asio_network_impl.hpp
  * @author Mustafa Kemal GILOR <mustafagilor@gmail.com>
  * @date   20.04.2022
  *
@@ -24,7 +24,7 @@
 namespace tdsl { namespace net {
 
     /**
-     * Mock network implementation for tdslite
+     * Synchronous ASIO networking code for tdslite
      */
     struct asio_network_impl : public network_impl_base {
 
@@ -104,47 +104,30 @@ namespace tdsl { namespace net {
         TDSLITE_SYMBOL_VISIBLE int do_send(void) noexcept;
 
         /**
+         * Dispatch receive on socket
+         *
+         * @param [in] transfer_at_least Minimum amount of bytes to be received
+         *                               before invoking the receive callback
+         */
+        TDSLITE_SYMBOL_VISIBLE void do_recv(tdsl::uint32_t minimum_amount) noexcept;
+
+    private:
+        // The send buffer
+        std::vector<tdsl::uint8_t> send_buffer;
+
+        // The receive buffer
+        std::vector<tdsl::uint8_t> recv_buffer;
+        /**
          *
          *
          * @param amount
          * @return TDSLITE_SYMBOL_VISIBLE
          */
         TDSLITE_SYMBOL_VISIBLE void on_recv(tdsl::uint32_t amount);
-
-        // The send buffer
-        std::vector<tdsl::uint8_t> send_buffer;
-
-        // The receive buffer
-        std::vector<tdsl::uint8_t> recv_buffer;
-
-        /**
-         * Wait for all asynchronous operations
-         * to finish.
-
-         */
-        void wait() const noexcept;
-
-    private:
-        /**
-         * Dispatch asynchronous receive on socket
-         *
-         * @param [in] transfer_at_least Minimum amount of bytes to be received
-         *                               before invoking the receive callback
-         */
-        void dispatch_receive(tdsl::uint32_t transfer_at_least);
-
-        std::shared_ptr<void> worker_thread{nullptr};
-        std::shared_ptr<void> socket_handle{nullptr};
         std::shared_ptr<void> io_context{nullptr};
         std::shared_ptr<void> io_context_work_guard{nullptr};
+        std::shared_ptr<void> socket_handle{nullptr};
         std::shared_ptr<void> resolver{nullptr};
-        std::shared_ptr<void> send_strand{nullptr};
-        std::shared_ptr<void> recv_strand{nullptr};
-
-        struct {
-            std::atomic_bool resolve_in_flight{false};
-            std::atomic_bool send_in_flight{false};
-        } flags;
     };
 
 }} // namespace tdsl::net

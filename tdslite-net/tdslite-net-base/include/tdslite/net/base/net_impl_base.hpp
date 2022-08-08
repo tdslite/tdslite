@@ -19,6 +19,7 @@
 #include <tdslite/util/tdsl_span.hpp>
 #include <tdslite/util/tdsl_macrodef.hpp>
 #include <tdslite/util/tdsl_binary_reader.hpp>
+#include <tdslite/util/tdsl_debug_print.hpp>
 
 namespace tdsl { namespace net {
 
@@ -58,6 +59,8 @@ namespace tdsl { namespace net {
             constexpr static auto k_tds_hdr_len = 8;
 
             if (not rr.has_bytes(/*amount_of_bytes=*/k_tds_hdr_len)) {
+                TDSLITE_DEBUG_PRINT("network_impl_base::handle_tds_response(...) -> insufficient data, need %d more byte(s): \n",
+                                    (k_tds_hdr_len - rr.size_bytes()));
                 return k_tds_hdr_len - rr.size_bytes(); // need at least 8 bytes
             }
 
@@ -74,12 +77,16 @@ namespace tdsl { namespace net {
 
             if (flags.expect_full_tds_pdu && not(rr.size_bytes() >= length)) {
                 // Ensure that we got the whole intended payload
+                TDSLITE_DEBUG_PRINT("network_impl_base::handle_tds_response(...) -> insufficient data, need %d more byte(s): \n",
+                                    (length - rr.size_bytes()));
                 return length - rr.size_bytes();
             }
 
             if (msg_cb_ctx.callback) {
                 auto need_bytes = msg_cb_ctx.callback(msg_cb_ctx.user_ptr, static_cast<msg_type>(mt), rr.read(rr.remaining_bytes()));
-                return (need_bytes == 0 ? k_tds_hdr_len : need_bytes);
+                TDSLITE_DEBUG_PRINT("network_impl_base::handle_tds_response(...) -> msg_cb_ctx, need byte(s) value:%d \n",
+                                    (length - rr.size_bytes()));
+                return need_bytes;
             }
 
             return {};
@@ -95,19 +102,8 @@ namespace tdsl { namespace net {
             msg_cb_ctx.callback = cb;
         }
 
-        /**
-         * Set receive callback
-         *
-         * @param [in] rcb New callback
-         */
-        TDSLITE_SYMBOL_VISIBLE void register_connection_state_callback(void * user_ptr, connection_state_callback_ctx::function_type cb) {
-            conn_cb_ctx.user_ptr = user_ptr;
-            conn_cb_ctx.callback = cb;
-        }
-
     protected:
         msg_callback_ctx msg_cb_ctx{};
-        connection_state_callback_ctx conn_cb_ctx{};
         struct {
             bool expect_full_tds_pdu : 1;
             bool reserved : 7;

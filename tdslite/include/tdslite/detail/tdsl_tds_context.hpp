@@ -112,7 +112,7 @@ namespace tdsl { namespace detail {
         struct net_packet_recv_context {
             template <typename... Args>
             inline void recv(Args &&... args) {
-                static_cast<Derived &>(*this)->do_recv(TDSLITE_FORWARD(args)...);
+                static_cast<Derived &>(*this).do_recv(TDSLITE_FORWARD(args)...);
             }
         };
 
