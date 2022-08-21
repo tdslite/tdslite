@@ -15,10 +15,12 @@
 #include <tdslite/detail/tdsl_message_token_type.hpp>
 #include <tdslite/detail/tdsl_envchange_type.hpp>
 #include <tdslite/detail/tdsl_callback_context.hpp>
-#include <tdslite/detail/tdsl_envchange_token.hpp>
-#include <tdslite/detail/tdsl_info_token.hpp>
-#include <tdslite/detail/tdsl_loginack_token.hpp>
-#include <tdslite/detail/tdsl_done_token.hpp>
+#include <tdslite/detail/tdsl_data_type.hpp>
+#include <tdslite/detail/token/tdsl_envchange_token.hpp>
+#include <tdslite/detail/token/tdsl_info_token.hpp>
+#include <tdslite/detail/token/tdsl_loginack_token.hpp>
+#include <tdslite/detail/token/tdsl_done_token.hpp>
+#include <tdslite/detail/token/tdsl_colmetadata_token.hpp>
 
 #include <tdslite/util/tdsl_binary_reader.hpp>
 #include <tdslite/util/tdsl_byte_swap.hpp>
@@ -164,20 +166,32 @@ namespace tdsl { namespace detail {
         callback_context<tds_info_token> info_cb_ctx{};
         // LOGINACK token callback context
         callback_context<tds_login_ack_token> loginack_cb_ctx{};
-        // LOGINACK token callback context
+        // DONE token callback context
         callback_context<tds_done_token> done_cb_ctx{};
+        // COLMETADATA token callback context
+        callback_context<tds_colmetadata_token, tdsl::uint32_t (*)(void *, tds_colmetadata_token &)> colmetadata_cb_ctx{};
 
         struct {
             // Indicates that the tds_context is authenticated against
             // the connected server.
             bool authenticated : 1;
-            bool reserved : 7;
+            // Column names should be read into memory.
+            // By default, they're discarded for memory reasons.
+            bool read_colnames : 1;
+            bool reserved : 6;
         } flags;
 
     public:
+        // --------------------------------------------------------------------------------
+
+        /**
+         * Whether the context has authenticated against
+         * the connected server or not.
+         */
         inline bool is_authenticated() const noexcept {
             return flags.authenticated;
         }
+
         // --------------------------------------------------------------------------------
 
         /**
@@ -274,7 +288,7 @@ namespace tdsl { namespace detail {
          * Register ENVCHANGE token callback.
          *
          * The given callback function will be invoked with token info
-         * when an ENVCHANGE token is received.
+         * when a ENVCHANGE token is received.
          *
          * The @p user_ptr will be passed as the first argument to callback
          * function
@@ -294,7 +308,7 @@ namespace tdsl { namespace detail {
          * Register INFO/ERROR token callback.
          *
          * The given callback function will be invoked with token info
-         * when an INFO or ERROR token is received.
+         * when a INFO or ERROR token is received.
          *
          * The @p user_ptr will be passed as the first argument to callback
          * function
@@ -313,7 +327,7 @@ namespace tdsl { namespace detail {
          * Register LOGINACK token callback.
          *
          * The given callback function will be invoked with token info
-         * when an LOGINACK token is received.
+         * when a LOGINACK token is received.
          *
          * The @p user_ptr will be passed as the first argument to callback
          * function
@@ -333,7 +347,7 @@ namespace tdsl { namespace detail {
          * Register DONE token callback.
          *
          * The given callback function will be invoked with token info
-         * when an DONE token is received.
+         * when a DONE token is received.
          *
          * The @p user_ptr will be passed as the first argument to callback
          * function
@@ -346,42 +360,77 @@ namespace tdsl { namespace detail {
             done_cb_ctx.callback = cb;
         }
 
+        // --------------------------------------------------------------------------------
+
+        /**
+         * Register COLMETADATA token callback.
+         *
+         * The given callback function will be invoked with token info
+         * when a COLMETADTA token is received.
+         *
+         * The @p user_ptr will be passed as the first argument to callback
+         * function
+         *
+         * @param [in] user_ptr User pointer
+         * @param [in] cb Callback function
+         */
+        TDSLITE_SYMBOL_VISIBLE void do_register_colmetadata_token_callback(void * user_ptr,
+                                                                           typename decltype(colmetadata_cb_ctx)::function_type cb) {
+            colmetadata_cb_ctx.user_ptr = user_ptr;
+            colmetadata_cb_ctx.callback = cb;
+        }
+
     private:
+        struct colmetadata_read_result {
+            enum class status
+            {
+                success                  = 0,
+                not_enough_bytes         = -1,
+                not_enough_memory        = -2,
+                unknown_column_size_type = -3,
+            };
+            status status;
+            tdsl::uint32_t need_bytes;
+        };
         /**
          * Handle tabular result message
          *
-         * The function extracts each individual token present in the tabular result message
-         * and calls the appropriate handler function for the extracted token.
+         * The function extracts each individual token present
+         * in the tabular result message and calls the appropriate
+         * handler function for the extracted token.
          *
          * @param [in] rr Reader to read from
          *
-         * @return tdsl::uint32_t Amount of needed bytes to read a complete tabular result message, if any.
-         *                        The return value would be non-zero only if the reader has partial
-         *                        message data.
+         * @returns
+         * tdsl::uint32_t Amount of needed bytes to read a complete tabular result message, if any.
+         *                The return value would be non-zero only if the reader has partial
+         *                message data.
+         * @returntype
          */
         inline tdsl::uint32_t handle_tabular_result_msg(tdsl::binary_reader<tdsl::endian::little> & rr) noexcept {
             using token_type = tdsl::detail::e_tds_message_token_type;
+            tds_colmetadata_token col_metadata{}; // column metadata token, for row results
             while (rr.has_bytes(/*amount_of_bytes=*/3)) {
                 const auto tt = rr.read<tdsl::uint8_t>();
 
                 TDSLITE_ASSERT_MSG(ts < length,
                                    "Something is wrong, token length is greater than the length of the encapsulating TDS PDU!");
 
-                auto ts = 0;
+                tdsl::uint16_t current_token_size = 0;
 
                 if (not(static_cast<token_type>(tt) == token_type::done)) {
-                    ts = rr.read<tdsl::uint16_t>();
+                    current_token_size = rr.read<tdsl::uint16_t>();
                 }
                 else {
-                    ts = {8}; // sizeof done token
+                    current_token_size = {8}; // sizeof done token(fixed)
                 }
 
                 // Ensure that we got enough bytes to read the token
-                if (not(rr.has_bytes(ts))) {
-                    return ts - rr.remaining_bytes();
+                if (not(rr.has_bytes(current_token_size))) {
+                    return current_token_size - rr.remaining_bytes();
                 }
 
-                auto token_reader            = rr.subreader(ts);
+                auto token_reader            = rr.subreader(current_token_size);
 
                 tdsl::uint32_t subhandler_nb = {0};
 
@@ -396,8 +445,40 @@ namespace tdsl { namespace detail {
                     case token_type::done: {
                         subhandler_nb = handle_done_token(token_reader);
                     } break;
+                    case token_type::colmetadata: {
+                        auto result = read_colmetadata_token(token_reader, col_metadata);
+                        if (result.status == decltype(result)::status::not_enough_bytes) {
+                            subhandler_nb = result.need_bytes;
+                            break;
+                        }
+                        switch (result.status) {
+                            case decltype(result)::status::success:
+                                break;
+                            case decltype(result)::status::not_enough_memory: {
+                                TDSLITE_DEBUG_PRINT("Unable to handle COLMETADATA token, not enough memory!\n");
+                                // FIXME: invoke error callback?
+                                return 0;
+                            } break;
+                            default: {
+                                TDSLITE_DEBUG_PRINT("Unknown COLMETADATA handler status code %d, discarding packet\n",
+                                                    static_cast<int>(result.status));
+                                // FIXME: invoke error callback?
+                                return 0;
+                            }
+                        }
+                    } break;
                     case token_type::loginack: {
                         subhandler_nb = handle_loginack_token(rr);
+                    } break;
+                    case token_type::row: {
+                        if (not col_metadata.is_valid()) {
+                            // unlikely
+                            // encountered row info without colmetadata?
+                            TDSLITE_DEBUG_PRINT("Encountered ROW token withour prior COLMETADATA token, discarding packet\n");
+                            // FIXME: invoke error callback?
+                            return 0;
+                        }
+                        subhandler_nb = handle_row_token(rr, col_metadata);
                     } break;
                     default: {
                         TDSLITE_DEBUG_PRINT("Unhandled TOKEN type [%d (%s)]\n", static_cast<int>(tt),
@@ -410,7 +491,7 @@ namespace tdsl { namespace detail {
                 }
 
                 // Advance to the next token
-                rr.advance(ts);
+                rr.advance(current_token_size);
             }
 
             TDSLITE_ASSERT_MSG(rr.remaining_bytes() < 3,
@@ -568,7 +649,7 @@ namespace tdsl { namespace detail {
             token.tds_version = rr.read<tdsl::uint32_t>();
             TDSLITE_TRY_READ_U8_VARCHAR(progname, rr);
 
-            if (not rr.has_bytes(4)) {
+            if (not rr.has_bytes(/*amount_of_bytes=*/4)) {
                 return 4 - rr.remaining_bytes();
             }
 
@@ -618,6 +699,161 @@ namespace tdsl { namespace detail {
             TDSLITE_DEBUG_PRINT("received done token -> status [%d] | cur_cmd [%d] | done_row_count [%d]\n", token.status, token.curcmd,
                                 token.done_row_count);
             done_cb_ctx.maybe_invoke(token);
+            return 0;
+        }
+
+        // --------------------------------------------------------------------------------
+
+        /**
+         * Handler for COLMETADATA token type
+         *
+         * The function parses the given data in @p rr as COLMETADATA token and calls the info
+         * callback function, if a callback function is assigned.
+         *
+         * @param [in] rr Reader to read from
+         * @param [out] out Variable to put parsed COLMETADATA token data
+         *
+         * @return tdsl::uint32_t Amount of needed bytes to read a complete COLMETADATA token, if any.
+         *                        The return value would be non-zero only if the reader has partial
+         *                        token data.
+         */
+        inline colmetadata_read_result read_colmetadata_token(tdsl::binary_reader<tdsl::endian::little> & rr, tds_colmetadata_token & out) {
+            colmetadata_read_result result{};
+
+            constexpr static auto k_min_colmetadata_bytes = 8;
+            if (not rr.has_bytes(k_min_colmetadata_bytes)) {
+                result.status     = decltype(result)::status::not_enough_bytes;
+                result.need_bytes = k_min_colmetadata_bytes - rr.remaining_bytes();
+                TDSLITE_DEBUG_PRINT("received COLMETADATA token, not enough bytes need (at least) %d, have %ld\n", k_min_colmetadata_bytes,
+                                    rr.remaining_bytes());
+                return result;
+            }
+
+            TDSLITE_DEBUG_PRINT("received COLMETADATA token -> column count [%d]\n", out.column_count);
+            auto column_count = rr.read<tdsl::uint16_t>();
+            if (not out.allocate_colinfo_array(column_count)) {
+                result.status = decltype(result)::status::not_enough_memory;
+                TDSLITE_DEBUG_PRINT("failed to allocate memory for column info for %d column(s)", column_count);
+                return result;
+            }
+
+            if (flags.read_colnames) {
+                // Allocate column name array
+                if (not out.allocate_column_name_array(column_count)) {
+                    result.status = decltype(result)::status::not_enough_memory;
+                    TDSLITE_DEBUG_PRINT("failed to allocate memory for column name array for %d column(s)", column_count);
+                    return result;
+                }
+            }
+
+            constexpr int k_colinfo_min_bytes = 6; // user_type + flags + type + colname len
+            auto colindex                     = 0;
+            while (colindex < column_count && rr.has_bytes(k_colinfo_min_bytes)) {
+                tds_column_info & current_column = out.columns [colindex];
+
+                // keep column names separate? makes sense. allocate only if user decided to see column names.
+                current_column.user_type         = rr.read<tdsl::uint16_t>();
+                current_column.flags             = rr.read<tdsl::uint16_t>();
+                current_column.type              = static_cast<e_tds_data_type>(rr.read<tdsl::uint8_t>());
+
+                const auto dtype_props           = get_data_type_props(current_column.type);
+
+                if (not rr.has_bytes(/*amount_of_bytes=*/dtype_props.min_needed_bytes + 1)) {
+                    result.status     = decltype(result)::status::not_enough_bytes;
+                    result.need_bytes = (dtype_props.min_needed_bytes + 1) - rr.remaining_bytes();
+                    return result;
+                }
+
+                switch (dtype_props.size_type) {
+                    case e_tds_data_size_type::fixed:
+                        // No extra info to read for these
+                        // types. Their length is fixed.
+                        break;
+                    case e_tds_data_size_type::var_u8:
+                        // Variable length data types with 8-bit length bit width
+                        current_column.typeprops.u8l.length = rr.read<tdsl::uint8_t>();
+                        break;
+                    case e_tds_data_size_type::var_u16:
+                        // Variable length data types with 16-bit length bit width
+                        current_column.typeprops.u16l.length = rr.read<tdsl::uint16_t>();
+                        break;
+                    case e_tds_data_size_type::var_u32:
+                        // Variable length data types with 32-bit length bit width
+                        current_column.typeprops.u32l.length = rr.read<tdsl::uint32_t>();
+                        break;
+                    case e_tds_data_size_type::var_precision:
+                        // Types like DECIMALNTYPE & NUMERICNTYPE have precision
+                        // and scale values. Precision determines the field's length
+                        // whereas scale is the multiplier.
+                        current_column.typeprops.ps.precision = rr.read<tdsl::uint8_t>();
+                        current_column.typeprops.ps.scale     = rr.read<tdsl::uint8_t>();
+                        break;
+                    case e_tds_data_size_type::unknown:
+
+                        TDSLITE_DEBUG_PRINT("unable to determine data type size for type %d, aborting read",
+                                            static_cast<tdsl::uint8_t>(current_column.type));
+                        result.status     = decltype(result)::status::unknown_column_size_type;
+                        result.need_bytes = 0;
+                        return result;
+                }
+
+                current_column.colname_length_in_chars = rr.read<tdsl::uint8_t>();
+                const auto colname_len_in_bytes        = (current_column.colname_length_in_chars * 2);
+                if (not rr.has_bytes((colname_len_in_bytes * 2))) {
+                    result.status     = decltype(result)::status::not_enough_bytes;
+                    result.need_bytes = colname_len_in_bytes - rr.remaining_bytes();
+                    TDSLITE_DEBUG_PRINT("not enough bytes to read column name, need %d, have %ld", colname_len_in_bytes,
+                                        rr.remaining_bytes());
+                    return result;
+                }
+
+                // FIXME(mgilor): Colname array
+                if (not flags.read_colnames) {
+                    TDSLITE_EXPECT(rr.advance(colname_len_in_bytes));
+                }
+                else {
+                    auto span = rr.read(colname_len_in_bytes);
+                    if (not out.set_column_name(colindex, span)) {
+                        result.status = decltype(result)::status::not_enough_memory;
+                        TDSLITE_DEBUG_PRINT("failed to allocate memory for column index %d 's name", colindex);
+                        return result;
+                    }
+                }
+                ++colindex;
+            }
+
+            // decimal context
+            //
+
+            result.status     = decltype(result)::status::success;
+            result.need_bytes = 0;
+            return result;
+        }
+
+        // --------------------------------------------------------------------------------
+
+        /**
+         * Handler for ROW token type
+         *
+         * The function parses the given data in @p rr as DONE token and calls the info
+         * callback function, if a callback function is assigned.
+         *
+         * @param [in] rr Reader to read from
+         *
+         * @return tdsl::uint32_t Amount of needed bytes to read a complete DONE token, if any.
+         *                        The return value would be non-zero only if the reader has partial
+         *                        token data.
+         */
+        inline tdsl::uint32_t handle_row_token(tdsl::binary_reader<tdsl::endian::little> & rr, const tds_colmetadata_token & colmetadata) {
+            (void) colmetadata;
+            constexpr static auto k_min_done_bytes = 8;
+            if (not rr.has_bytes(k_min_done_bytes)) {
+                return k_min_done_bytes - rr.remaining_bytes();
+            }
+
+            // TDSLITE_DEBUG_PRINT("received done token -> status [%d] | cur_cmd [%d] | done_row_count [%d]\n", token.status, token.curcmd,
+            //                     token.done_row_count);
+            // done_cb_ctx.maybe_invoke(token);
             return 0;
         }
 

@@ -79,7 +79,8 @@ namespace tdsl {
          * @note @p start must be always lesser than @p end
          * @note @p end must be always greater than @p start
          */
-        inline explicit constexpr span(element_type * begin, element_type * end) noexcept : data_(begin), element_count(end - begin) {}
+        inline explicit constexpr span(element_type * begin, element_type * end) noexcept :
+            data_(begin), element_count(end - begin) {}
 
         /**
          * Copy c-tor

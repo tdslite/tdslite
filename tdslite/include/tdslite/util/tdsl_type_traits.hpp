@@ -139,6 +139,18 @@ namespace tdsl { namespace traits {
     template <>
     struct is_integral<char32_t> : public true_type {};
 
+    namespace detail {
+        template <typename>
+        struct is_void_helper : public false_type {};
+
+        template <>
+        struct is_void_helper<void> : public true_type {};
+    } // namespace detail
+
+    /// is_void
+    template <typename T>
+    struct is_void : public detail::is_void_helper<typename remove_cv<T>::type>::type {};
+
     // Conditional
 
     template <bool B, class T, class F>
@@ -159,6 +171,21 @@ namespace tdsl { namespace traits {
     struct disjunction<B1> : B1 {};
     template <class B1, class... Bn>
     struct disjunction<B1, Bn...> : conditional<bool(B1::value), B1, disjunction<Bn...>>::type {};
+
+    template <typename...>
+    struct op_or;
+
+    template <>
+    struct op_or<> : public false_type {};
+
+    template <typename B1>
+    struct op_or<B1> : public B1 {};
+
+    template <typename B1, typename B2>
+    struct op_or<B1, B2> : public conditional<B1::value, B1, B2>::type {};
+
+    template <typename B1, typename B2, typename B3, typename... _Bn>
+    struct op_or<B1, B2, B3, _Bn...> : public conditional<B1::value, B1, op_or<B2, B3, _Bn...>>::type {};
 
     // enable_if_integral
 
@@ -227,6 +254,63 @@ namespace tdsl { namespace traits {
 
     template <class Default, template <class...> class Op, class... Args>
     using detected_or = detail::detector<Default, void, Op, Args...>;
+
+    // referenceable
+
+    template <typename T, typename = void>
+    struct is_referenceable : public false_type {};
+
+    template <typename T>
+    struct is_referenceable<T, void_t<T &>> : public true_type {};
+
+    // add reference
+    template <typename T, bool = is_referenceable<T>::value>
+    struct add_lvalue_reference {
+        using type = T;
+    };
+
+    template <typename T>
+    struct add_lvalue_reference<T, true> {
+        using type = T &;
+    };
+
+    template <typename T, bool = is_referenceable<T>::value>
+    struct add_rvalue_reference {
+        using type = T;
+    };
+
+    template <typename T>
+    struct add_rvalue_reference<T, true> {
+        using type = T &&;
+    };
+
+    template <typename T, bool = op_or<is_referenceable<T>, is_void<T>>::value>
+    struct add_pointer {
+        using type = T;
+    };
+
+    template <typename T>
+    struct add_pointer<T, true> {
+        using type = typename remove_reference<T>::type *;
+    };
+
+    namespace detail {
+
+        // FIXME: This check should include integral_constant<bool, !is_union>
+        // but the implementation of is_union requires compiler intrinsics
+        // so we're cutting corners here.
+        template <class T>
+        true_type is_class_test(int T::*);
+
+        template <class>
+        false_type is_class_test(...);
+    } // namespace detail
+
+    template <class T>
+    struct is_class : decltype(detail::is_class_test<T>(nullptr)) {};
+
+    template <typename T>
+    using enable_if_class = typename enable_if<is_class<T>::value, bool>::type;
 
 }} // namespace tdsl::traits
 

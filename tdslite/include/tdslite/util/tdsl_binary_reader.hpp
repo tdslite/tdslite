@@ -109,7 +109,7 @@ namespace tdsl {
                 do_advance(number_of_elements);
                 return result;
             }
-            return span_type(nullptr, static_cast<tdsl::uint32_t>(0));
+            return span_type(/*elem=*/nullptr, static_cast<tdsl::uint32_t>(0));
         }
 
         /**
@@ -127,7 +127,7 @@ namespace tdsl {
             }
             T result{};
             // This is for complying the strict aliasing rules
-            // for type T. The compiler (usually) optimizes this
+            // for type T. The compiler should optimize this
             // call away.
             memcpy(&result, current(), sizeof(T));
             do_advance(sizeof(T));

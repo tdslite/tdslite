@@ -87,12 +87,19 @@
 
 /**
  * Assert that COND is satisfied
+ * FIXME: Implement this
  */
 #define TDSLITE_ASSERT(COND)
 
 /**
+ * Expect that COND is satisfied
+ * FIXME: Implement this
+ */
+#define TDSLITE_EXPECT(COND) COND
+
+/**
  * Assert with message
- *
+ * FIXME: Implement this
  */
 #define TDSLITE_ASSERT_MSG(COND, MSG)
 

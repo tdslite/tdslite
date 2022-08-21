@@ -14,7 +14,9 @@
 #include <tdslite/detail/tdsl_tds_context.hpp>
 #include <tdslite/detail/tdsl_string_writer.hpp>
 #include <tdslite/detail/tdsl_callback_context.hpp>
-#include <tdslite/detail/tdsl_done_token.hpp>
+#include <tdslite/detail/token/tdsl_done_token.hpp>
+#include <tdslite/detail/token/tdsl_info_token.hpp>
+#include <tdslite/detail/token/tdsl_colmetadata_token.hpp>
 
 #include <tdslite/util/tdsl_span.hpp>
 #include <tdslite/util/tdsl_string_view.hpp>
@@ -60,6 +62,53 @@ namespace tdsl { namespace detail {
             tds_ctx.put_tds_header_length(string_writer_type::calculate_write_size(command));
             // Send the command
             tds_ctx.send();
+
+            // colmetadata
+
+            // tds_colmetadata_token colmd{};
+
+            // tds_ctx.do_register_colmetadata_token_callback(
+            //     &colmd, +[](void * uptr, tds_colmetadata_token & token) -> tdsl::uint32_t {
+            //         tds_colmetadata_token & ctx = *reinterpret_cast<tds_colmetadata_token *>(uptr);
+            //         ctx                         = TDSLITE_MOVE(token);
+            //         return 0;
+            //     });
+
+            // Receive the response
+            tds_ctx.recv(8);
+
+            // if(colmd.columns)
+
+            //
+            // 2048 bytes
+
+            // array of structs-structure of arrays
+            //
+
+            //
+            // for each column in columnmetadata:
+            //      column_info[i] = column
+            // while tokentype is ROW:
+            //      rowdata = []
+            //      for each column in column_info
+            //          field_value = read(column.size)
+            //          handle column-type specific conditions
+            //          rowdata[field] = field_value
+            //      callback(column_info, rowdata)
+
+            // COLMETADATA
+            //  COLUMN_COUNT
+            //  COL1INFO
+            //  COL2INFO
+            //  ...
+            //  COLNINFO
+            // ROW [FIELD-1][FIELD-2]...[FIELD-N]
+            // ROW [FIELD-1][FIELD-2]...[FIELD-N]
+            // ROW [FIELD-1][FIELD-2]...[FIELD-N]
+            // DONE
+            // ...
+            // DONE
+            // callback(colmetadata, row)
         }
 
     private:

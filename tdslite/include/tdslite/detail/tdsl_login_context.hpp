@@ -323,7 +323,7 @@ namespace tdsl { namespace detail {
                         case param_idx::unused:
                         case param_idx::sspi:
                             if (pt == pass_type::offset_size_table) {
-                                tds_ctx.write(0_tdsu32);
+                                tds_ctx.write(/*arg=*/0_tdsu32);
                             }
                             continue;
                             break;
