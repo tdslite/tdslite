@@ -12,6 +12,7 @@
 #include <tdslite/detail/tdsl_login_context.hpp>
 #include <tdslite/detail/tdsl_command_context.hpp>
 #include <tdslite/net/asio/asio_network_impl.hpp>
+#include <tdslite/util/tdsl_expected.hpp>
 
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
@@ -45,6 +46,7 @@ struct tds_command_ctx_it_fixture : public ::testing::Test {
     }
 
     virtual void TearDown() override {}
+
     tds_ctx_t tds_ctx;
     uut_t command_ctx{tds_ctx};
     login_ctx_t::login_parameters params;
@@ -52,5 +54,35 @@ struct tds_command_ctx_it_fixture : public ::testing::Test {
 };
 
 TEST_F(tds_command_ctx_it_fixture, test) {
-    command_ctx.execute_non_query(tdsl::string_view{/*str=*/"DROP TABLE test;CREATE TABLE test(q int,y int);"}); // callback
+    // row callback
+    // done callback?
+    command_ctx.execute_query(tdsl::string_view{/*str=*/"DROP TABLE test;CREATE TABLE test(q int,y int);"}); // callback
+}
+
+TEST_F(tds_command_ctx_it_fixture, test2) {
+    // row callback
+    // done callback?
+    command_ctx.execute_query(tdsl::string_view{/*str=*/"DROP TABLE test;CREATE TABLE test(q int,y int);"}); // callback
+    command_ctx.execute_query(tdsl::string_view{/*str=*/"INSERT INTO test VALUES(1,1);"});                   // callback
+}
+
+TEST_F(tds_command_ctx_it_fixture, test3) {
+    // row callback
+    // done callback?
+
+    // should return 0 rows affected?
+    EXPECT_EQ(0, command_ctx.execute_query(tdsl::string_view{/*str=*/"DROP TABLE test;CREATE TABLE test(q int,y int);"})); // callback
+    // should return 1 rows affected
+    EXPECT_EQ(1, command_ctx.execute_query(tdsl::string_view{/*str=*/"INSERT INTO test VALUES(1,1);"})); // callback
+    EXPECT_EQ(1, command_ctx.execute_query(tdsl::string_view{/*str=*/"INSERT INTO test VALUES(1,1);"})); // callback
+    EXPECT_EQ(1, command_ctx.execute_query(tdsl::string_view{/*str=*/"INSERT INTO test VALUES(1,1);"})); // callback
+
+    auto callback = +[](void *, const tdsl::tds_colmetadata_token & colmd, const tdsl::tdsl_row & row_data) {
+        std::printf("colcnt %d\n", colmd.column_count);
+        std::printf("row with %d fields\n", row_data.fields.size());
+    };
+    // should return 1 rows with 2 int fields.
+    tdsl::uint32_t rows_affected =
+        command_ctx.execute_query(tdsl::string_view{/*str=*/"SELECT q,y from test;"}, nullptr, callback); // callback
+    std::printf("rows affected %d\n", rows_affected);
 }

@@ -73,7 +73,7 @@ namespace tdsl { namespace net {
             // Skip channel, packet id and window
             rr.advance(/*amount_of_bytes=*/4);
 
-            (void) status;
+            (void) status; // FIXME: Check EOM
 
             if (flags.expect_full_tds_pdu && not(rr.size_bytes() >= length)) {
                 // Ensure that we got the whole intended payload

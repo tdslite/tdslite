@@ -11,18 +11,16 @@
 
 #pragma once
 
-#include <tdslite/detail/tdsl_data_type.hpp>
 #include <tdslite/util/tdsl_inttypes.hpp>
 #include <tdslite/util/tdsl_span.hpp>
 #include <tdslite/util/tdsl_string_view.hpp>
 #include <tdslite/util/tdsl_noncopyable.hpp>
-
-#include <cstdlib>
-#include <new>
+#include <tdslite/detail/tdsl_data_type.hpp>
+#include <tdslite/detail/tdsl_allocator.hpp>
 
 namespace tdsl {
 
-    // Carefully packed into 12-byte layout to make
+    // Packed into 12-byte layout to make
     // most of the space useful.
     struct tds_column_info {
         /* User-defined type value */
@@ -45,65 +43,15 @@ namespace tdsl {
                 tdsl::uint8_t _unused [3];
             } u8l; // types with variable length of unsigned 8-bit size
             struct {
+                tdsl::uint8_t length; // this is the actual length, not the length's length.
+                tdsl::uint8_t _unused [3];
+            } fixed; // types with fixed length
+            struct {
                 tdsl::uint8_t precision;
                 tdsl::uint8_t scale;
                 tdsl::uint8_t _unused [2];
             } ps{};  // types with precision and scale
         } typeprops; // type-specific properties
-    };
-
-    // TODO: move this to a saner place
-    inline void * tds_allocate(unsigned long n_bytes) noexcept {
-        return std::malloc(n_bytes);
-    }
-
-    inline void tds_deallocate(void * p, unsigned long n_bytes) noexcept {
-        (void) n_bytes;
-        std::free(p);
-    }
-
-    template <typename T>
-    struct tds_allocator {
-        static T * allocate(tdsl::uint32_t n_elems) {
-            void * mem = tds_allocate(n_elems * sizeof(T));
-            if (nullptr == mem) {
-                return nullptr;
-            }
-
-            // Invoke placement new for each element
-            T * storage = static_cast<T *>(mem);
-            // use placement new here
-            return storage;
-        }
-
-        static void deallocate(T * p, tdsl::uint32_t n_elems) {
-            // call destructor if class type
-
-            tds_deallocate(p, sizeof(T) * n_elems);
-        }
-
-        template <typename Q = T, traits::enable_if_class<Q> = true>
-        static void construct(Q * storage, tdsl::uint32_t n_elems) {
-            for (tdsl::uint32_t i = 0; i < n_elems; i++) {
-                new (storage + i) Q();
-            }
-        }
-
-        template <typename Q = T, traits::enable_if_class<Q> = true>
-        static void destruct(Q * storage, tdsl::uint32_t n_elems) {
-            for (tdsl::uint32_t i = 0; i < n_elems; i++) {
-                storage [i].~Q();
-            }
-        }
-
-    private:
-        // noop
-        template <typename Q>
-        static void construct(Q *, tdsl::uint32_t) {}
-
-        // noop
-        template <typename Q>
-        static void destruct(Q *, tdsl::uint32_t) {}
     };
 
     struct tds_colmetadata_token : public util::noncopyable {
@@ -148,14 +96,14 @@ namespace tdsl {
          * This function allocates at least @p name.size_bytes() bytes
          * memory and copies @p name into allocated memory.
          *
-         * @param index
-         * @param name
-         * @return true
-         * @return false
+         * @param [in] index Column index
+         * @param [in] name Name value
+         * @return true if set successful, false if memory allocation failed
          */
         bool set_column_name(tdsl::uint16_t index, tdsl::span<const tdsl::uint8_t> name) {
             TDSLITE_ASSERT(index < column_count);
             column_names [index] = tds_allocator<char16_t>::allocate(name.size_bytes() / 2);
+            // FIXME: Set column name!
             return not(nullptr == column_names [index]);
         }
 
@@ -168,7 +116,7 @@ namespace tdsl {
 
                 for (int i = 0; i < column_count; i++) {
                     if (not(nullptr == column_names [i])) {
-                        tds_allocator<char16_t>::deallocate(column_names [i], 0);
+                        tds_allocator<char16_t>::deallocate(column_names [i], /*n_elems=*/0);
                     }
                 }
                 tds_allocator<char16_t *>::deallocate(column_names, column_count);

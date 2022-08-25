@@ -38,4 +38,16 @@ namespace tdsl { namespace util {
             printf("\n");
         }
     }
+
+    static inline void hexprint(const void * ptr, unsigned long long buflen) noexcept {
+        const unsigned char * buf = static_cast<const unsigned char *>(ptr);
+        for (unsigned long long i = 0; i < buflen; i++) {
+            printf("%02x ", buf [i]);
+        }
+
+        printf(" ");
+        for (unsigned long long i = 0; i < buflen; i++) {
+            printf("%c", isprint(buf [i]) ? buf [i] : '.');
+        }
+    }
 }} // namespace tdsl::util

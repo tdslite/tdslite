@@ -20,6 +20,7 @@ ColumnLimit: 140 # Each line is 140 characters
 SortIncludes: false # Enable include sorting
 SortUsingDeclarations: true # Enable include sorting
 IndentCaseLabels: true
+SeparateDefinitionBlocks: Always
 
 # ###################
 # Macro related stuff

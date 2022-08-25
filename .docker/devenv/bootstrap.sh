@@ -19,7 +19,8 @@ done
 
 SCRIPT_ROOT="$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd )"
 
-LLVM_VERSION=14
+LLVM_VERSION=15
+GCC_VERSION=12
 
 # Enable abort on error
 set -eu
@@ -42,7 +43,7 @@ readonly apt_package_list=(
     # Verify ssh, git, git-lfs process tools, lsb-release (useful for CLI installs) installed
     ssh git git-extras git-lfs iproute2 procps lsb-release
     # Install GCC Toolchain, version 11
-    gcc-11 g++-11
+    gcc-${GCC_VERSION} g++-${GCC_VERSION}
     # Install LLVM Toolchain, version 13
     llvm-${LLVM_VERSION} lld-${LLVM_VERSION} clang-${LLVM_VERSION} libc++-${LLVM_VERSION}-dev libc++abi-${LLVM_VERSION}-dev libunwind-${LLVM_VERSION}-dev clang-format-${LLVM_VERSION} clang-tidy-${LLVM_VERSION} clangd-${LLVM_VERSION}
     # Install debugger, build generator & dependency resolution and build accelarator tools
@@ -68,7 +69,7 @@ readonly pip_command='pip3'
 readonly pip_args='install'
 # Packages to be installed via pip
 readonly pip_package_list=(
-    conan==1.45.0
+    'conan<2'
     requests
     gcovr
 )
@@ -79,8 +80,8 @@ readonly pip_package_list=(
 readonly conan_command='conan'
 # Packages to be installed via Conan
 readonly conan_package_list=(
-    gtest/1.11.0
-    benchmark/1.5.3
+    gtest/1.12.1
+    benchmark/1.7.0
 )
 
 echo "Current user is $(whoami)"
@@ -269,7 +270,7 @@ function adjust_symlinks {
     sudo ln -sf /usr/bin/python3 /usr/bin/python
     
     # (mgilor): Required for `gcovr`
-    sudo ln -sf /usr/bin/gcov-11 /usr/bin/gcov
+    sudo ln -sf /usr/bin/gcov-${GCC_VERSION} /usr/bin/gcov
     
     # Conan
     sudo ln -sf /usr/local/bin/conan /usr/bin/conan

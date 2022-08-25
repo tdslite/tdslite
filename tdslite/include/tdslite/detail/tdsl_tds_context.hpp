@@ -16,6 +16,7 @@
 #include <tdslite/detail/tdsl_envchange_type.hpp>
 #include <tdslite/detail/tdsl_callback_context.hpp>
 #include <tdslite/detail/tdsl_data_type.hpp>
+#include <tdslite/detail/tdsl_row.hpp>
 #include <tdslite/detail/token/tdsl_envchange_token.hpp>
 #include <tdslite/detail/token/tdsl_info_token.hpp>
 #include <tdslite/detail/token/tdsl_loginack_token.hpp>
@@ -29,6 +30,7 @@
 #include <tdslite/util/tdsl_inttypes.hpp>
 #include <tdslite/util/tdsl_macrodef.hpp>
 #include <tdslite/util/tdsl_debug_print.hpp>
+#include <tdslite/util/tdsl_expected.hpp>
 
 #define TDSLITE_TRY_READ_VARCHAR(TYPE, VARNAME, READER)                                                                                    \
     const auto VARNAME##_octets = (READER.read<TYPE>() * 2);                                                                               \
@@ -136,7 +138,6 @@ namespace tdsl { namespace detail {
      * Base type for all TDS message contexts
      *
      * @tparam NetImpl Network-layer Implementation
-     * @tparam TYPE Message type
      */
     template <typename NetImpl>
     struct tds_context : public NetImpl,
@@ -159,6 +160,8 @@ namespace tdsl { namespace detail {
             tdsl::uint8_t window;
         } TDSLITE_PACKED;
 
+        using row_callback_fn_t = void (*)(void *, const tds_colmetadata_token &, const tdsl_row &);
+
     private:
         // ENVCHANGE token callback context
         callback_context<tds_envchange_token> envinfochg_cb_ctx{};
@@ -169,7 +172,9 @@ namespace tdsl { namespace detail {
         // DONE token callback context
         callback_context<tds_done_token> done_cb_ctx{};
         // COLMETADATA token callback context
-        callback_context<tds_colmetadata_token, tdsl::uint32_t (*)(void *, tds_colmetadata_token &)> colmetadata_cb_ctx{};
+        callback_context<void, tdsl::uint32_t (*)(void *, tds_colmetadata_token &)> colmetadata_cb_ctx{};
+        // ROW callback context
+        callback_context<void, row_callback_fn_t> row_cb_ctx{};
 
         struct {
             // Indicates that the tds_context is authenticated against
@@ -277,6 +282,10 @@ namespace tdsl { namespace detail {
                 case msg_type::tabular_result: {
                     return self->handle_tabular_result_msg(rr);
                 } break;
+                default: {
+                    TDSLITE_DEBUG_PRINT("tds_context::handle_msg: unhandled (%d) bytes of msg with type (%d)", message.size_bytes(),
+                                        static_cast<int>(mt));
+                } break;
             }
 
             return 0;
@@ -298,8 +307,7 @@ namespace tdsl { namespace detail {
          */
         TDSLITE_SYMBOL_VISIBLE void do_register_envchange_token_callback(void * user_ptr,
                                                                          typename decltype(envinfochg_cb_ctx)::function_type cb) {
-            envinfochg_cb_ctx.user_ptr = user_ptr;
-            envinfochg_cb_ctx.callback = cb;
+            envinfochg_cb_ctx.set(user_ptr, cb);
         }
 
         // --------------------------------------------------------------------------------
@@ -317,8 +325,7 @@ namespace tdsl { namespace detail {
          * @param [in] cb Callback function
          */
         TDSLITE_SYMBOL_VISIBLE void do_register_info_token_callback(void * user_ptr, typename decltype(info_cb_ctx)::function_type cb) {
-            info_cb_ctx.user_ptr = user_ptr;
-            info_cb_ctx.callback = cb;
+            info_cb_ctx.set(user_ptr, cb);
         }
 
         // --------------------------------------------------------------------------------
@@ -337,8 +344,7 @@ namespace tdsl { namespace detail {
          */
         TDSLITE_SYMBOL_VISIBLE void do_register_loginack_token_callback(void * user_ptr,
                                                                         typename decltype(loginack_cb_ctx)::function_type cb) {
-            loginack_cb_ctx.user_ptr = user_ptr;
-            loginack_cb_ctx.callback = cb;
+            loginack_cb_ctx.set(user_ptr, cb);
         }
 
         // --------------------------------------------------------------------------------
@@ -356,8 +362,7 @@ namespace tdsl { namespace detail {
          * @param [in] cb Callback function
          */
         TDSLITE_SYMBOL_VISIBLE void do_register_done_token_callback(void * user_ptr, typename decltype(done_cb_ctx)::function_type cb) {
-            done_cb_ctx.user_ptr = user_ptr;
-            done_cb_ctx.callback = cb;
+            done_cb_ctx.set(user_ptr, cb);
         }
 
         // --------------------------------------------------------------------------------
@@ -376,8 +381,25 @@ namespace tdsl { namespace detail {
          */
         TDSLITE_SYMBOL_VISIBLE void do_register_colmetadata_token_callback(void * user_ptr,
                                                                            typename decltype(colmetadata_cb_ctx)::function_type cb) {
-            colmetadata_cb_ctx.user_ptr = user_ptr;
-            colmetadata_cb_ctx.callback = cb;
+            colmetadata_cb_ctx.set(user_ptr, cb);
+        }
+
+        // --------------------------------------------------------------------------------
+
+        /**
+         * Register ROW token callback.
+         *
+         * The given callback function will be invoked with token info
+         * when a ROW token is received.
+         *
+         * The @p user_ptr will be passed as the first argument to callback
+         * function
+         *
+         * @param [in] user_ptr User pointer
+         * @param [in] cb Callback function
+         */
+        TDSLITE_SYMBOL_VISIBLE void do_register_row_callback(void * user_ptr, typename decltype(row_cb_ctx)::function_type cb) {
+            row_cb_ctx.set(user_ptr, cb);
         }
 
     private:
@@ -392,61 +414,47 @@ namespace tdsl { namespace detail {
             status status;
             tdsl::uint32_t need_bytes;
         };
+
         /**
-         * Handle tabular result message
+         * Handler for TDS tabular result message type.
          *
          * The function extracts each individual token present
          * in the tabular result message and calls the appropriate
          * handler function for the extracted token.
          *
          * @param [in] rr Reader to read from
-         *
          * @returns
-         * tdsl::uint32_t Amount of needed bytes to read a complete tabular result message, if any.
-         *                The return value would be non-zero only if the reader has partial
-         *                message data.
-         * @returntype
+         * Amount of needed bytes to read a complete tabular result message, if any.
+         * The return value would be non-zero only if the reader has partial
+         * message data.
          */
         inline tdsl::uint32_t handle_tabular_result_msg(tdsl::binary_reader<tdsl::endian::little> & rr) noexcept {
             using token_type = tdsl::detail::e_tds_message_token_type;
             tds_colmetadata_token col_metadata{}; // column metadata token, for row results
-            while (rr.has_bytes(/*amount_of_bytes=*/3)) {
-                const auto tt = rr.read<tdsl::uint8_t>();
 
-                TDSLITE_ASSERT_MSG(ts < length,
-                                   "Something is wrong, token length is greater than the length of the encapsulating TDS PDU!");
+            constexpr int k_min_token_need_bytes = 3;
+            // start parsing tokens
+            while (rr.has_bytes(/*amount_of_bytes=*/k_min_token_need_bytes)) {
+                const auto tt                = static_cast<token_type>(rr.read<tdsl::uint8_t>());
 
-                tdsl::uint16_t current_token_size = 0;
+                // TDSLITE_ASSERT_MSG( < length,
+                //                    "Something is wrong, token length is greater than the length of the encapsulating TDS PDU!");
 
-                if (not(static_cast<token_type>(tt) == token_type::done)) {
-                    current_token_size = rr.read<tdsl::uint16_t>();
-                }
-                else {
-                    current_token_size = {8}; // sizeof done token(fixed)
-                }
+                // Yet again, the protocol designers have decided to not to
+                // be consistent with their design. Some of the tokens
+                // have size information available, some dont. Sigh...
+                // One does not simply "be consistent".
+                //
+                // In my opinion, it must be an obligation for protocol
+                // designers to implement their protocol from scratch,
+                // just to see how stupid their decisions are.
 
-                // Ensure that we got enough bytes to read the token
-                if (not(rr.has_bytes(current_token_size))) {
-                    return current_token_size - rr.remaining_bytes();
-                }
-
-                auto token_reader            = rr.subreader(current_token_size);
-
+                // Possibility #1: Tokens with no size information
+                // We expect these handlers to advance the reader position themselves.
                 tdsl::uint32_t subhandler_nb = {0};
-
-                switch (static_cast<token_type>(tt)) {
-                    case token_type::envchange: {
-                        subhandler_nb = handle_envchange_token(token_reader);
-                    } break;
-                    case token_type::error:
-                    case token_type::info: {
-                        subhandler_nb = handle_info_token(token_reader);
-                    } break;
-                    case token_type::done: {
-                        subhandler_nb = handle_done_token(token_reader);
-                    } break;
+                switch (tt) {
                     case token_type::colmetadata: {
-                        auto result = read_colmetadata_token(token_reader, col_metadata);
+                        auto result = read_colmetadata_token(rr, col_metadata);
                         if (result.status == decltype(result)::status::not_enough_bytes) {
                             subhandler_nb = result.need_bytes;
                             break;
@@ -467,12 +475,8 @@ namespace tdsl { namespace detail {
                             }
                         }
                     } break;
-                    case token_type::loginack: {
-                        subhandler_nb = handle_loginack_token(rr);
-                    } break;
                     case token_type::row: {
                         if (not col_metadata.is_valid()) {
-                            // unlikely
                             // encountered row info without colmetadata?
                             TDSLITE_DEBUG_PRINT("Encountered ROW token withour prior COLMETADATA token, discarding packet\n");
                             // FIXME: invoke error callback?
@@ -481,25 +485,62 @@ namespace tdsl { namespace detail {
                         subhandler_nb = handle_row_token(rr, col_metadata);
                     } break;
                     default: {
-                        TDSLITE_DEBUG_PRINT("Unhandled TOKEN type [%d (%s)]\n", static_cast<int>(tt),
-                                            message_token_type_to_str(static_cast<token_type>(tt)));
-                    } break;
+                        tdsl::uint16_t current_token_size = 0;
+                        // Possibility #2: Tokens with size information available
+                        // beforehand. These are easier to parse since we know
+                        // how many bytes to expect
+                        if (not(tt == token_type::done)) {
+                            current_token_size = rr.read<tdsl::uint16_t>();
+                        }
+                        else {
+                            current_token_size = {8}; // sizeof done token(fixed)
+                        }
+
+                        // Ensure that we got enough bytes to read the token
+                        if (not(rr.has_bytes(current_token_size))) {
+                            return current_token_size - rr.remaining_bytes();
+                        }
+
+                        auto token_reader = rr.subreader(current_token_size);
+                        switch (tt) {
+                            case token_type::envchange: {
+                                subhandler_nb = handle_envchange_token(token_reader);
+                            } break;
+                            case token_type::error:
+                            case token_type::info: {
+                                subhandler_nb = handle_info_token(token_reader);
+                            } break;
+                            case token_type::done: {
+                                subhandler_nb = handle_done_token(token_reader);
+                            } break;
+                            case token_type::loginack: {
+                                subhandler_nb = handle_loginack_token(rr);
+                            } break;
+
+                            default: {
+                                TDSLITE_DEBUG_PRINT("Unhandled TOKEN type [%d (%s)]\n", static_cast<int>(tt),
+                                                    message_token_type_to_str(static_cast<token_type>(tt)));
+                            } break;
+                        }
+                        // Advance to the next token
+                        rr.advance(current_token_size);
+                    }
                 }
 
+                // If we need more bytes to proceed, ask for more bytes
                 if (subhandler_nb > 0) {
                     return subhandler_nb;
                 }
-
-                // Advance to the next token
-                rr.advance(current_token_size);
             }
+
+            // "All integer types are represented in reverse byte order (little-endian) unless otherwise specified."
 
             TDSLITE_ASSERT_MSG(rr.remaining_bytes() < 3,
                                "There are more than 3 bytes remaining in the reader, something is wrong in token handler loop!");
 
             // We expect here to have consumed all of the reader. If that is not the case
             // that means we got partial data.
-            return (rr.remaining_bytes() == 0 ? 0 : 3 - rr.remaining_bytes());
+            return (rr.remaining_bytes() == 0 ? 0 : k_min_token_need_bytes - rr.remaining_bytes());
         }
 
         // --------------------------------------------------------------------------------
@@ -527,23 +568,16 @@ namespace tdsl { namespace detail {
                 case envchange_type::language:
                 case envchange_type::charset:
                 case envchange_type::packet_size: {
-                    // The reader must have at least 2 bytes (new value length, old value length)
-                    if (not rr.has_bytes(/*amount_of_bytes=*/2)) {
-                        return 2 - rr.remaining_bytes();
-                    }
+                    // The reader must have at least 1 bytes
+                    TDSLITE_RETIF_LESS_BYTES(rr, 1);
 
                     // Read new value
                     const auto nvlen_octets = (rr.read<tdsl::uint8_t>() * 2);
-                    if (not rr.has_bytes(nvlen_octets)) {
-                        return nvlen_octets - rr.remaining_bytes();
-                    }
+                    TDSLITE_RETIF_LESS_BYTES(rr, nvlen_octets + 1); // +1 for ovlen
                     const auto nvval        = rr.read(nvlen_octets);
-
-                    // Read old valu
+                    // Read old value
                     const auto ovlen_octets = (rr.read<tdsl::uint8_t>() * 2);
-                    if (not rr.has_bytes(ovlen_octets)) {
-                        return ovlen_octets - rr.remaining_bytes();
-                    }
+                    TDSLITE_RETIF_LESS_BYTES(rr, ovlen_octets);
                     const auto ovval = rr.read(ovlen_octets);
 
                     tds_envchange_token envchange_info{};
@@ -638,7 +672,7 @@ namespace tdsl { namespace detail {
          */
         inline tdsl::uint32_t handle_loginack_token(tdsl::binary_reader<tdsl::endian::little> & rr) {
             constexpr static auto k_min_loginack_bytes = 10;
-
+            constexpr static auto k_progver_bytes      = 4;
             if (not rr.has_bytes(k_min_loginack_bytes)) {
                 return k_min_loginack_bytes - rr.remaining_bytes();
             }
@@ -649,8 +683,8 @@ namespace tdsl { namespace detail {
             token.tds_version = rr.read<tdsl::uint32_t>();
             TDSLITE_TRY_READ_U8_VARCHAR(progname, rr);
 
-            if (not rr.has_bytes(/*amount_of_bytes=*/4)) {
-                return 4 - rr.remaining_bytes();
+            if (not rr.has_bytes(k_progver_bytes)) {
+                return k_progver_bytes - rr.remaining_bytes();
             }
 
             token.prog_version.maj         = rr.read<tdsl::uint8_t>();
@@ -729,7 +763,6 @@ namespace tdsl { namespace detail {
                 return result;
             }
 
-            TDSLITE_DEBUG_PRINT("received COLMETADATA token -> column count [%d]\n", out.column_count);
             auto column_count = rr.read<tdsl::uint16_t>();
             if (not out.allocate_colinfo_array(column_count)) {
                 result.status = decltype(result)::status::not_enough_memory;
@@ -758,11 +791,14 @@ namespace tdsl { namespace detail {
 
                 const auto dtype_props           = get_data_type_props(current_column.type);
 
-                if (not rr.has_bytes(/*amount_of_bytes=*/dtype_props.min_needed_bytes + 1)) {
+                if (not rr.has_bytes(/*amount_of_bytes=*/dtype_props.length.variable.length_size + 1)) {
                     result.status     = decltype(result)::status::not_enough_bytes;
-                    result.need_bytes = (dtype_props.min_needed_bytes + 1) - rr.remaining_bytes();
+                    result.need_bytes = (dtype_props.length.variable.length_size + 1) - rr.remaining_bytes();
                     return result;
                 }
+
+                // COLLATION occurs only if the type is BIGCHARTYPE, BIGVARCHARTYPE, TEXTTYPE, NTEXTTYPE,
+                // NCHARTYPE, or NVARCHARTYPE.
 
                 switch (dtype_props.size_type) {
                     case e_tds_data_size_type::fixed:
@@ -807,12 +843,11 @@ namespace tdsl { namespace detail {
                     return result;
                 }
 
-                // FIXME(mgilor): Colname array
                 if (not flags.read_colnames) {
                     TDSLITE_EXPECT(rr.advance(colname_len_in_bytes));
                 }
                 else {
-                    auto span = rr.read(colname_len_in_bytes);
+                    const auto span = rr.read(colname_len_in_bytes);
                     if (not out.set_column_name(colindex, span)) {
                         result.status = decltype(result)::status::not_enough_memory;
                         TDSLITE_DEBUG_PRINT("failed to allocate memory for column index %d 's name", colindex);
@@ -822,9 +857,7 @@ namespace tdsl { namespace detail {
                 ++colindex;
             }
 
-            // decimal context
-            //
-
+            TDSLITE_DEBUG_PRINT("received COLMETADATA token -> column count [%d]\n", out.column_count);
             result.status     = decltype(result)::status::success;
             result.need_bytes = 0;
             return result;
@@ -845,15 +878,82 @@ namespace tdsl { namespace detail {
          *                        token data.
          */
         inline tdsl::uint32_t handle_row_token(tdsl::binary_reader<tdsl::endian::little> & rr, const tds_colmetadata_token & colmetadata) {
-            (void) colmetadata;
-            constexpr static auto k_min_done_bytes = 8;
-            if (not rr.has_bytes(k_min_done_bytes)) {
-                return k_min_done_bytes - rr.remaining_bytes();
+            // using data_type                        = tdsl::detail::e_tds_data_type;
+            using data_size_type = tdsl::detail::e_tds_data_size_type;
+
+            // constexpr static auto k_min_done_bytes = 8;
+
+            // if (not rr.has_bytes(k_min_done_bytes)) {
+            //     return k_min_done_bytes - rr.remaining_bytes();
+            // }
+
+            auto row_data{tdsl_row::make(colmetadata.column_count)};
+
+            if (not row_data) {
+                TDSLITE_DEBUG_PRINT("row data creation failed (%d)", static_cast<int>(row_data.error()));
+                // report error
+                return 0;
             }
 
-            // TDSLITE_DEBUG_PRINT("received done token -> status [%d] | cur_cmd [%d] | done_row_count [%d]\n", token.status, token.curcmd,
-            //                     token.done_row_count);
-            // done_cb_ctx.maybe_invoke(token);
+            // Each row should contain N fields.
+            for (tdsl::uint32_t cidx = 0; cidx < colmetadata.column_count; cidx++) {
+                // TDSLITE_ASSERT_MSG(colmetadata.columns [cidx] != nullptr, "column info is null!");
+                auto & field                = row_data->fields.data() [cidx];
+                const auto & column         = colmetadata.columns [cidx];
+                const auto & dprop          = get_data_type_props(column.type);
+
+                tdsl::uint32_t field_length = 0;
+                switch (dprop.size_type) {
+                    case data_size_type::fixed:
+                        field_length = dprop.length.fixed;
+                        break;
+                    case data_size_type::var_u8:
+                        if (not rr.has_bytes(sizeof(tdsl::uint8_t))) {
+                            return 1;
+                        }
+                        field_length = rr.read<tdsl::uint8_t>();
+                        break;
+                    case data_size_type::var_u16:
+                        if (not rr.has_bytes(sizeof(tdsl::uint16_t))) {
+                            return sizeof(tdsl::uint16_t);
+                        }
+                        field_length = rr.read<tdsl::uint16_t>();
+                        break;
+                    case data_size_type::var_u32:
+                        if (not rr.has_bytes(sizeof(tdsl::uint32_t))) {
+                            return sizeof(tdsl::uint32_t);
+                        }
+                        field_length = rr.read<tdsl::uint32_t>();
+                        break;
+                    case data_size_type::var_precision:
+                        break;
+                    case data_size_type::unknown:
+                        TDSLITE_ASSERT_MSG(0, "unknown size_type");
+                        TDSLITE_UNREACHABLE;
+                        break;
+                }
+
+                if (not rr.has_bytes(field_length)) {
+                    TDSLITE_DEBUG_PRINT("not enough bytes for reading field, %lu more bytes needed\n", field_length - rr.remaining_bytes());
+                    return field_length - rr.remaining_bytes();
+                }
+
+                if (field_length) {
+                    field.data = rr.read(field_length);
+                }
+
+                // (mgilor) `%.*s` does not work here, printf stops printing
+                // characters immediately when it encounters a \0, regardless
+                // of the provided string's length.
+
+                TDSLITE_DEBUG_PRINT("row field %u -> [", cidx);
+                TDSLITE_DEBUG_HEXPRINT(field.data.data(), field_length);
+                TDSLITE_DEBUG_PRINT("]\n");
+            }
+
+            // Invoke row callback
+            row_cb_ctx.maybe_invoke(colmetadata, row_data.get());
+
             return 0;
         }
 

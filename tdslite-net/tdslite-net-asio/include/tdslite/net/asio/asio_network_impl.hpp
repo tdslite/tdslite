@@ -29,25 +29,20 @@ namespace tdsl { namespace net {
     struct asio_network_impl : public network_impl_base {
 
         /**
-         *
-         *
-         * @param callback
-         * @return TDSLITE_SYMBOL_VISIBLE
+         * Default c-tor
          */
         TDSLITE_SYMBOL_VISIBLE asio_network_impl();
 
         /**
-         *
-         *
-         * @return TDSLITE_SYMBOL_VISIBLE
+         * D-tor
          */
         TDSLITE_SYMBOL_VISIBLE ~asio_network_impl();
 
         /**
+         * Connect to the target endpoint @p target : @p port
          *
-         *
-         * @param target
-         * @param port
+         * @param [in] target Hostname or IP
+         * @param [in] port Port number
          *
          * @returns 0 when asynchronous resolve is dispatched for @p target and @p port
          * @returns -1 when socket associated with network implementation is alive, call @ref do_disconnect first
@@ -65,10 +60,9 @@ namespace tdsl { namespace net {
         TDSLITE_SYMBOL_VISIBLE int do_disconnect() noexcept;
 
         /**
+         * Append @p data to send buffer
          *
-         *
-         * @tparam T
-         * @param data
+         * @param [in] data Data to append
          */
         template <typename T>
         inline void do_write(tdsl::span<T> data) noexcept {
@@ -76,11 +70,10 @@ namespace tdsl { namespace net {
         }
 
         /**
+         * Append @p data to send buffer, starting from send buffer offset @p offset
          *
-         *
-         * @tparam T
-         * @param offset
-         * @param data
+         * @param [in] offset Offset to start from
+         * @param [in] data Data to append
          */
         template <typename T>
         inline void do_write(tdsl::uint32_t offset, tdsl::span<T> data) noexcept {
@@ -106,8 +99,9 @@ namespace tdsl { namespace net {
         /**
          * Dispatch receive on socket
          *
-         * @param [in] transfer_at_least Minimum amount of bytes to be received
-         *                               before invoking the receive callback
+         * @param [in] minimum_amount
+         * Minimum amount of bytes to be received
+         * before invoking the receive callback
          */
         TDSLITE_SYMBOL_VISIBLE void do_recv(tdsl::uint32_t minimum_amount) noexcept;
 
@@ -118,10 +112,9 @@ namespace tdsl { namespace net {
         // The receive buffer
         std::vector<tdsl::uint8_t> recv_buffer;
         /**
+         * Data receive handler
          *
-         *
-         * @param amount
-         * @return TDSLITE_SYMBOL_VISIBLE
+         * @param amount Received amount
          */
         TDSLITE_SYMBOL_VISIBLE void on_recv(tdsl::uint32_t amount);
         std::shared_ptr<void> io_context{nullptr};

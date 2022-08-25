@@ -1,7 +1,7 @@
 /**
  * _________________________________________________
  *
- * @file   tdsl_query_context.hpp
+ * @file   tdsl_command_context.hpp
  * @author Mustafa Kemal GILOR <mustafagilor@gmail.com>
  * @date   23.05.2022
  *
@@ -41,19 +41,36 @@ namespace tdsl { namespace detail {
                 this, +[](void *, const tds_info_token &) -> tdsl::uint32_t {
                     return 0;
                 });
+            tds_ctx.do_register_done_token_callback(this, [](void * uptr, const tds_done_token & dt) -> tdsl::uint32_t {
+                command_context & ctx  = *static_cast<command_context *>(uptr);
+                ctx.last_affected_rows = dt.done_row_count;
+                TDSLITE_DEBUG_PRINT("received done token %d\n", dt.done_row_count);
+                return 0;
+            });
         }
 
         /**
-         * Execute a command that is a non-query type, meaning the command
-         * will not result in a result set (e.g. INSERT, UPDATE, DELETE).
+         * Execute a query
          *
          * @tparam T Auto-deduced string type (char_span or u16char_span)
          *
          * @param [in] command SQL command to execute
-         * @param [in] callback Callback function to execute on command result
+         * @param [in] rcb_uptr Row callback user pointer (optional)
+         * @param [in] row_callback Row callback function (optional)
+         *
+         * The result set returned by query @p command can be read by providing a
+         * row callback function
+         *
+         * @return Rows affected
          */
         template <typename T, traits::enable_if_same_any<T, string_view, wstring_view> = true>
-        inline void execute_non_query(T command) const noexcept {
+        inline tdsl::uint32_t execute_query(
+            T command, void * rcb_uptr = nullptr,
+            typename tds_context_type::row_callback_fn_t row_callback = +[](void *, const tds_colmetadata_token &, const tdsl_row &) {
+            }) const noexcept {
+
+            tds_ctx.do_register_row_callback(rcb_uptr, row_callback);
+
             // Write the TDS header for the command
             tds_ctx.write_tds_header(e_tds_message_type::sql_batch);
             // Write the SQL command
@@ -63,55 +80,14 @@ namespace tdsl { namespace detail {
             // Send the command
             tds_ctx.send();
 
-            // colmetadata
-
-            // tds_colmetadata_token colmd{};
-
-            // tds_ctx.do_register_colmetadata_token_callback(
-            //     &colmd, +[](void * uptr, tds_colmetadata_token & token) -> tdsl::uint32_t {
-            //         tds_colmetadata_token & ctx = *reinterpret_cast<tds_colmetadata_token *>(uptr);
-            //         ctx                         = TDSLITE_MOVE(token);
-            //         return 0;
-            //     });
-
             // Receive the response
+            // FIXME: receive until seeing DONE token?
             tds_ctx.recv(8);
-
-            // if(colmd.columns)
-
-            //
-            // 2048 bytes
-
-            // array of structs-structure of arrays
-            //
-
-            //
-            // for each column in columnmetadata:
-            //      column_info[i] = column
-            // while tokentype is ROW:
-            //      rowdata = []
-            //      for each column in column_info
-            //          field_value = read(column.size)
-            //          handle column-type specific conditions
-            //          rowdata[field] = field_value
-            //      callback(column_info, rowdata)
-
-            // COLMETADATA
-            //  COLUMN_COUNT
-            //  COL1INFO
-            //  COL2INFO
-            //  ...
-            //  COLNINFO
-            // ROW [FIELD-1][FIELD-2]...[FIELD-N]
-            // ROW [FIELD-1][FIELD-2]...[FIELD-N]
-            // ROW [FIELD-1][FIELD-2]...[FIELD-N]
-            // DONE
-            // ...
-            // DONE
-            // callback(colmetadata, row)
+            return last_affected_rows;
         }
 
     private:
         tds_context_type & tds_ctx;
+        tdsl::uint32_t last_affected_rows;
     };
 }} // namespace tdsl::detail

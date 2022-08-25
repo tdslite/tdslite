@@ -31,10 +31,6 @@ namespace {
         return reinterpret_cast<io_context_t *>(v.get());
     }
 
-    auto as_guard(std::shared_ptr<void> & v) noexcept -> work_guard_t * {
-        return reinterpret_cast<work_guard_t *>(v.get());
-    }
-
     auto as_socket(std::shared_ptr<void> & v) noexcept -> tcp_socket_t * {
         return reinterpret_cast<tcp_socket_t *>(v.get());
     }

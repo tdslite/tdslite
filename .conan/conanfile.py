@@ -61,7 +61,7 @@ class ConanPkgInfo(ConanFile):
             self.generators += ('cmake_find_package',
                                 'virtualrunenv', 'markdown')
 
-        self.build_requires("boost/1.78.0")
+        self.build_requires("boost/1.80.0")
 
     def init(self):
         on_recipe_folder = os.path.join(

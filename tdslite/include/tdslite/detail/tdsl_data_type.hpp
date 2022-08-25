@@ -112,40 +112,82 @@ namespace tdsl { namespace detail {
         unknown
     };
 
+    /**
+     * Data type properties
+     */
     struct tds_data_type_properties {
         e_tds_data_size_type size_type;
-        tdsl::uint16_t min_needed_bytes;
+        union {
+            struct {
+                tdsl::uint16_t length_size; // size of the length (only valid for variable length data types)
+            } variable;
+
+            tdsl::uint16_t fixed; // size of the data (only valid for fixed length data types)
+        } length;
+        struct {
+            tdsl::uint8_t has_collation : 1;
+            tdsl::uint8_t reserved : 7;
+        } flags;
     };
 
+    /**
+     * Retrieve data type properties
+     *
+     * @param [in] type TDS data type
+     *
+     * @returns fixed_prop if @p type is a fixed data type
+     * @returns varu8_prop if @p type is a variable data type in byte-size boundary
+     * @returns varu16_prop if @p type is a variable data type in u16-size boundary
+     * @returns varu32_prop if @p type is a variable data type in u32-size boundary
+     * @returns varprec_prop if @p type is variable data type with precision and scale
+     */
     static inline tds_data_type_properties get_data_type_props(e_tds_data_type type) {
         tds_data_type_properties result{};
         switch (type) {
-                // Fixed length data types
+            // Fixed length data types
             case e_tds_data_type::NULLTYPE:
+                result.size_type    = e_tds_data_size_type::fixed;
+                result.length.fixed = 0;
+                break;
             case e_tds_data_type::BITTYPE:
             case e_tds_data_type::INT1TYPE:
+                result.size_type    = e_tds_data_size_type::fixed;
+                result.length.fixed = 1;
+                break;
             case e_tds_data_type::INT2TYPE:
+                result.size_type    = e_tds_data_size_type::fixed;
+                result.length.fixed = 2;
+                break;
             case e_tds_data_type::INT4TYPE:
-            case e_tds_data_type::INT8TYPE:
-            case e_tds_data_type::DATETIMETYPE:
             case e_tds_data_type::DATETIM4TYPE:
             case e_tds_data_type::FLT4TYPE:
+            case e_tds_data_type::MONEY4TYPE:
+                result.size_type    = e_tds_data_size_type::fixed;
+                result.length.fixed = 4;
+                break;
+            case e_tds_data_type::INT8TYPE:
+            case e_tds_data_type::DATETIMETYPE:
             case e_tds_data_type::FLT8TYPE:
             case e_tds_data_type::MONEYTYPE:
-            case e_tds_data_type::MONEY4TYPE:
-            case e_tds_data_type::DECIMALTYPE: // legacy support
-            case e_tds_data_type::NUMERICTYPE: // legacy support
-                // No extra info to read for these
-                // types. Their length is fixed.
-                result.size_type = e_tds_data_size_type::fixed;
+                result.size_type    = e_tds_data_size_type::fixed;
+                result.length.fixed = 8;
                 break;
+
+            // MS-TDS document is not clear about length of these types
+            // We can avoid them for now.
+            // case e_tds_data_type::DECIMALTYPE: // legacy support
+            // case e_tds_data_type::NUMERICTYPE: // legacy support
+            //     // No extra info to read for these
+            //     // types. Their length is fixed.
+            //     result.size_type = e_tds_data_size_type::fixed;
+            //     break;
             case e_tds_data_type::DECIMALNTYPE:
             case e_tds_data_type::NUMERICNTYPE:
                 // DECIMALNTYPE & NUMERICNTYPE have precision
                 // and scale values. Precision determines the field's length
                 // whereas scale is the multiplier.
-                result.size_type        = e_tds_data_size_type::var_precision;
-                result.min_needed_bytes = 2;
+                result.size_type                   = e_tds_data_size_type::var_precision;
+                result.length.variable.length_size = 2;
                 break;
             // Variable length data types with 8-bit length bit width
             case e_tds_data_type::GUIDTYPE:
@@ -158,23 +200,32 @@ namespace tdsl { namespace detail {
             case e_tds_data_type::VARCHARTYPE:
             case e_tds_data_type::BINARYTYPE:
             case e_tds_data_type::VARBINARYTYPE:
-                result.size_type        = e_tds_data_size_type::var_u8;
-                result.min_needed_bytes = sizeof(tdsl::uint8_t);
+                result.size_type                   = e_tds_data_size_type::var_u8;
+                result.length.variable.length_size = sizeof(tdsl::uint8_t);
                 break;
             // Variable length data types with 16-bit length bit width
-            case e_tds_data_type::BIGVARBINTYPE:
             case e_tds_data_type::BIGCHARTYPE:
+            case e_tds_data_type::BIGVARCHRTYPE:
             case e_tds_data_type::NVARCHARTYPE:
             case e_tds_data_type::NCHARTYPE:
-                result.size_type        = e_tds_data_size_type::var_u16;
-                result.min_needed_bytes = sizeof(tdsl::uint16_t);
+                result.flags.has_collation = true;
+            // fallthrough
+            case e_tds_data_type::BIGBINARYTYPE:
+            case e_tds_data_type::BIGVARBINTYPE:
+                // COLLATION occurs only if the type is BIGCHARTYPE, BIGVARCHARTYPE, TEXTTYPE, NTEXTTYPE,
+                // NCHARTYPE, or NVARCHARTYPE.
+                result.size_type                   = e_tds_data_size_type::var_u16;
+                result.length.variable.length_size = sizeof(tdsl::uint16_t);
                 break;
             // Variable length data types with 32-bit length bit width
-            case e_tds_data_type::IMAGETYPE:
             case e_tds_data_type::NTEXTTYPE:
             case e_tds_data_type::TEXTTYPE:
-                result.size_type        = e_tds_data_size_type::var_u32;
-                result.min_needed_bytes = sizeof(tdsl::uint32_t);
+                result.flags.has_collation = true;
+            // fallthrough
+            case e_tds_data_type::IMAGETYPE:
+                result.size_type                   = e_tds_data_size_type::var_u32;
+                result.length.variable.length_size = sizeof(tdsl::uint32_t);
+
                 break;
             default:
                 result.size_type = e_tds_data_size_type::unknown;

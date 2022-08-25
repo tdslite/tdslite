@@ -11,6 +11,7 @@
  */
 
 #include <tdslite/util/tdsl_type_traits.hpp>
+#include <cassert>
 
 #ifndef TDSLITE_DETAIL_TDS_MACRODEF_HPP
 #define TDSLITE_DETAIL_TDS_MACRODEF_HPP
@@ -87,21 +88,19 @@
 
 /**
  * Assert that COND is satisfied
- * FIXME: Implement this
  */
-#define TDSLITE_ASSERT(COND)
+#define TDSLITE_ASSERT(COND) assert(COND)
+
+/**
+ * Assert with message
+ */
+#define TDSLITE_ASSERT_MSG(COND, MSG) assert(!(!(COND)) && MSG)
 
 /**
  * Expect that COND is satisfied
  * FIXME: Implement this
  */
 #define TDSLITE_EXPECT(COND) COND
-
-/**
- * Assert with message
- * FIXME: Implement this
- */
-#define TDSLITE_ASSERT_MSG(COND, MSG)
 
 /**
  * Mark a variable as unused
@@ -117,17 +116,12 @@
 /**
  * Move macro
  */
-#define TDSLITE_MOVE(...) static_cast<tdsl::traits::remove_reference<decltype(__VA_ARGS__)>::type &&>(__VA_ARGS__)
+#define TDSLITE_MOVE(...) static_cast<typename tdsl::traits::remove_reference<decltype(__VA_ARGS__)>::type &&>(__VA_ARGS__)
 
 /**
  * Forward macro
  */
 #define TDSLITE_FORWARD(...) static_cast<decltype(__VA_ARGS__) &&>(__VA_ARGS__)
-
-/**
- * Assert that COND is satisfied (with custom message)
- */
-#define TDSLITE_ASSERT_MSG(COND, MSG)
 
 /**
  * C++11 __cplusplus version value

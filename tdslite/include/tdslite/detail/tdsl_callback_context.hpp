@@ -1,12 +1,13 @@
 /**
- * _________________________________________________
+ * _____________________________________________________
+ * Default type for tdslite callbacks
  *
- * @file   callback_ctx.hpp
+ * @file   tdsl_callback_context.hpp
  * @author Mustafa Kemal GILOR <mustafagilor@gmail.com>
  * @date   19.05.2022
  *
  * SPDX-License-Identifier:    MIT
- * _________________________________________________
+ * _____________________________________________________
  */
 
 #pragma once
@@ -30,16 +31,43 @@ namespace tdsl {
 
     template <typename T, typename FNTYPE>
     struct callback_context {
-        void * user_ptr{nullptr}; // Will be passed to the callback function as first argument
-        FNTYPE callback{nullptr}; // The callback function
         using function_type = FNTYPE;
         using return_type   = typename function_signature<FNTYPE>::return_type;
+        /**
+         * User-supplied opaque pointer.
+         * Will be passed as first argument to the callback function.
+         */
+        void * user_ptr{nullptr};
+        /**
+         * Pointer to the  callback function
+         */
+        FNTYPE callback{nullptr};
 
+        void set(void * user_ptr, FNTYPE callback) {
+            this->user_ptr = user_ptr;
+            this->callback = callback;
+        }
+
+        /**
+         * Invoke the @ref callback with given @p args. The callback function
+         * will be called with @ref user_ptr followed by the @p args.
+         *
+         * @param [in] args Arguments to call the callback funtion with
+         * @return The return value of callback function
+         */
         template <typename R = return_type, typename... Args>
         inline auto maybe_invoke(Args &&... args) -> typename traits::enable_if<!traits::is_same<R, void>::value, tdsl::uint32_t>::type {
             return (callback ? callback(user_ptr, TDSLITE_FORWARD(args)...) : return_type{0});
         }
 
+        /**
+         * Invoke the @ref callback with given @p args. The callback function
+         * will be called with @ref user_ptr followed by the @p args.
+         *
+         * (void return type overload)
+         *
+         * @param [in] args Arguments to call the callback funtion with
+         */
         template <typename R = return_type, typename... Args>
         inline auto maybe_invoke(Args &&... args) -> typename traits::enable_if<traits::is_same<R, void>::value, void>::type {
             if (callback) {
@@ -48,6 +76,9 @@ namespace tdsl {
         }
     };
 
+    /**
+     * Default template for callback context
+     */
     template <typename T, typename FNTYPE = tdsl::uint32_t (*)(/*user_ptr*/ void *, /*info type*/ const T &)>
     struct callback_context;
 

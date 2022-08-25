@@ -104,7 +104,7 @@ namespace tdsl {
          */
         TDSLITE_NODISCARD inline TDSLITE_CXX14_CONSTEXPR auto read(tdsl::uint32_t number_of_elements) noexcept -> span_type {
 
-            if (has_bytes(number_of_elements)) {
+            if (number_of_elements > 0 && has_bytes(number_of_elements)) {
                 span_type result{current(), (current() + number_of_elements)};
                 do_advance(number_of_elements);
                 return result;
@@ -140,8 +140,15 @@ namespace tdsl {
          * @return const tdsl::uint8_t* Pointer to the current read position
          */
         inline TDSLITE_CXX14_CONSTEXPR auto current() const noexcept -> const tdsl::uint8_t * {
-            TDSLITE_ASSERT(data + offset_ < data + size_bytes());
+            TDSLITE_ASSERT(offset_ <= size_bytes());
             return data() + offset_;
+            // 4 byte
+            // 0
+            // read -> 1
+            // read -> 2
+            // read -> 3
+            // read -> 4
+            // read
         }
 
         /**
@@ -151,7 +158,7 @@ namespace tdsl {
          * @return tdsl::uint32_t Current read offset
          */
         inline TDSLITE_CXX14_CONSTEXPR auto offset() const noexcept -> tdsl::uint32_t {
-            TDSLITE_ASSERT(offset_ < size_bytes());
+            TDSLITE_ASSERT(offset_ <= size_bytes());
             return offset_;
         }
 
@@ -172,7 +179,7 @@ namespace tdsl {
                 return false;
             }
             offset_ = pos;
-            TDSLITE_ASSERT(offset_ < size_bytes());
+            TDSLITE_ASSERT(offset_ <= size_bytes());
             return true;
         }
 
@@ -235,7 +242,9 @@ namespace tdsl {
          * @param [in] amount_of_bytes Amount to advance
          */
         inline TDSLITE_CXX14_CONSTEXPR void do_advance(tdsl::int32_t amount_of_bytes) noexcept {
-            TDSLITE_ASSERT(offset + amount_of_bytes >= 0 && offset + amount_of_bytes < size_bytes());
+
+            TDSLITE_ASSERT(((tdsl::int64_t{offset()} + amount_of_bytes) >= 0) &&
+                           ((tdsl::int64_t{offset()} + amount_of_bytes) <= size_bytes()));
             offset_ += amount_of_bytes;
         }
 
@@ -244,5 +253,16 @@ namespace tdsl {
     }; // class binary_reader <>
 
 } // namespace tdsl
+
+/**
+ * shortcut macro to return N if READER does
+ * not have at least N bytes
+ */
+#define TDSLITE_RETIF_LESS_BYTES(READER, N)                                                                                                \
+    do {                                                                                                                                   \
+        if (not READER.has_bytes(N)) {                                                                                                     \
+            return N - READER.remaining_bytes();                                                                                           \
+        }                                                                                                                                  \
+    } while (0)
 
 #endif

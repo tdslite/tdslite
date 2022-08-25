@@ -53,8 +53,8 @@ namespace tdsl {
         /**
          * Construct a new span object
          *
-         * @param [in] data Pointer to the starting element
-         * @param [in] size Element count
+         * @param [in] elem Pointer to the starting element
+         * @param [in] elem_count Element count
          */
         inline explicit constexpr span(element_type * elem, size_type elem_count) noexcept : data_(elem), element_count(elem_count) {}
 
@@ -79,8 +79,7 @@ namespace tdsl {
          * @note @p start must be always lesser than @p end
          * @note @p end must be always greater than @p start
          */
-        inline explicit constexpr span(element_type * begin, element_type * end) noexcept :
-            data_(begin), element_count(end - begin) {}
+        inline explicit constexpr span(element_type * begin, element_type * end) noexcept : data_(begin), element_count(end - begin) {}
 
         /**
          * Copy c-tor

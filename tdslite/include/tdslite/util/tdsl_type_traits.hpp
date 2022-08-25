@@ -25,9 +25,11 @@ namespace tdsl { namespace traits {
         static constexpr T value = V;
         using value_type         = T;
         using type               = integral_constant;
+
         constexpr operator value_type() const noexcept {
             return value;
         }
+
         constexpr value_type operator()() const noexcept {
             return value;
         }
@@ -41,6 +43,50 @@ namespace tdsl { namespace traits {
         static constexpr bool value = T;
     };
 
+    // Conditional
+
+    template <bool B, class T, class F>
+    struct conditional {
+        using type = T;
+    };
+
+    template <class T, class F>
+    struct conditional<false, T, F> {
+        using type = F;
+    };
+
+    template <class T>
+    struct is_const : false_type {};
+
+    template <class T>
+    struct is_const<const T> : true_type {};
+
+    // Disjunction
+
+    template <class...>
+    struct disjunction : false_type {};
+
+    template <class B1>
+    struct disjunction<B1> : B1 {};
+
+    template <class B1, class... Bn>
+    struct disjunction<B1, Bn...> : conditional<bool(B1::value), B1, disjunction<Bn...>>::type {};
+
+    template <typename...>
+    struct op_or;
+
+    template <>
+    struct op_or<> : public false_type {};
+
+    template <typename B1>
+    struct op_or<B1> : public B1 {};
+
+    template <typename B1, typename B2>
+    struct op_or<B1, B2> : public conditional<B1::value, B1, B2>::type {};
+
+    template <typename B1, typename B2, typename B3, typename... Bn>
+    struct op_or<B1, B2, B3, Bn...> : public conditional<B1::value, B1, op_or<B2, B3, Bn...>>::type {};
+
     // enable_if
     template <bool, typename T = void>
     struct enable_if;
@@ -53,8 +99,31 @@ namespace tdsl { namespace traits {
     // is_same
     template <typename T, typename U>
     struct is_same : false_type {};
+
     template <typename T>
     struct is_same<T, T> : true_type {};
+
+    template <typename>
+    struct is_lvalue_reference : public false_type {};
+
+    template <typename T>
+    struct is_lvalue_reference<T &> : public true_type {};
+
+    /// is_rvalue_reference
+    template <typename>
+    struct is_rvalue_reference : public false_type {};
+
+    template <typename T>
+    struct is_rvalue_reference<T &&> : public true_type {};
+
+    template <typename T>
+    struct is_reference : public op_or<is_lvalue_reference<T>, is_rvalue_reference<T>>::type {};
+
+    template <class T>
+    struct is_function : integral_constant<bool, !is_const<const T>::value && !is_reference<T>::value> {};
+
+    template <typename T>
+    using enable_if_function = typename enable_if<is_function<T>::value, bool>::type;
 
     // remove_reference
     template <typename T>
@@ -151,42 +220,6 @@ namespace tdsl { namespace traits {
     template <typename T>
     struct is_void : public detail::is_void_helper<typename remove_cv<T>::type>::type {};
 
-    // Conditional
-
-    template <bool B, class T, class F>
-    struct conditional {
-        using type = T;
-    };
-
-    template <class T, class F>
-    struct conditional<false, T, F> {
-        using type = F;
-    };
-
-    // Disjunction
-
-    template <class...>
-    struct disjunction : false_type {};
-    template <class B1>
-    struct disjunction<B1> : B1 {};
-    template <class B1, class... Bn>
-    struct disjunction<B1, Bn...> : conditional<bool(B1::value), B1, disjunction<Bn...>>::type {};
-
-    template <typename...>
-    struct op_or;
-
-    template <>
-    struct op_or<> : public false_type {};
-
-    template <typename B1>
-    struct op_or<B1> : public B1 {};
-
-    template <typename B1, typename B2>
-    struct op_or<B1, B2> : public conditional<B1::value, B1, B2>::type {};
-
-    template <typename B1, typename B2, typename B3, typename... _Bn>
-    struct op_or<B1, B2, B3, _Bn...> : public conditional<B1::value, B1, op_or<B2, B3, _Bn...>>::type {};
-
     // enable_if_integral
 
     template <typename T>
@@ -198,8 +231,8 @@ namespace tdsl { namespace traits {
     /**
      * Enable if the given type T is same with any of the types listed in type list Q
      *
-     * @tparam [in] T The type
-     * @tparam [in] Q The type list
+     * @tparam T The type
+     * @tparam Q The type list
      */
     template <typename T, typename... Q>
     using enable_if_same_any = typename enable_if<disjunction<is_same<T, Q>...>::value, bool>::type;
@@ -311,6 +344,64 @@ namespace tdsl { namespace traits {
 
     template <typename T>
     using enable_if_class = typename enable_if<is_class<T>::value, bool>::type;
+
+    template <typename T>
+    using enable_if_non_class = typename enable_if<!is_class<T>::value, bool>::type;
+
+    // is_base_of detail
+    namespace detail {
+        template <typename B>
+        true_type test_pre_ptr_convertible(const volatile B *);
+        template <typename>
+        false_type test_pre_ptr_convertible(const volatile void *);
+
+        template <typename, typename>
+        auto test_pre_is_base_of(...) -> true_type;
+        template <typename B, typename D>
+        auto test_pre_is_base_of(int) -> decltype(test_pre_ptr_convertible<B>(static_cast<D *>(nullptr)));
+    } // namespace detail
+
+    template <typename Base, typename Derived>
+    struct is_base_of
+        : integral_constant<bool, is_class<Base>::value &&
+                                      is_class<Derived>::value && decltype(detail::test_pre_is_base_of<Base, Derived>(0))::value> {};
+
+    // array
+
+    template <class T>
+    struct is_array : false_type {};
+
+    template <class T>
+    struct is_array<T []> : true_type {};
+
+    template <class T, unsigned long N>
+    struct is_array<T [N]> : true_type {};
+
+    template <class T>
+    struct remove_extent {
+        typedef T type;
+    };
+
+    template <class T>
+    struct remove_extent<T []> {
+        typedef T type;
+    };
+
+    template <class T, unsigned long N>
+    struct remove_extent<T [N]> {
+        typedef T type;
+    };
+
+    template <class T>
+    struct decay {
+    private:
+        typedef typename remove_reference<T>::type U;
+
+    public:
+        typedef typename conditional<
+            is_array<U>::value, typename remove_extent<U>::type *,
+            typename conditional<is_function<U>::value, typename add_pointer<U>::type, typename remove_cv<U>::type>::type>::type type;
+    };
 
 }} // namespace tdsl::traits
 

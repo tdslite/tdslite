@@ -30,6 +30,10 @@ make_component(
             SUFFIX .tds_login
             SOURCES ut_tds_login.cpp
 
+    TARGET  TYPE UNIT_TEST
+            SUFFIX .tds_allocator
+            SOURCES ut_tds_allocator.cpp
+
     ALL_NO_AUTO_COMPILATION_UNIT
     ALL_WITH_COVERAGE
     ALL_COVERAGE_TARGETS tdslite

@@ -179,6 +179,7 @@ namespace tdsl { namespace detail {
             atchdbfile    = 11,
             end
         };
+
         // 14 bytes? 8 = 4
 
         constexpr static tdsl::uint16_t calc_sizeof_offset_size_section() noexcept {
@@ -231,6 +232,7 @@ namespace tdsl { namespace detail {
         inline auto put_login_header_length(tdsl::uint32_t lplength) noexcept -> void {
             tds_ctx.write_le(TDSLITE_OFFSETOF(tds_login7_header, packet_length), lplength);
         }
+
         /**
          * Attempt to login into the database engine with the specified login parameters
          *
@@ -240,10 +242,6 @@ namespace tdsl { namespace detail {
          */
         template <typename LoginParamsType>
         e_login_status do_login_impl(const LoginParamsType & params) noexcept {
-            TDSLITE_ASSERT_MSG(lcb, "Login callback function cannot be nullptr!");
-            // Assign login callback first
-            // login_cb_ctx.callback = lcb;
-            // login_cb_ctx.user_ptr = uptr;
             tds_ctx.write_tds_header(e_tds_message_type::login);
             tds_ctx.write_le(/*arg=*/0_tdsu32);                                                // placeholder for packet length
             tds_ctx.write_be(static_cast<tdsl::uint32_t>(e_tds_version::sql_server_2000_sp1)); // TDS version
