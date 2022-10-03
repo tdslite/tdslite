@@ -12,8 +12,8 @@
 
 #include <stdint.h>
 
-#ifndef TDSLITE_DETAIL_TDS_INTTYPES_HPP
-#define TDSLITE_DETAIL_TDS_INTTYPES_HPP
+#ifndef TDSL_DETAIL_TDS_INTTYPES_HPP
+#define TDSL_DETAIL_TDS_INTTYPES_HPP
 
 namespace tdsl {
     // *_be_* = type alias for denoting a big-endian integer

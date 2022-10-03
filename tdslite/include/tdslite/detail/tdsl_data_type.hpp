@@ -10,8 +10,8 @@
  * ____________________________________________________
  */
 
-#ifndef TDSLITE_DETAIL_TDS_DATA_TYPE_HPP
-#define TDSLITE_DETAIL_TDS_DATA_TYPE_HPP
+#ifndef TDSL_DETAIL_TDS_DATA_TYPE_HPP
+#define TDSL_DETAIL_TDS_DATA_TYPE_HPP
 
 #include <tdslite/util/tdsl_inttypes.hpp>
 
@@ -117,6 +117,7 @@ namespace tdsl { namespace detail {
      */
     struct tds_data_type_properties {
         e_tds_data_size_type size_type;
+
         union {
             struct {
                 tdsl::uint16_t length_size; // size of the length (only valid for variable length data types)
@@ -124,10 +125,50 @@ namespace tdsl { namespace detail {
 
             tdsl::uint16_t fixed; // size of the data (only valid for fixed length data types)
         } length;
+
         struct {
             tdsl::uint8_t has_collation : 1;
-            tdsl::uint8_t reserved : 7;
+            tdsl::uint8_t has_precision : 1;
+            tdsl::uint8_t reserved : 6;
         } flags;
+
+        /**
+         * Returns true if data type is a variable size type
+         */
+        inline bool is_variable_size() const noexcept {
+            switch (size_type) {
+                case e_tds_data_size_type::var_precision:
+                case e_tds_data_size_type::var_u8:
+                case e_tds_data_size_type::var_u16:
+                case e_tds_data_size_type::var_u32:
+                    return true;
+            }
+            return false;
+        }
+
+        /**
+         * Calculate minimum COLMETADATA bytes needed for
+         * data type
+         *
+         * The function currently accounts for:
+         * - Column name size (1 bytes)
+         * - Collation size (5 bytes)
+         * - Column data length size (N bytes, depending on type)
+         *
+         * @return tdsl::uint32_t Minimum COLMETADATA size for data type
+         */
+        inline auto min_colmetadata_size() const noexcept -> tdsl::uint32_t {
+            constexpr int k_colname_size   = 1;
+            constexpr int k_collation_size = 5;
+            constexpr int k_precision_size = 2; // precision, scale
+
+            tdsl::uint32_t final_size      = {0};
+            final_size += (is_variable_size() ? length.variable.length_size : length.fixed);
+            final_size += (flags.has_collation ? k_collation_size : 0);
+            final_size += (flags.has_precision ? k_precision_size : 0);
+            final_size += k_colname_size;
+            return final_size;
+        }
     };
 
     /**
@@ -172,7 +213,6 @@ namespace tdsl { namespace detail {
                 result.size_type    = e_tds_data_size_type::fixed;
                 result.length.fixed = 8;
                 break;
-
             // MS-TDS document is not clear about length of these types
             // We can avoid them for now.
             // case e_tds_data_type::DECIMALTYPE: // legacy support
@@ -188,6 +228,7 @@ namespace tdsl { namespace detail {
                 // whereas scale is the multiplier.
                 result.size_type                   = e_tds_data_size_type::var_precision;
                 result.length.variable.length_size = 2;
+                result.flags.has_precision         = 1;
                 break;
             // Variable length data types with 8-bit length bit width
             case e_tds_data_type::GUIDTYPE:
@@ -225,7 +266,6 @@ namespace tdsl { namespace detail {
             case e_tds_data_type::IMAGETYPE:
                 result.size_type                   = e_tds_data_size_type::var_u32;
                 result.length.variable.length_size = sizeof(tdsl::uint32_t);
-
                 break;
             default:
                 result.size_type = e_tds_data_size_type::unknown;

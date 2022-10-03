@@ -10,8 +10,8 @@
  * ____________________________________________________
  */
 
-#ifndef TDSLITE_DETAIL_TDS_TYPE_TRAITS_HPP
-#define TDSLITE_DETAIL_TDS_TYPE_TRAITS_HPP
+#ifndef TDSL_DETAIL_TDS_TYPE_TRAITS_HPP
+#define TDSL_DETAIL_TDS_TYPE_TRAITS_HPP
 
 namespace tdsl { namespace traits {
 

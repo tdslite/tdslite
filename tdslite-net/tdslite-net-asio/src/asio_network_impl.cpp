@@ -43,19 +43,20 @@ namespace {
 
 namespace tdsl { namespace net {
     asio_network_impl::asio_network_impl() {
-        TDSLITE_DEBUG_PRINT("asio_network_impl::asio_network_impl() -> constructor call\n");
+        TDSL_DEBUG_PRINT("asio_network_impl::asio_network_impl() -> constructor call\n");
 
         recv_buffer.resize(8192);
         io_context            = std::make_shared<io_context_t>(1);
         io_context_work_guard = std::make_shared<work_guard_t>(boost::asio::make_work_guard(*as_ctx(io_context)));
-        TDSLITE_DEBUG_PRINT("asio_network_impl::asio_network_impl() -> constructor return\n");
+        TDSL_DEBUG_PRINT("asio_network_impl::asio_network_impl() -> constructor return\n");
     }
+
     asio_network_impl::~asio_network_impl() {
-        TDSLITE_DEBUG_PRINT("asio_network_impl::~asio_network_impl() -> destructor call\n");
+        TDSL_DEBUG_PRINT("asio_network_impl::~asio_network_impl() -> destructor call\n");
         io_context_work_guard.reset();
         as_ctx(io_context)->stop();
 
-        TDSLITE_DEBUG_PRINT("asio_network_impl::~asio_network_impl() -> destructor return\n");
+        TDSL_DEBUG_PRINT("asio_network_impl::~asio_network_impl() -> destructor return\n");
     }
 
     int asio_network_impl::do_connect(tdsl::span<const char> target, tdsl::uint16_t port) {
@@ -69,7 +70,7 @@ namespace tdsl { namespace net {
         };
 
         if (socket_handle) {
-            TDSLITE_DEBUG_PRINT("asio_network_impl::do_connect(...) -> exit, socket already alive\n");
+            TDSL_DEBUG_PRINT("asio_network_impl::do_connect(...) -> exit, socket already alive\n");
             return e_result::socket_already_alive;
         }
 
@@ -84,24 +85,24 @@ namespace tdsl { namespace net {
 
         // Check whether the resolver has succeeded to resolve
         if (not rec) {
-            TDSLITE_DEBUG_PRINT("asio_network_impl::do_connect(...) -> resolve ok, %d (%s)\n", rec.value(), rec.what().c_str());
+            TDSL_DEBUG_PRINT("asio_network_impl::do_connect(...) -> resolve ok, %d (%s)\n", rec.value(), rec.what().c_str());
             // Prime the socket handle
             auto sock = std::make_shared<tcp_socket_t>(*as_ctx(io_context));
             // Attempt to connect to each resolve result, in order
 
             for (const auto & re : res) {
 
-                TDSLITE_DEBUG_PRINT("asio_network_impl::do_connect(...) -> attempting to connect %s:%s\n", re.host_name().c_str(),
-                                    re.service_name().c_str());
+                TDSL_DEBUG_PRINT("asio_network_impl::do_connect(...) -> attempting to connect %s:%s\n", re.host_name().c_str(),
+                                 re.service_name().c_str());
 
                 sock->connect(re.endpoint(), rec);
                 if (not rec) {
 
-                    TDSLITE_DEBUG_PRINT("asio_network_impl::do_connect(...) -> connected to %s:%s\n", re.host_name().c_str(),
-                                        re.service_name().c_str());
+                    TDSL_DEBUG_PRINT("asio_network_impl::do_connect(...) -> connected to %s:%s\n", re.host_name().c_str(),
+                                     re.service_name().c_str());
                     socket_handle = std::move(sock);
                     // We're connected to one endpoint, stop trying
-                    TDSLITE_DEBUG_PRINT("asio_network_impl::do_connect(...) -> exit, connected\n");
+                    TDSL_DEBUG_PRINT("asio_network_impl::do_connect(...) -> exit, connected\n");
                     return e_result::connected;
                 }
             }
@@ -110,16 +111,16 @@ namespace tdsl { namespace net {
         }
         else {
             // Otherwise, we got a resolve failure error in our hands.
-            TDSLITE_DEBUG_PRINT("asio_network_impl::do_connect(...) -> exit, resolve failed!\n");
+            TDSL_DEBUG_PRINT("asio_network_impl::do_connect(...) -> exit, resolve failed!\n");
             return e_result::resolve_failed;
         }
 
-        TDSLITE_DEBUG_PRINT("asio_network_impl::do_connect(...) -> exit, connection failed\n");
+        TDSL_DEBUG_PRINT("asio_network_impl::do_connect(...) -> exit, connection failed\n");
         return e_result::connection_failed;
     }
 
     void asio_network_impl::do_recv(std::uint32_t transfer_at_least = 1) noexcept {
-        TDSLITE_ASSERT(socket_handle);
+        TDSL_ASSERT(socket_handle);
         boost::system::error_code ec;
         // Re-invoke receive
         const auto read_bytes =
@@ -131,11 +132,13 @@ namespace tdsl { namespace net {
         }
 
         // There is an error, we should handle it appropriately
-        TDSLITE_DEBUG_PRINT("asio_network_impl::dispatch_receive(...) -> error, %d (%s) aborting and disconnecting\n", ec.value(),
-                            ec.what().c_str());
+        TDSL_DEBUG_PRINT("asio_network_impl::dispatch_receive(...) -> error, %d (%s) aborting and disconnecting\n", ec.value(),
+                         ec.what().c_str());
 
         do_disconnect();
     }
+
+    // reader?
 
     void asio_network_impl::on_recv(tdsl::uint32_t amount) {
         if (amount == 0) {
@@ -144,13 +147,14 @@ namespace tdsl { namespace net {
             return;
         }
         // Process the buffer
-        TDSLITE_DEBUG_PRINT("asio_network_impl::on_recv(...) -> received %d byte(s): \n", amount);
-        TDSLITE_DEBUG_HEXDUMP(recv_buffer.data(), amount);
-        tdsl::span<const tdsl::uint8_t> rd(recv_buffer.data(), amount);
+        TDSL_DEBUG_PRINT("asio_network_impl::on_recv(...) -> received %d byte(s): \n", amount);
+        TDSL_DEBUG_HEXDUMP(recv_buffer.data(), amount);
+        tdsl::span<const tdsl::uint8_t> rd(recv_buffer.data(), recv_buffer.size());
         auto need_bytes = handle_tds_response(rd);
+        // read byte amount
 
         if (need_bytes) {
-            TDSLITE_DEBUG_PRINT("asio_network_impl::on_recv(...) -> need %d byte(s): \n", need_bytes);
+            TDSL_DEBUG_PRINT("asio_network_impl::on_recv(...) -> need %d byte(s): \n", need_bytes);
             do_recv(need_bytes);
         }
     }
@@ -161,8 +165,9 @@ namespace tdsl { namespace net {
             success          = 0,
             socket_not_alive = -1,
         };
+
         if (not socket_handle) {
-            TDSLITE_DEBUG_PRINT("asio_network_impl::do_disconnect(...) -> exit, socket not alive\n");
+            TDSL_DEBUG_PRINT("asio_network_impl::do_disconnect(...) -> exit, socket not alive\n");
             return e_result::socket_not_alive;
         }
 
@@ -171,7 +176,7 @@ namespace tdsl { namespace net {
         as_socket(socket_handle)->close(ec);
         // Destroy the socket handle
         socket_handle.reset();
-        TDSLITE_DEBUG_PRINT("asio_network_impl::do_disconnect(...) -> exit, success\n");
+        TDSL_DEBUG_PRINT("asio_network_impl::do_disconnect(...) -> exit, success\n");
         // conn_cb_ctx.maybe_invoke(e_conection_state::disconnected);
         return e_result::success;
     }
@@ -185,13 +190,14 @@ namespace tdsl { namespace net {
             cancelled    = -1,
             disconnected = -2,
         };
+
         boost::system::error_code ec;
         const auto bytes_written =
             asio::write(*as_socket(socket_handle), boost::asio::const_buffer(send_buffer.data(), send_buffer.size()), ec);
 
         if (not ec) {
-            TDSLITE_DEBUG_PRINT("asio_network_impl::do_send(...) -> sent %ld byte(s), ec %d (%s)\n", bytes_written, ec.value(),
-                                ec.what().c_str());
+            TDSL_DEBUG_PRINT("asio_network_impl::do_send(...) -> sent %ld byte(s), ec %d (%s)\n", bytes_written, ec.value(),
+                             ec.what().c_str());
         }
 
         switch (ec.value()) {
@@ -207,7 +213,7 @@ namespace tdsl { namespace net {
         }
 
         send_buffer.clear();
-        TDSLITE_DEBUG_PRINT("asio_network_impl::do_send(...) -> exit, bytes written %ld\n", bytes_written);
+        TDSL_DEBUG_PRINT("asio_network_impl::do_send(...) -> exit, bytes written %ld\n", bytes_written);
         return e_result::success;
     }
 }} // namespace tdsl::net

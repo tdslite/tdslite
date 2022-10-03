@@ -30,26 +30,32 @@ namespace tdsl {
         detail::e_tds_data_type type;
         /* Length of the name of the column */
         tdsl::uint8_t colname_length_in_chars;
+
         union {
             struct {
                 tdsl::uint32_t length;
             } u32l; // types with variable length of unsigned 32-bit size
+
             struct {
                 tdsl::uint16_t length;
                 tdsl::uint8_t _unused [2];
             } u16l; // types with variable length of unsigned 16-bit size
+
             struct {
                 tdsl::uint8_t length;
                 tdsl::uint8_t _unused [3];
             } u8l; // types with variable length of unsigned 8-bit size
+
             struct {
                 tdsl::uint8_t length; // this is the actual length, not the length's length.
                 tdsl::uint8_t _unused [3];
             } fixed; // types with fixed length
+
             struct {
+                tdsl::uint8_t length;
                 tdsl::uint8_t precision;
                 tdsl::uint8_t scale;
-                tdsl::uint8_t _unused [2];
+                tdsl::uint8_t _unused [1];
             } ps{};  // types with precision and scale
         } typeprops; // type-specific properties
     };
@@ -101,19 +107,18 @@ namespace tdsl {
          * @return true if set successful, false if memory allocation failed
          */
         bool set_column_name(tdsl::uint16_t index, tdsl::span<const tdsl::uint8_t> name) {
-            TDSLITE_ASSERT(index < column_count);
+            TDSL_ASSERT(index < column_count);
             column_names [index] = tds_allocator<char16_t>::allocate(name.size_bytes() / 2);
             // FIXME: Set column name!
             return not(nullptr == column_names [index]);
         }
 
-        ~tds_colmetadata_token() {
+        inline void reset() noexcept {
             if (columns) {
                 tds_allocator<tds_column_info>::deallocate(columns, column_count);
                 columns = {nullptr};
             }
             if (column_names) {
-
                 for (int i = 0; i < column_count; i++) {
                     if (not(nullptr == column_names [i])) {
                         tds_allocator<char16_t>::deallocate(column_names [i], /*n_elems=*/0);
@@ -123,6 +128,10 @@ namespace tdsl {
                 column_names = {nullptr};
             }
             column_count = 0;
+        }
+
+        ~tds_colmetadata_token() {
+            reset();
         }
 
         tds_colmetadata_token(tds_colmetadata_token && other) noexcept {

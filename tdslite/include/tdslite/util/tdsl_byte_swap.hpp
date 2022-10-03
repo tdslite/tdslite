@@ -11,8 +11,8 @@
  * ____________________________________________________
  */
 
-#ifndef TDSLITE_DETAIL_TDS_BYTE_SWAP_HPP
-#define TDSLITE_DETAIL_TDS_BYTE_SWAP_HPP
+#ifndef TDSL_DETAIL_TDS_BYTE_SWAP_HPP
+#define TDSL_DETAIL_TDS_BYTE_SWAP_HPP
 
 #include <tdslite/util/tdsl_inttypes.hpp>
 #include <tdslite/util/tdsl_endian.hpp>

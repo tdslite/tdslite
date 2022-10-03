@@ -27,7 +27,7 @@ namespace tdsl {
     struct unexpected {
         unexpected() = default;
 
-        unexpected(ET && unexpected) : value(TDSLITE_MOVE(unexpected)) {}
+        unexpected(ET && unexpected) : value(TDSL_MOVE(unexpected)) {}
 
         ET value;
         static_assert(tdsl::traits::is_reference<ET>::value == false, "ET cannot be a reference type");
@@ -91,15 +91,15 @@ namespace tdsl {
          *
          * @param expected
          */
-        expected(ST && expected) : value(TDSLITE_MOVE(expected)), has_expected(true) {}
+        expected(ST && expected) : value(TDSL_MOVE(expected)), has_expected(true) {}
 
         expected(expected<ST, ET> && other) {
             if (other.has_value()) {
-                value        = TDSLITE_MOVE(other.value);
+                value        = TDSL_MOVE(other.value);
                 has_expected = true;
             }
             else {
-                unexpected_value = TDSLITE_MOVE(unexpected_value);
+                unexpected_value = TDSL_MOVE(unexpected_value);
                 has_expected     = false;
             }
         }
@@ -131,43 +131,43 @@ namespace tdsl {
         }
 
         inline ST & get() & {
-            TDSLITE_ASSERT_MSG(has_value(), "invalid expected access,expected does not have a value");
+            TDSL_ASSERT_MSG(has_value(), "invalid expected access,expected does not have a value");
             return value;
         }
 
         inline const ST & get() const & {
-            TDSLITE_ASSERT_MSG(has_value(), "invalid expected access,expected does not have a value");
+            TDSL_ASSERT_MSG(has_value(), "invalid expected access,expected does not have a value");
             return value;
         }
 
         inline ST && get() && {
-            TDSLITE_ASSERT_MSG(has_value(), "invalid expected access,expected does not have a value");
-            return TDSLITE_MOVE(value);
+            TDSL_ASSERT_MSG(has_value(), "invalid expected access,expected does not have a value");
+            return TDSL_MOVE(value);
         }
 
         inline const ST && get() const && {
-            TDSLITE_ASSERT_MSG(has_value(), "invalid expected access,expected does not have a value");
-            return TDSLITE_MOVE(value);
+            TDSL_ASSERT_MSG(has_value(), "invalid expected access,expected does not have a value");
+            return TDSL_MOVE(value);
         }
 
         inline ET & error() & {
-            TDSLITE_ASSERT_MSG(!has_value(), "invalid expected access, unexpected does not have a value");
+            TDSL_ASSERT_MSG(!has_value(), "invalid expected access, unexpected does not have a value");
             return unexpected_value.value;
         }
 
         inline const ET & error() const & {
-            TDSLITE_ASSERT_MSG(!has_value(), "invalid expected access, unexpected does not have a value");
+            TDSL_ASSERT_MSG(!has_value(), "invalid expected access, unexpected does not have a value");
             return unexpected_value.value;
         }
 
         inline ET && error() && {
-            TDSLITE_ASSERT_MSG(!has_value(), "invalid expected access, unexpected does not have a value");
-            return TDSLITE_MOVE(unexpected_value.value);
+            TDSL_ASSERT_MSG(!has_value(), "invalid expected access, unexpected does not have a value");
+            return TDSL_MOVE(unexpected_value.value);
         }
 
         inline const ET && error() const && {
-            TDSLITE_ASSERT_MSG(!has_value(), "invalid expected access, unexpected does not have a value");
-            return TDSLITE_MOVE(unexpected_value.value);
+            TDSL_ASSERT_MSG(!has_value(), "invalid expected access, unexpected does not have a value");
+            return TDSL_MOVE(unexpected_value.value);
         }
 
     private:

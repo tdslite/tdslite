@@ -26,17 +26,17 @@ namespace tdsl { namespace net {
     /**
      * Synchronous ASIO networking code for tdslite
      */
-    struct asio_network_impl : public network_impl_base {
+    struct asio_network_impl : public network_impl_base<asio_network_impl> {
 
         /**
          * Default c-tor
          */
-        TDSLITE_SYMBOL_VISIBLE asio_network_impl();
+        TDSL_SYMBOL_VISIBLE asio_network_impl();
 
         /**
          * D-tor
          */
-        TDSLITE_SYMBOL_VISIBLE ~asio_network_impl();
+        TDSL_SYMBOL_VISIBLE ~asio_network_impl();
 
         /**
          * Connect to the target endpoint @p target : @p port
@@ -48,7 +48,7 @@ namespace tdsl { namespace net {
          * @returns -1 when socket associated with network implementation is alive, call @ref do_disconnect first
          * @returns -2 when asynchronous resolve operation of previous @ref do_connect call is still in progress
          */
-        TDSLITE_SYMBOL_VISIBLE int do_connect(tdsl::span<const char> target, tdsl::uint16_t port);
+        TDSL_SYMBOL_VISIBLE int do_connect(tdsl::span<const char> target, tdsl::uint16_t port);
 
         /**
          * Disconnect the socket from the connected endpoint and destroy
@@ -57,7 +57,7 @@ namespace tdsl { namespace net {
          * @returns 0 if socket is disconnected and the class is ready for re-use
          * @returns -1 if socket is not alive
          */
-        TDSLITE_SYMBOL_VISIBLE int do_disconnect() noexcept;
+        TDSL_SYMBOL_VISIBLE int do_disconnect() noexcept;
 
         /**
          * Append @p data to send buffer
@@ -94,7 +94,7 @@ namespace tdsl { namespace net {
          * @returns -1 when asynchronous send is not called due to  another
          *           asynchronous send is already in progress
          */
-        TDSLITE_SYMBOL_VISIBLE int do_send(void) noexcept;
+        TDSL_SYMBOL_VISIBLE int do_send(void) noexcept;
 
         /**
          * Dispatch receive on socket
@@ -103,7 +103,7 @@ namespace tdsl { namespace net {
          * Minimum amount of bytes to be received
          * before invoking the receive callback
          */
-        TDSLITE_SYMBOL_VISIBLE void do_recv(tdsl::uint32_t minimum_amount) noexcept;
+        TDSL_SYMBOL_VISIBLE void do_recv(tdsl::uint32_t minimum_amount) noexcept;
 
     private:
         // The send buffer
@@ -116,7 +116,7 @@ namespace tdsl { namespace net {
          *
          * @param amount Received amount
          */
-        TDSLITE_SYMBOL_VISIBLE void on_recv(tdsl::uint32_t amount);
+        TDSL_SYMBOL_VISIBLE void on_recv(tdsl::uint32_t amount);
         std::shared_ptr<void> io_context{nullptr};
         std::shared_ptr<void> io_context_work_guard{nullptr};
         std::shared_ptr<void> socket_handle{nullptr};

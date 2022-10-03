@@ -9,8 +9,8 @@
  * _________________________________________________
  */
 
-#ifndef TDSLITE_DETAIL_TDS_INVOKE_HPP
-#define TDSLITE_DETAIL_TDS_INVOKE_HPP
+#ifndef TDSL_DETAIL_TDS_INVOKE_HPP
+#define TDSL_DETAIL_TDS_INVOKE_HPP
 
 #include <tdslite/util/tdsl_type_traits.hpp>
 #include <tdslite/util/tdsl_macrodef.hpp>
@@ -26,9 +26,9 @@ namespace tdsl {
         constexpr decltype(auto) invoke_memptr(Pointed C::*f, T1 && t1, Args &&... args) {
             if constexpr (traits::is_function<Pointed>::value) {
                 if constexpr (traits::is_base_of<C, typename traits::decay<T1>::type>::value)
-                    return (TDSLITE_FORWARD(t1).*f)(TDSLITE_FORWARD(args)...);
+                    return (TDSL_FORWARD(t1).*f)(TDSL_FORWARD(args)...);
                 else if constexpr (is_reference_wrapper_v<std::decay_t<T1>>)
-                    return (t1.get().*f)(TDSLITE_FORWARD(args)...);
+                    return (t1.get().*f)(TDSL_FORWARD(args)...);
                 else
                     return ((*std::forward<T1>(t1)).*f)(std::forward<Args>(args)...);
             }

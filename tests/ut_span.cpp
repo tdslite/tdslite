@@ -90,7 +90,7 @@ TEST(span, copy_assign) {
 TEST(span, move_construct) {
     tdsl::uint8_t buf [4];
     tdsl::span<tdsl::uint8_t> buf_span{buf};
-    tdsl::span<tdsl::uint8_t> buf_span_mc{TDSLITE_MOVE(buf_span)};
+    tdsl::span<tdsl::uint8_t> buf_span_mc{TDSL_MOVE(buf_span)};
     EXPECT_NE(buf_span, buf_span_mc);
     EXPECT_EQ(buf_span.data(), nullptr);
     EXPECT_EQ(buf_span.size_bytes(), 0);
@@ -108,7 +108,7 @@ TEST(span, move_construct) {
 TEST(span, move_assign) {
     tdsl::uint8_t buf [4];
     tdsl::span<tdsl::uint8_t> buf_span{buf};
-    tdsl::span<tdsl::uint8_t> buf_span_mc = TDSLITE_MOVE(buf_span);
+    tdsl::span<tdsl::uint8_t> buf_span_mc = TDSL_MOVE(buf_span);
     EXPECT_NE(buf_span, buf_span_mc);
     EXPECT_EQ(buf_span.data(), nullptr);
     EXPECT_EQ(buf_span.size_bytes(), 0);

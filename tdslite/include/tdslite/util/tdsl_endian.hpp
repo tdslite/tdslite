@@ -10,8 +10,8 @@
  * ____________________________________________________
  */
 
-#ifndef TDSLITE_DETAIL_TDS_ENDIAN_HPP
-#define TDSLITE_DETAIL_TDS_ENDIAN_HPP
+#ifndef TDSL_DETAIL_TDS_ENDIAN_HPP
+#define TDSL_DETAIL_TDS_ENDIAN_HPP
 
 namespace tdsl {
 

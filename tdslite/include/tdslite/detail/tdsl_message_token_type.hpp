@@ -16,12 +16,12 @@
 
 namespace tdsl { namespace detail {
 
-#define TDSLITE_MESSAGE_TOKEN_TYPE_LIST_PROLOGUE                                                                                           \
+#define TDSL_MESSAGE_TOKEN_TYPE_LIST_PROLOGUE                                                                                              \
     enum class e_tds_message_token_type : tdsl::uint8_t                                                                                    \
     {
-#define TDSLITE_MESSAGE_TOKEN_TYPE_DECL(NAME, VALUE) NAME = VALUE
-#define TDSLITE_MESSAGE_TOKEN_TYPE_LIST_DELIM        ,
-#define TDSLITE_MESSAGE_TOKEN_TYPE_LIST_EPILOGUE                                                                                           \
+#define TDSL_MESSAGE_TOKEN_TYPE_DECL(NAME, VALUE) NAME = VALUE
+#define TDSL_MESSAGE_TOKEN_TYPE_LIST_DELIM        ,
+#define TDSL_MESSAGE_TOKEN_TYPE_LIST_EPILOGUE                                                                                              \
     }                                                                                                                                      \
     ;
 
@@ -33,13 +33,13 @@ namespace tdsl { namespace detail {
      * @param [in] type Token type
      * @return Token type as string if @p type has a corresponding string representation, "UNDEFINED" otherwise.
      */
-    inline static TDSLITE_CXX14_CONSTEXPR const char * message_token_type_to_str(e_tds_message_token_type type) {
-#define TDSLITE_MESSAGE_TOKEN_TYPE_LIST_PROLOGUE switch (type) {
-#define TDSLITE_MESSAGE_TOKEN_TYPE_DECL(NAME, VALUE)                                                                                       \
+    inline static TDSL_CXX14_CONSTEXPR const char * message_token_type_to_str(e_tds_message_token_type type) {
+#define TDSL_MESSAGE_TOKEN_TYPE_LIST_PROLOGUE switch (type) {
+#define TDSL_MESSAGE_TOKEN_TYPE_DECL(NAME, VALUE)                                                                                          \
     case e_tds_message_token_type::NAME:                                                                                                   \
         return #NAME "(" #VALUE ")";
-#define TDSLITE_MESSAGE_TOKEN_TYPE_LIST_DELIM ;
-#define TDSLITE_MESSAGE_TOKEN_TYPE_LIST_EPILOGUE                                                                                           \
+#define TDSL_MESSAGE_TOKEN_TYPE_LIST_DELIM ;
+#define TDSL_MESSAGE_TOKEN_TYPE_LIST_EPILOGUE                                                                                              \
     }                                                                                                                                      \
     ;
 #include <tdslite/detail/tdsl_message_token_type.inc>

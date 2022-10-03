@@ -10,8 +10,8 @@
  * ____________________________________________________
  */
 
-#ifndef TDSLITE_DETAIL_TDS_SPAN_HPP
-#define TDSLITE_DETAIL_TDS_SPAN_HPP
+#ifndef TDSL_DETAIL_TDS_SPAN_HPP
+#define TDSL_DETAIL_TDS_SPAN_HPP
 
 #include <tdslite/util/tdsl_inttypes.hpp>
 #include <tdslite/util/tdsl_macrodef.hpp>
@@ -48,7 +48,7 @@ namespace tdsl {
         /**
          * Default c-tor
          */
-        inline TDSLITE_CXX14_CONSTEXPR span() noexcept : data_(nullptr), element_count(0){};
+        inline TDSL_CXX14_CONSTEXPR span() noexcept : data_(nullptr), element_count(0){};
 
         /**
          * Construct a new span object
@@ -95,7 +95,7 @@ namespace tdsl {
         /**
          * Copy assignment
          */
-        inline TDSLITE_CXX14_CONSTEXPR span & operator=(const self_type & other) noexcept {
+        inline TDSL_CXX14_CONSTEXPR span & operator=(const self_type & other) noexcept {
             // For avoiding "compound-statement in `constexpr` function warning in C++11 mode"
             &other != this ? (data_ = other.data_) : static_cast<element_type *>(nullptr);
             &other != this ? (element_count = other.element_count) : static_cast<decltype(element_count)>(0);
@@ -105,7 +105,7 @@ namespace tdsl {
         /**
          * Move assignment
          */
-        inline TDSLITE_CXX14_CONSTEXPR span & operator=(self_type && other) noexcept {
+        inline TDSL_CXX14_CONSTEXPR span & operator=(self_type && other) noexcept {
             // For avoiding "compound-statement in `constexpr` function warning in C++11 mode"
             &other != this ? (data_ = detail::exchange(other.data_, nullptr)) : static_cast<element_type *>(0);
             &other != this ? (element_count = detail::exchange(other.element_count, 0)) : static_cast<decltype(element_count)>(0);

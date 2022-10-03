@@ -39,7 +39,7 @@ namespace tdsl {
      * @return mfctx Object containing current malloc-free functions
      */
     inline const mfctx & tdslite_malloc_free(malloc_fn_type mfn = nullptr, free_fn_type ffn = nullptr) {
-        TDSLITE_ASSERT_MSG(not(!(mfn) != !(ffn)), "malloc and free functions can either be both null or non-null.");
+        TDSL_ASSERT_MSG(not(!(mfn) != !(ffn)), "malloc and free functions can either be both null or non-null.");
 
         // Since we're a header-only library we cannot use a global
         // static variable or static inline since we're targeting
@@ -98,7 +98,7 @@ namespace tdsl {
             // Invoke placement new for each element
             T * storage = static_cast<T *>(mem);
 
-            construct(storage, 1, TDSLITE_FORWARD(args)...);
+            construct(storage, 1, TDSL_FORWARD(args)...);
 
             return storage;
         }
@@ -118,7 +118,7 @@ namespace tdsl {
             // Invoke placement new for each element
             T * storage = static_cast<T *>(mem);
 
-            construct(storage, n_elems, TDSLITE_FORWARD(args)...);
+            construct(storage, n_elems, TDSL_FORWARD(args)...);
 
             return storage;
         }
@@ -133,7 +133,7 @@ namespace tdsl {
         static void construct(Q * storage, tdsl::uint32_t n_elems, Args &&... args) {
             for (tdsl::uint32_t i = 0; i < n_elems; i++) {
                 // placement new
-                new (storage + i) Q(TDSLITE_FORWARD(args)...);
+                new (storage + i) Q(TDSL_FORWARD(args)...);
             }
         }
 

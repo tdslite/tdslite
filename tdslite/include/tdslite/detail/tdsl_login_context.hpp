@@ -16,7 +16,7 @@
 #include <tdslite/detail/tdsl_version.hpp>
 #include <tdslite/detail/tdsl_tds_context.hpp>
 #include <tdslite/detail/tdsl_mssql_error_codes.hpp>
-#include <tdslite/detail/tdsl_callback_context.hpp>
+#include <tdslite/detail/tdsl_callback.hpp>
 #include <tdslite/detail/tdsl_string_writer.hpp>
 
 #include <tdslite/util/tdsl_inttypes.hpp>
@@ -63,7 +63,7 @@ namespace tdsl { namespace detail {
             tdsl::uint8_t opt3;
             tdsl::uint32_t time_zone;
             tdsl::uint32_t collation;
-        } TDSLITE_PACKED;
+        } TDSL_PACKED;
 
         static_assert(sizeof(tds_login7_header) == 44, "Invalid TDS Login7 header size");
 
@@ -75,7 +75,7 @@ namespace tdsl { namespace detail {
 
     private:
         tds_context_type & tds_ctx;
-        callback_context<e_login_status> login_cb_ctx;
+        callback<e_login_status> login_cb_ctx;
 
     public:
         /**
@@ -230,7 +230,7 @@ namespace tdsl { namespace detail {
 
     private:
         inline auto put_login_header_length(tdsl::uint32_t lplength) noexcept -> void {
-            tds_ctx.write_le(TDSLITE_OFFSETOF(tds_login7_header, packet_length), lplength);
+            tds_ctx.write_le(TDSL_OFFSETOF(tds_login7_header, packet_length), lplength);
         }
 
         /**
@@ -335,12 +335,12 @@ namespace tdsl { namespace detail {
                             }
                             continue;
                         default: {
-                            TDSLITE_ASSERT(false);
-                            TDSLITE_UNREACHABLE;
+                            TDSL_ASSERT(false);
+                            TDSL_UNREACHABLE;
                         } break;
                     } // ... switch (static_cast<e_tds_login_parameter_idx>(j))
 
-                    TDSLITE_ASSERT(tw);
+                    TDSL_ASSERT(tw);
 
                     if (pt == pass_type::offset_size_table) {
                         // We're filling the offset table (first pass)

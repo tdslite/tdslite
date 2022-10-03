@@ -47,7 +47,7 @@ namespace tdsl {
         static inline tdsl::expected<tdsl_row, e_tdsl_row_make_err> make(tdsl::uint32_t n_col) {
             tdsl_field * fields = field_allocator_t::create_n(n_col);
             if (fields) {
-                return TDSLITE_MOVE(tdsl::expected<tdsl_row, e_tdsl_row_make_err>{tdsl_row(fields, n_col)});
+                return TDSL_MOVE(tdsl::expected<tdsl_row, e_tdsl_row_make_err>{tdsl_row(fields, n_col)});
             }
             return tdsl::unexpected<e_tdsl_row_make_err>(e_tdsl_row_make_err::MEM_ALLOC);
         }
