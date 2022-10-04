@@ -16,46 +16,85 @@
 #include <tdslite/detail/tdsl_message_token_type.hpp>
 #include <tdslite/detail/tdsl_envchange_type.hpp>
 #include <tdslite/detail/tdsl_packet_handler_result.hpp>
+#include <tdslite/detail/tdsl_message_status.hpp>
 
 #include <tdslite/util/tdsl_span.hpp>
 #include <tdslite/util/tdsl_macrodef.hpp>
 #include <tdslite/util/tdsl_binary_reader.hpp>
 #include <tdslite/util/tdsl_debug_print.hpp>
 #include <tdslite/util/tdsl_type_traits.hpp>
+#include <tdslite/util/tdsl_expected.hpp>
 
 namespace tdsl { namespace net {
 
     namespace detail {
 
         template <typename T>
-        using has_recv_member_fn_t = decltype(traits::declval<T>().do_recv(static_cast<tdsl::uint32_t>(0)));
+        using has_recv_member_fn_t = decltype(traits::declval<T>().do_recv(static_cast<tdsl::uint32_t>(0), typename T::read_at_least{}));
 
         template <typename T>
         using has_recv_member_fn = traits::is_detected<has_recv_member_fn_t, T>;
 
-        // template <typename T>
-        // using has_recv_buf_member_fn_t = decltype(traits::declval<T>().recv_buf());
+        template <typename T>
+        using has_consume_recv_buf_fn_t =
+            decltype(traits::declval<T>().do_consume_recv_buf(static_cast<tdsl::uint32_t>(0), static_cast<tdsl::uint32_t>(0)));
 
-        // template <typename T>
-        // using has_recv_buf_member_fn = traits::is_detected<has_recv_buf_member_fn_t, T>;
+        template <typename T>
+        using has_consume_recv_buf = traits::is_detected<has_consume_recv_buf_fn_t, T>;
+
     } // namespace detail
 
     template <typename ConcreteNetImpl>
     struct network_impl_base {
+        struct read_exactly {};
+
+        struct read_at_least {};
+
+        struct netbuf_reader : public binary_reader<tdsl::endian::little> {
+            netbuf_reader(ConcreteNetImpl & n, tdsl::span<const tdsl::uint8_t> buf) :
+                binary_reader<tdsl::endian::little>{buf.data(), buf.size()}, nimplb(n) {
+
+                static_assert(traits::dependent_bool<detail::has_consume_recv_buf<ConcreteNetImpl>::value>::value,
+                              "The type ConcreteNetImpl must implement void do_consume_recv_buf(tdsl::uint32_t, tdsl::uint32_t) function!");
+            }
+
+            ~netbuf_reader() {
+                nimplb.do_consume_recv_buf(offset(), 0);
+            }
+
+        private:
+            ConcreteNetImpl & nimplb;
+        }; // give rbuf_reader object
     private:
-        inline void call_recv(tdsl::uint32_t min_amount) {
-            static_cast<ConcreteNetImpl &>(*this).do_recv(min_amount);
+        // on destruct, trim read amount bytes from buf
+        // rbuf_reader,
+
+        inline void call_recv(tdsl::uint32_t min_amount, read_at_least) {
+            static_cast<ConcreteNetImpl &>(*this).do_recv(min_amount, read_at_least{});
         }
 
-        // consume_recv_buffer(tdsl::uint32_t, tdsl::uint32_t)
-        // span<>
+        inline void call_recv(tdsl::uint32_t exact_amount, read_exactly) {
+            static_cast<ConcreteNetImpl &>(*this).do_recv(exact_amount, read_exactly{});
+        }
+
+        inline expected<tdsl::uint32_t, tdsl::int32_t> call_read(tdsl::span<tdsl::uint8_t> dst_buf, read_exactly) {
+            return static_cast<ConcreteNetImpl &>(*this).do_read(dst_buf, read_exactly{});
+        }
+
+        inline auto call_rbuf_reader() -> netbuf_reader {
+            return static_cast<ConcreteNetImpl &>(*this).rbuf_reader();
+        }
 
     public:
         using tds_msg_handler_result = packet_handler_result<bool, false>;
 
-        // Message callback context
-        using msg_callback_ctx       = callback<void, tdsl::uint32_t (*)(/*user_ptr*/ void *, /*msg_type*/ tdsl::detail::e_tds_message_type,
-                                                                   /*msg*/ tdsl::span<const tdsl::uint8_t>)>;
+        /**
+         * Packet data callback
+         *
+         * Returns amount of needed bytes, if any.
+         */
+        using tds_packet_data_callback =
+            callback<void, tdsl::uint32_t (*)(void *, tdsl::detail::e_tds_message_type, tdsl::binary_reader<tdsl::endian::little> &)>;
 
         enum class e_conection_state : tdsl::int8_t
         {
@@ -76,8 +115,6 @@ namespace tdsl { namespace net {
 
             // static_assert(traits::dependent_bool<detail::has_recv_buf_member_fn<ConcreteNetImpl>::value>::value,
             //               "The type ConcreteNetImpl must implement tdsl::span<const tdsl::uint8_t> recv_buf() function!");
-            // Disabled by default
-            flags.expect_full_tds_pdu = {false};
         }
 
         // begin_recv_tds_response
@@ -85,12 +122,86 @@ namespace tdsl { namespace net {
         /**
          * Receive one, complete TDS PDU.
          */
-        void receive_tds_pdu() {
+        void do_receive_tds_pdu() noexcept {
 
             // Each TDS message contains a status field
             // TDS payload can fragment between multiple messages
             // Each fragment will contain a TDS header
             // Last fragment will have its EOM bit set, others will not
+
+            bool eom_flag                       = {false};
+            constexpr static auto k_tds_hdr_len = 8;
+            do {
+                tdsl::uint8_t tds_hbuf [k_tds_hdr_len] = {0};
+                tdsl::span<tdsl::uint8_t> tds_hbuf_s{tds_hbuf};
+                call_read(tds_hbuf_s, read_exactly{});
+                auto thdr_rdr = binary_reader<tdsl::endian::big>{tds_hbuf};
+
+                // Type defines the type of message. Type is a 1-byte unsigned char.
+                const tdsl::detail::e_tds_message_type message_type =
+                    static_cast<tdsl::detail::e_tds_message_type>(thdr_rdr.read<tdsl::uint8_t>());
+                // Status is a bit field used to indicate the message state. Status is a 1-byte
+                // unsigned char.
+                const auto status                  = thdr_rdr.read_raw<tdsl::detail::tds_message_status>();
+                // Length is the size of the packet including the 8 bytes in the packet header.
+                // It is the number of bytes from the start of this header to the start of the
+                // next packet header. Length is a 2-byte, unsigned short and is represented
+                // in network byte order (big-endian). The Length value MUST be greater than
+                // or equal to 512 bytes and smaller than or equal to 32,767 bytes. The default
+                // value is 4,096 bytes. Starting with TDS 7.3, the Length MUST be the negotiated
+                // packet size when sending a packet from client to server, unless it is the last
+                // packet of a request (that is, the EOM bit in Status is ON) or the client has not
+                // logged in.
+                constexpr static auto k_max_length = 32767;
+                const auto length                  = thdr_rdr.read<tdsl::uint16_t>();
+                if (length < k_tds_hdr_len || length > k_max_length) {
+                    // invalid length
+                    TDSL_ASSERT_MSG(0, "Invalid tds message length!");
+                    return;
+                }
+                const auto packet_data_size = length - k_tds_hdr_len;
+                // // Skip channel, packet id and window
+                // nbuf_rdr.advance(/*amount_of_bytes=*/4);
+                call_recv(packet_data_size, read_exactly{}); // may throw?
+
+                // This is a netbuf_reader instance.
+                // Read operations on this will be committed
+                // to underlying buffer on object destruction
+                // e.g. nmsg_rdr.read(2) will cause 2 bytes from
+                // the start of the underlying buffer to be removed
+                auto nmsg_rdr = call_rbuf_reader();
+                // pass current buffer down
+                if (not nmsg_rdr.has_bytes(packet_data_size)) {
+                    // this should not happen
+                    TDSL_ASSERT_MSG(0, "The receive buffer does not contain expected amount of bytes, something is wrong!");
+                    return;
+                }
+
+                // TODO: check if downstream consumed the message
+                // TODO: Check if we got enough space to pull the next message
+
+                if (packet_data_cb) {
+                    const auto needed_bytes = packet_data_cb.invoke(message_type, nmsg_rdr);
+                    TDSL_DEBUG_PRINTLN("network_impl_base::handle_tds_response(...) -> msg_cb_ctx, need byte(s) value:%d", needed_bytes);
+                    (void) needed_bytes;
+                }
+                // if (msg_cb_ctx.callback) {
+                //     // pass reader down,
+                //     auto need_bytes = msg_cb_ctx.callback(msg_cb_ctx.user_ptr, static_cast<msg_type>(mt), rr.read(rr.remaining_bytes()));
+                //     TDSL_DEBUG_PRINT("network_impl_base::handle_tds_response(...) -> msg_cb_ctx, need byte(s) value:%d \n",
+                //                      (length - rr.size_bytes()));
+                //     return need_bytes;
+                // }
+
+                // pass current buffer down
+
+                // if (not nbuf_rdr.has_bytes(length)) {
+                //     call_recv(length);
+                //     nbuf_rdr = call_rbuf_reader();
+                // }
+
+                eom_flag = status.end_of_message;
+            } while (not eom_flag);
 
             // while(not eom_seen)<--------------------------|
             //  read(8)                                      |
@@ -104,81 +215,20 @@ namespace tdsl { namespace net {
 
             // ... or alternatively, find a way to make a circular
             // buffer contiguous.
-
-            // while EOM not received,
         }
 
         /**
-         * TDS response message handler function
+         * Set TDS packet data callback
          *
-         * @param [in] data The received data
-         *
-         * @returns The amount of bytes needed for next response call
-         */
-        tdsl::uint32_t handle_tds_response(tdsl::span<const tdsl::uint8_t> data) noexcept {
-            // Response reader
-            tdsl::binary_reader<tdsl::endian::big> rr{data.data(), data.size()};
-
-            // tds_msg_handler_result result{};
-
-            constexpr static auto k_tds_hdr_len = 8;
-
-            if (not rr.has_bytes(/*amount_of_bytes=*/k_tds_hdr_len)) {
-                TDSL_DEBUG_PRINT("network_impl_base::handle_tds_response(...) -> insufficient data, need %d more byte(s): \n",
-                                 (k_tds_hdr_len - rr.size_bytes()));
-                return k_tds_hdr_len - rr.size_bytes();
-                //  return result; // need at least 8 bytes
-            }
-
-            using msg_type    = tdsl::detail::e_tds_message_type;
-
-            const auto mt     = rr.read<tdsl::uint8_t>();
-            const auto status = rr.read<tdsl::uint8_t>();
-            const auto length = rr.read<tdsl::uint16_t>();
-
-            // Skip channel, packet id and window
-            rr.advance(/*amount_of_bytes=*/4);
-
-            (void) status; // FIXME: Check EOM
-
-            if (flags.expect_full_tds_pdu && not(rr.size_bytes() >= length)) {
-                // Ensure that we got the whole intended payload
-                TDSL_DEBUG_PRINT("network_impl_base::handle_tds_response(...) -> insufficient data, need %d more byte(s): \n",
-                                 (length - rr.size_bytes()));
-                return length - rr.size_bytes();
-            }
-
-            // poll more data here?
-
-            // done token?
-
-            if (msg_cb_ctx.callback) {
-                auto need_bytes = msg_cb_ctx.callback(msg_cb_ctx.user_ptr, static_cast<msg_type>(mt), rr.read(rr.remaining_bytes()));
-                TDSL_DEBUG_PRINT("network_impl_base::handle_tds_response(...) -> msg_cb_ctx, need byte(s) value:%d \n",
-                                 (length - rr.size_bytes()));
-                return need_bytes;
-            }
-
-            return {};
-        }
-
-        /**
-         * Set receive callback
-         *
+         * @param [in] user_ptr uptr
          * @param [in] cb New callback
          */
-        TDSL_SYMBOL_VISIBLE void register_msg_recv_callback(void * user_ptr, msg_callback_ctx::function_type cb) {
-            msg_cb_ctx.user_ptr = user_ptr;
-            msg_cb_ctx.callback = cb;
+        TDSL_SYMBOL_VISIBLE void register_packet_data_callback(void * user_ptr, tds_packet_data_callback::function_type cb) {
+            packet_data_cb.set(user_ptr, cb);
         }
 
     protected:
-        msg_callback_ctx msg_cb_ctx{};
-
-        struct {
-            bool expect_full_tds_pdu : 1;
-            bool reserved : 7;
-        } flags;
+        tds_packet_data_callback packet_data_cb{};
 
     private:
         // void

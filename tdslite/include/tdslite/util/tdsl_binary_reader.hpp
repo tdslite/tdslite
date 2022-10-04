@@ -142,13 +142,6 @@ namespace tdsl {
         inline TDSL_CXX14_CONSTEXPR auto current() const noexcept -> const tdsl::uint8_t * {
             TDSL_ASSERT(offset_ <= size_bytes());
             return data() + offset_;
-            // 4 byte
-            // 0
-            // read -> 1
-            // read -> 2
-            // read -> 3
-            // read -> 4
-            // read
         }
 
         /**

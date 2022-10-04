@@ -27,7 +27,7 @@ namespace tdsl { namespace detail {
     template <typename TDSCTX>
     struct string_parameter_writer {
 
-        static void write(typename TDSCTX::xmit_context & xc, const string_view & sv,
+        static void write(typename TDSCTX::xmit_if & xc, const string_view & sv,
                           void (*encoder)(tdsl::uint8_t *, tdsl::uint32_t) = nullptr) {
             for (auto ch : sv) {
                 char16_t c = ch;
@@ -39,7 +39,7 @@ namespace tdsl { namespace detail {
             }
         }
 
-        static void write(typename TDSCTX::xmit_context & xc, const wstring_view & sv,
+        static void write(typename TDSCTX::xmit_if & xc, const wstring_view & sv,
                           void (*encoder)(tdsl::uint8_t *, tdsl::uint32_t) = nullptr) {
 
             if (not encoder) {

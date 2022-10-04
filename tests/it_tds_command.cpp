@@ -81,6 +81,7 @@ TEST_F(tds_command_ctx_it_fixture, ctis_int_int) {
         std::printf("colcnt %d\n", colmd.column_count);
         std::printf("row with %d fields\n", row_data.fields.size());
     };
+
     // should return 1 rows with 2 int fields.
     tdsl::uint32_t rows_affected =
         command_ctx.execute_query(tdsl::string_view{/*str=*/"SELECT q,y from test;"}, nullptr, callback); // callback
@@ -171,7 +172,7 @@ TEST_F(tds_command_ctx_it_fixture, ctis_10k_rows_multi_packet) {
                                                                                                                                  // callback
 
     for (int i = 0; i < 10000; i++) {
-        EXPECT_EQ(1, command_ctx.execute_query(tdsl::string_view{/*str=*/"INSERT INTO test VALUES(0x0, 'this is a test', 0);"})); //
+        ASSERT_EQ(1, command_ctx.execute_query(tdsl::string_view{/*str=*/"INSERT INTO test VALUES(0x0, 'this is a test', 0);"})); //
         // callback
     }
     // should return 1 rows affected
@@ -186,7 +187,16 @@ TEST_F(tds_command_ctx_it_fixture, ctis_10k_rows_multi_packet) {
         std::printf("\n");
     };
 
-    tdsl::uint32_t rows_affected =
-        command_ctx.execute_query(tdsl::string_view{/*str=*/"SELECT q,y,z from test;"}, nullptr, callback); // callback
-    std::printf("rows affected %d\n", rows_affected);
+    {
+        tdsl::uint32_t rows_affected =
+            command_ctx.execute_query(tdsl::string_view{/*str=*/"SELECT q,y,z from test;"}, nullptr, callback); // callback
+        std::printf("rows affected %d\n", rows_affected);
+        EXPECT_EQ(10000, rows_affected);
+    }
+    {
+        tdsl::uint32_t rows_affected = command_ctx.execute_query(tdsl::string_view{/*str=*/"SELECT TOP 500 q,y,z from test ORDER BY z;"},
+                                                                 nullptr, callback); // callback
+        std::printf("rows affected %d\n", rows_affected);
+        EXPECT_EQ(500, rows_affected);
+    }
 }

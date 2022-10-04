@@ -16,11 +16,13 @@
 #include <tdslite/detail/tdsl_envchange_type.hpp>
 #include <tdslite/detail/tdsl_callback.hpp>
 #include <tdslite/detail/tdsl_data_type.hpp>
+#include <tdslite/detail/tdsl_token_handler_result.hpp>
+#include <tdslite/detail/tdsl_net_recv_if_mixin.hpp>
+#include <tdslite/detail/tdsl_net_send_if_mixin.hpp>
 #include <tdslite/detail/token/tdsl_envchange_token.hpp>
 #include <tdslite/detail/token/tdsl_info_token.hpp>
 #include <tdslite/detail/token/tdsl_loginack_token.hpp>
 #include <tdslite/detail/token/tdsl_done_token.hpp>
-#include <tdslite/detail/tdsl_token_handler_result.hpp>
 
 #include <tdslite/util/tdsl_binary_reader.hpp>
 #include <tdslite/util/tdsl_byte_swap.hpp>
@@ -46,106 +48,18 @@ namespace tdsl { namespace detail {
     template <typename NetImpl>
     struct login_context;
 
-    namespace detail {
-
-        /**
-         * Network packet transmit context
-         *
-         * @tparam Derived Derived type (CRTP)
-         */
-        template <typename Derived>
-        struct net_packet_xmit_context {
-
-            template <typename T, traits::enable_if_integral<T> = true>
-            inline auto write(T v) noexcept -> void {
-                tdsl::span<const tdsl::uint8_t> data(reinterpret_cast<const tdsl::uint8_t *>(&v), sizeof(T));
-                write(data);
-            }
-
-            template <typename T, traits::enable_if_integral<T> = true>
-            inline auto write_be(T v) noexcept -> void {
-                write(native_to_be(v));
-            }
-
-            template <typename T, traits::enable_if_integral<T> = true>
-            inline auto write_le(T v) noexcept -> void {
-                write(native_to_le(v));
-            }
-
-            template <typename T, traits::enable_if_integral<T> = true>
-            inline auto write(tdsl::uint32_t offset, T v) noexcept -> void {
-                tdsl::span<const tdsl::uint8_t> data(reinterpret_cast<const tdsl::uint8_t *>(&v), sizeof(T));
-                write(offset, data);
-            }
-
-            template <typename T, traits::enable_if_integral<T> = true>
-            inline auto write_be(tdsl::uint32_t offset, T v) noexcept -> void {
-                write(offset, native_to_be(v));
-            }
-
-            template <typename T, traits::enable_if_integral<T> = true>
-            inline auto write_le(tdsl::uint32_t offset, T v) noexcept -> void {
-                write(offset, native_to_le(v));
-            }
-
-            template <typename T>
-            inline void write(tdsl::uint32_t offset, tdsl::span<T> data) noexcept {
-                static_cast<Derived &>(*this).do_write(offset, data);
-            }
-
-            template <typename T>
-            inline void write(tdsl::span<T> data) noexcept {
-                static_cast<Derived &>(*this).do_write(data);
-            }
-
-            template <typename... Args>
-            inline void send(Args &&... args) noexcept {
-                static_cast<Derived &>(*this).do_send(TDSL_FORWARD(args)...);
-            }
-        };
-
-        // --------------------------------------------------------------------------------
-
-        /**
-         * Network packet receive context
-         *
-         * @tparam Derived Derived type (CRTP)
-         */
-        template <typename Derived>
-        struct net_packet_recv_context {
-            template <typename... Args>
-            inline void recv(Args &&... args) {
-                static_cast<Derived &>(*this).do_recv(TDSL_FORWARD(args)...);
-            }
-        };
-
-        // --------------------------------------------------------------------------------
-
-        template <typename T>
-        using register_msg_recv_callback_member_fn_t = decltype(traits::declval<T>().register_msg_recv_callback(
-            static_cast<void *>(0),
-            static_cast<tdsl::uint32_t (*)(void *, tdsl::detail::e_tds_message_type, tdsl::span<const tdsl::uint8_t>)>(0)));
-
-        template <typename T>
-        using has_register_msg_recv_member_fn = traits::is_detected<register_msg_recv_callback_member_fn_t, T>;
-
-        // --------------------------------------------------------------------------------
-
-    } // namespace detail
-
     /**
      * Base type for all TDS message contexts
      *
      * @tparam NetImpl Network-layer Implementation
      */
-    template <typename NetImpl>
-    struct tds_context : public NetImpl,
-                         public detail::net_packet_xmit_context<tds_context<NetImpl>>,
-                         public detail::net_packet_recv_context<tds_context<NetImpl>> {
-
-        using tds_context_type = tds_context<NetImpl>;
-        using xmit_context     = detail::net_packet_xmit_context<tds_context_type>;
-        using recv_context     = detail::net_packet_recv_context<tds_context_type>;
+    template <typename ConcreteNetImpl>
+    struct tds_context : public ConcreteNetImpl,
+                         public detail::net_recv_if_mixin<tds_context<ConcreteNetImpl>>,
+                         public detail::net_send_if_mixin<tds_context<ConcreteNetImpl>> {
+        using tds_context_type = tds_context<ConcreteNetImpl>;
+        using xmit_if          = detail::net_send_if_mixin<tds_context_type>;
+        using recv_if          = detail::net_recv_if_mixin<tds_context_type>;
 
         /**
          * The tabular data stream protocol header
@@ -198,15 +112,8 @@ namespace tdsl { namespace detail {
          * Default constructor for tds_context
          */
         tds_context() noexcept {
-            // If you are hitting this static assertion, it means either your NetImpl does not have register_msg_recv_callback,
-            // or it does not have the expected function signature. The `register_msg_recv_callback` function is provided
-            // by the `network_impl_base` type, which MUST be inherited by every single NetImpl. So, either the NetImpl
-            // you have provided does not inherit from `network_impl_base`, or the inheritance is private. Go figure.
-            static_assert(traits::dependent_bool<detail::has_register_msg_recv_member_fn<tds_context<NetImpl>>::value>::value,
-                          "The type NetImpl must implement void register_msg_recv_callback(void*, tdsl::uint32_t (*)(void *, "
-                          "tdsl::detail::e_tds_message_type, tdsl::span<const tdsl::uint8_t>)) function!");
             // Register tds_context message handler to network implementation
-            this->register_msg_recv_callback(this, &handle_msg);
+            this->register_packet_data_callback(this, &handle_packet_data);
         }
 
         // --------------------------------------------------------------------------------
@@ -268,18 +175,18 @@ namespace tdsl { namespace detail {
          *                       The return value would be non-zero only if the reader has partial
          *                       TDS message data.
          */
-        static tdsl::uint32_t handle_msg(void * self_optr, tdsl::detail::e_tds_message_type mt, tdsl::span<const tdsl::uint8_t> message) {
+        static tdsl::uint32_t handle_packet_data(void * self_optr, tdsl::detail::e_tds_message_type message_type,
+                                                 tdsl::binary_reader<tdsl::endian::little> & nmsg_rdr) {
             using msg_type = tdsl::detail::e_tds_message_type;
             auto self      = reinterpret_cast<tds_context_type *>(self_optr);
-            auto rr        = tdsl::binary_reader<tdsl::endian::little>{message};
 
-            switch (mt) {
+            switch (message_type) {
                 case msg_type::tabular_result: {
-                    return self->handle_tabular_result_msg(rr);
+                    return self->handle_tabular_result_msg(nmsg_rdr);
                 } break;
                 default: {
-                    TDSL_DEBUG_PRINTLN("tds_context::handle_msg: unhandled (%d) bytes of msg with type (%d)", message.size_bytes(),
-                                       static_cast<int>(mt));
+                    TDSL_DEBUG_PRINTLN("tds_context::handle_msg: unhandled (%ld) bytes of msg with type (%d)", nmsg_rdr.remaining_bytes(),
+                                       static_cast<int>(message_type));
                 } break;
             }
 
@@ -398,7 +305,12 @@ namespace tdsl { namespace detail {
             constexpr int k_min_token_need_bytes = 3;
             // start parsing tokens
             while (rr.has_bytes(/*amount_of_bytes=*/k_min_token_need_bytes)) {
-                const auto tt = static_cast<token_type>(rr.read<tdsl::uint8_t>());
+
+                // Save offset before token read in case we might
+                // need to revert.
+                const auto prev_offset = rr.offset();
+
+                const auto tt          = static_cast<token_type>(rr.read<tdsl::uint8_t>());
 
                 // TDSL_ASSERT_MSG( < length,
                 //                    "Something is wrong, token length is greater than the length of the encapsulating TDS PDU!");
@@ -419,6 +331,9 @@ namespace tdsl { namespace detail {
                     const auto sth_r = sub_token_handler.invoke(tt, rr);
                     if (not(sth_r.status == token_handler_status::unhandled)) {
                         if (sth_r.needed_bytes) {
+                            // reseek to token start so the unread token
+                            // data dont get discarded by the network layer
+                            rr.seek(prev_offset);
                             return sth_r.needed_bytes;
                         }
                         continue;
@@ -455,7 +370,7 @@ namespace tdsl { namespace detail {
                         subhandler_nb = handle_done_token(token_reader);
                     } break;
                     case token_type::loginack: {
-                        subhandler_nb = handle_loginack_token(rr);
+                        subhandler_nb = handle_loginack_token(token_reader);
                     } break;
 
                     default: {
@@ -676,8 +591,8 @@ namespace tdsl { namespace detail {
             return 0;
         }
 
-        friend struct detail::net_packet_xmit_context<tds_context<NetImpl>>;
-        friend struct detail::net_packet_recv_context<tds_context<NetImpl>>;
-        friend struct tdsl::detail::login_context<NetImpl>;
+        friend struct detail::net_recv_if_mixin<tds_context<ConcreteNetImpl>>;
+        friend struct detail::net_send_if_mixin<tds_context<ConcreteNetImpl>>;
+        friend struct tdsl::detail::login_context<ConcreteNetImpl>;
     };
 }} // namespace tdsl::detail

@@ -383,7 +383,7 @@ namespace tdsl { namespace detail {
             tds_ctx.send();
 
             // Receive the login response
-            tds_ctx.recv(8);
+            tds_ctx.receive_tds_pdu();
 
             return tds_ctx.is_authenticated() ? e_login_status::success : e_login_status::failure;
         } // ... void do_login_impl(const LoginParamsType & params) noexcept {

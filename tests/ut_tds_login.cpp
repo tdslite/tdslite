@@ -44,11 +44,10 @@ namespace {
 
         inline void do_send(void) noexcept {}
 
-        inline void do_recv(tdsl::uint32_t) noexcept {}
+        inline void do_receive_tds_pdu() {}
 
-        void register_msg_recv_callback(void *,
-                                        tdsl::uint32_t (*)(void *, tdsl::detail::e_tds_message_type, tdsl::span<const tdsl::uint8_t> rcb)) {
-        }
+        void register_packet_data_callback(void *, tdsl::uint32_t (*)(void *, tdsl::detail::e_tds_message_type,
+                                                                      tdsl::binary_reader<tdsl::endian::little> &)) {}
 
         std::vector<uint8_t> buffer;
     };

@@ -178,9 +178,12 @@ namespace tdsl {
             }
         }
 
-        // noop
-        template <typename Q>
+        template <typename Q = ST, traits::enable_if_non_class<Q> = true>
         void destructor_impl() {}
+
+        // // noop
+        // template <typename Q>
+        // void destructor_impl() {}
     };
 
 } // namespace tdsl

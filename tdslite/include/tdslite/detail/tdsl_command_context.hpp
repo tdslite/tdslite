@@ -54,7 +54,7 @@ namespace tdsl { namespace detail {
                 command_context & ctx          = *static_cast<command_context *>(uptr);
                 ctx.qstate.affected_rows       = dt.done_row_count;
                 ctx.qstate.flags.received_done = true;
-                TDSL_DEBUG_PRINT("received done token %d\n", dt.done_row_count);
+                TDSL_DEBUG_PRINT("cc: done token -- affected rows(%d)\n", dt.done_row_count);
                 return 0;
             });
         }
@@ -92,15 +92,8 @@ namespace tdsl { namespace detail {
             tds_ctx.put_tds_header_length(string_writer_type::calculate_write_size(command));
             // Send the command
             tds_ctx.send();
-
             // Receive the response
-            // FIXME: receive until seeing DONE token?
-
-            // invoke RECV unitl seeing the DONE token.
-            do {
-                tds_ctx.recv(8);
-            } while (not qstate.flags.received_done);
-
+            tds_ctx.receive_tds_pdu();
             return qstate.affected_rows;
         }
 
@@ -111,15 +104,18 @@ namespace tdsl { namespace detail {
             TDSL_ASSERT(uptr);
             self_type & self = *static_cast<self_type *>(uptr);
 
+            token_handler_result result{};
             switch (token_type) {
                 case e_tds_message_token_type::colmetadata:
-                    return self.handle_colmetadata_token(rr);
+                    result = self.handle_colmetadata_token(rr);
+                    break;
                 case e_tds_message_token_type::row:
-                    return self.handle_row_token(rr);
+                    result = self.handle_row_token(rr);
+                    break;
             }
-            token_handler_result default_r{};
-            TDSL_ASSERT(default_r.status == token_handler_status::unhandled);
-            return default_r;
+
+            // TDSL_ASSERT(reuu.status == token_handler_status::unhandled);
+            return result;
         }
 
     private:
