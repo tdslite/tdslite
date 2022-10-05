@@ -27,34 +27,34 @@ namespace tdsl { namespace detail {
     template <typename Derived>
     struct net_send_if_mixin {
 
-        template <typename T, traits::enable_if_integral<T> = true>
+        template <typename T, traits::enable_when::integral<T> = true>
         inline auto write(T v) noexcept -> void {
             tdsl::span<const tdsl::uint8_t> data(reinterpret_cast<const tdsl::uint8_t *>(&v), sizeof(T));
             write(data);
         }
 
-        template <typename T, traits::enable_if_integral<T> = true>
+        template <typename T, traits::enable_when::integral<T> = true>
         inline auto write_be(T v) noexcept -> void {
             write(native_to_be(v));
         }
 
-        template <typename T, traits::enable_if_integral<T> = true>
+        template <typename T, traits::enable_when::integral<T> = true>
         inline auto write_le(T v) noexcept -> void {
             write(native_to_le(v));
         }
 
-        template <typename T, traits::enable_if_integral<T> = true>
+        template <typename T, traits::enable_when::integral<T> = true>
         inline auto write(tdsl::uint32_t offset, T v) noexcept -> void {
             tdsl::span<const tdsl::uint8_t> data(reinterpret_cast<const tdsl::uint8_t *>(&v), sizeof(T));
             write(offset, data);
         }
 
-        template <typename T, traits::enable_if_integral<T> = true>
+        template <typename T, traits::enable_when::integral<T> = true>
         inline auto write_be(tdsl::uint32_t offset, T v) noexcept -> void {
             write(offset, native_to_be(v));
         }
 
-        template <typename T, traits::enable_if_integral<T> = true>
+        template <typename T, traits::enable_when::integral<T> = true>
         inline auto write_le(tdsl::uint32_t offset, T v) noexcept -> void {
             write(offset, native_to_le(v));
         }

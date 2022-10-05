@@ -17,6 +17,8 @@
 #include <tdslite/util/tdsl_macrodef.hpp>
 #include <tdslite/util/tdsl_type_traits.hpp>
 
+#include <span>
+
 namespace tdsl {
 
     namespace detail {
@@ -174,6 +176,17 @@ namespace tdsl {
         }
 
         /**
+         * Subscript operator
+         *
+         * @param [in] index Element to access
+         * @return reference Reference to the element
+         */
+        inline auto operator[](size_type index) const noexcept -> reference {
+            TDSL_ASSERT_MSG(index < size(), "Array subscript index exceeds span bounds!");
+            return data() [index];
+        }
+
+        /**
          * Make span boolable, so it can be used expressions like:
          * span<int> span_v;
          * ...
@@ -197,7 +210,7 @@ namespace tdsl {
          * @note If the original span's size_bytes() is not a multiple of sizeof(Q),
          * the element count of the resulting span will be rounded down.
          */
-        template <typename Q, traits::enable_if_integral<Q> = true>
+        template <typename Q, traits::enable_when::integral<Q> = true>
         inline constexpr auto rebind_cast() const noexcept -> span<const Q> {
             using rebound_span_type = span<const Q>;
             return rebound_span_type{reinterpret_cast<typename rebound_span_type::const_pointer>(data()),
@@ -211,9 +224,9 @@ namespace tdsl {
 
     }; // struct span
 
-    using char_span      = tdsl::span<const char>;
-    using u16char_span   = tdsl::span<const char16_t>;
-    using u32string_view = tdsl::span<const char32_t>;
+    using char_span    = tdsl::span<const char>;
+    using u16char_span = tdsl::span<const char16_t>;
+    using u32char_span = tdsl::span<const char32_t>;
 
 } // namespace tdsl
 

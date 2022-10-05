@@ -171,14 +171,14 @@ namespace tdsl {
         }
 
     private:
-        template <typename Q = ST, traits::enable_if_class<Q> = true>
+        template <typename Q = ST, traits::enable_when::class_type<Q> = true>
         void destructor_impl() {
             if (has_expected) {
                 value.~ST();
             }
         }
 
-        template <typename Q = ST, traits::enable_if_non_class<Q> = true>
+        template <typename Q = ST, traits::enable_when::non_class_type<Q> = true>
         void destructor_impl() {}
 
         // // noop

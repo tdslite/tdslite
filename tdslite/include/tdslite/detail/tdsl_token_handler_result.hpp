@@ -22,7 +22,8 @@ namespace tdsl {
         not_enough_bytes          = -2,
         not_enough_memory         = -3,
         unknown_column_size_type  = -4,
-        missing_prior_colmetadata = -5
+        missing_prior_colmetadata = -5,
+        invalid_field_length      = -6
     };
 
     using token_handler_result = packet_handler_result<token_handler_status, token_handler_status::unhandled>;

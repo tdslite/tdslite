@@ -12,20 +12,13 @@
 #pragma once
 
 #include <tdslite/detail/tdsl_allocator.hpp>
+#include <tdslite/detail/tdsl_field.hpp>
 #include <tdslite/util/tdsl_span.hpp>
 #include <tdslite/util/tdsl_inttypes.hpp>
 #include <tdslite/util/tdsl_expected.hpp>
 #include <tdslite/util/tdsl_noncopyable.hpp>
 
 namespace tdsl {
-
-    /**
-     * Non-owning field view.
-     */
-    struct tdsl_field {
-        tdsl::span<const tdsl::uint8_t> data;
-        // Should be interpreted as column type
-    };
 
     struct tdsl_row : util::noncopyable {
         using field_allocator_t = tds_allocator<tdsl_field>;

@@ -164,49 +164,52 @@ namespace tdsl { namespace traits {
 
     // is_integral
     template <typename>
-    struct is_integral : public false_type {};
+    struct is_integral_base : public false_type {};
 
     template <>
-    struct is_integral<bool> : public true_type {};
+    struct is_integral_base<bool> : public true_type {};
 
     template <>
-    struct is_integral<char> : public true_type {};
+    struct is_integral_base<char> : public true_type {};
 
     template <>
-    struct is_integral<signed char> : public true_type {};
+    struct is_integral_base<signed char> : public true_type {};
 
     template <>
-    struct is_integral<unsigned char> : public true_type {};
+    struct is_integral_base<unsigned char> : public true_type {};
 
     template <>
-    struct is_integral<short> : public true_type {};
+    struct is_integral_base<short> : public true_type {};
 
     template <>
-    struct is_integral<unsigned short> : public true_type {};
+    struct is_integral_base<unsigned short> : public true_type {};
 
     template <>
-    struct is_integral<int> : public true_type {};
+    struct is_integral_base<int> : public true_type {};
 
     template <>
-    struct is_integral<unsigned int> : public true_type {};
+    struct is_integral_base<unsigned int> : public true_type {};
 
     template <>
-    struct is_integral<long> : public true_type {};
+    struct is_integral_base<long> : public true_type {};
 
     template <>
-    struct is_integral<unsigned long> : public true_type {};
+    struct is_integral_base<unsigned long> : public true_type {};
 
     template <>
-    struct is_integral<long long> : public true_type {};
+    struct is_integral_base<long long> : public true_type {};
 
     template <>
-    struct is_integral<unsigned long long> : public true_type {};
+    struct is_integral_base<unsigned long long> : public true_type {};
 
     template <>
-    struct is_integral<char16_t> : public true_type {};
+    struct is_integral_base<char16_t> : public true_type {};
 
     template <>
-    struct is_integral<char32_t> : public true_type {};
+    struct is_integral_base<char32_t> : public true_type {};
+
+    template <typename T>
+    struct is_integral : is_integral_base<typename remove_cv<T>::type> {};
 
     namespace detail {
         template <typename>
@@ -221,24 +224,6 @@ namespace tdsl { namespace traits {
     struct is_void : public detail::is_void_helper<typename remove_cv<T>::type>::type {};
 
     // enable_if_integral
-
-    template <typename T>
-    using enable_if_integral = typename enable_if<is_integral<T>::value, bool>::type;
-
-    template <typename T, typename Q>
-    using enable_if_same = typename enable_if<is_same<T, Q>::value, bool>::type;
-
-    /**
-     * Enable if the given type T is same with any of the types listed in type list Q
-     *
-     * @tparam T The type
-     * @tparam Q The type list
-     */
-    template <typename T, typename... Q>
-    using enable_if_same_any = typename enable_if<disjunction<is_same<T, Q>...>::value, bool>::type;
-
-    template <typename T, typename Q>
-    using enable_if_not_same = typename enable_if<!is_same<T, Q>::value, bool>::type;
 
     // void_t
     template <class...>
@@ -342,12 +327,6 @@ namespace tdsl { namespace traits {
     template <class T>
     struct is_class : decltype(detail::is_class_test<T>(nullptr)) {};
 
-    template <typename T>
-    using enable_if_class = typename enable_if<is_class<T>::value, bool>::type;
-
-    template <typename T>
-    using enable_if_non_class = typename enable_if<!is_class<T>::value, bool>::type;
-
     // is_base_of detail
     namespace detail {
         template <typename B>
@@ -402,6 +381,47 @@ namespace tdsl { namespace traits {
             is_array<U>::value, typename remove_extent<U>::type *,
             typename conditional<is_function<U>::value, typename add_pointer<U>::type, typename remove_cv<U>::type>::type>::type type;
     };
+
+    namespace {
+        template <typename, template <typename...> class>
+        struct is_template_instance_of_impl : public false_type {};
+
+        template <template <typename...> class U, typename... Ts>
+        struct is_template_instance_of_impl<U<Ts...>, U> : public true_type {};
+    } // namespace
+
+    template <typename T, template <typename...> class U>
+    using is_template_instance_of = is_template_instance_of_impl<typename decay<T>::type, U>;
+
+    namespace enable_when {
+        template <typename T, template <typename...> class U>
+        using template_instance_of = typename traits::enable_if<traits::is_template_instance_of<T, U>::value, bool>::type;
+
+        template <typename T>
+        using integral = typename enable_if<is_integral<T>::value, bool>::type;
+
+        template <typename T, typename Q>
+        using same = typename enable_if<is_same<T, Q>::value, bool>::type;
+
+        /**
+         * Enable if the given type T is same with any of the types listed in type list Q
+         *
+         * @tparam T The type
+         * @tparam Q The type list
+         */
+        template <typename T, typename... Q>
+        using same_any_of = typename enable_if<disjunction<is_same<T, Q>...>::value, bool>::type;
+
+        template <typename T, typename Q>
+        using not_same = typename enable_if<!is_same<T, Q>::value, bool>::type;
+
+        template <typename T>
+        using class_type = typename enable_if<is_class<T>::value, bool>::type;
+
+        template <typename T>
+        using non_class_type = typename enable_if<!is_class<T>::value, bool>::type;
+
+    } // namespace enable_when
 
 }} // namespace tdsl::traits
 

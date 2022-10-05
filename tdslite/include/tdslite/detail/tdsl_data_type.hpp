@@ -75,13 +75,6 @@ namespace tdsl { namespace detail {
         MONEYNTYPE    = 0x6E,
         /* Date time with variable length*/
         DATETIMNTYPE  = 0x6F,
-        /* Char (legacy support)*/
-        CHARTYPE      = 0x2F,
-        /*VarChar(legacy support)*/
-        VARCHARTYPE   = 0x27,
-        /*Binary(legacy support)*/
-        BINARYTYPE    = 0x2D,
-        VARBINARYTYPE = 0x25,
         /*VarBinary*/
         BIGVARBINTYPE = 0xA5,
         /* VarChar*/
@@ -129,7 +122,17 @@ namespace tdsl { namespace detail {
         struct {
             tdsl::uint8_t has_collation : 1;
             tdsl::uint8_t has_precision : 1;
-            tdsl::uint8_t reserved : 6;
+            // Char and binary data types have values that either are null or are 0 to 65534 (0x0000 to 0xFFFE)
+            // bytes of data. Null is represented by a length of 65535 (0xFFFF). A non-nullable char or binary can
+            // still have a length of zero (for example, an empty value). A program that MUST pad a value to a fixed
+            // length typically adds blanks to the end of a char and adds binary zeros to the end of a binary.
+            // Text and image data types have values that either are null or are 0 to 2 gigabytes (0x00000000 to
+            // 0x7FFFFFFF bytes) of data. Null is represented by a length of -1 (0xFFFFFFFF). No other length
+            // specification is supported
+            tdsl::uint8_t maxlen_represents_null : 1;
+            // .. Other nullable data types have a length of 0 when they are null.
+            tdsl::uint8_t zero_represents_null : 1;
+            tdsl::uint8_t reserved : 4;
         } flags;
 
         /**
@@ -213,14 +216,6 @@ namespace tdsl { namespace detail {
                 result.size_type    = e_tds_data_size_type::fixed;
                 result.length.fixed = 8;
                 break;
-            // MS-TDS document is not clear about length of these types
-            // We can avoid them for now.
-            // case e_tds_data_type::DECIMALTYPE: // legacy support
-            // case e_tds_data_type::NUMERICTYPE: // legacy support
-            //     // No extra info to read for these
-            //     // types. Their length is fixed.
-            //     result.size_type = e_tds_data_size_type::fixed;
-            //     break;
             case e_tds_data_type::DECIMALNTYPE:
             case e_tds_data_type::NUMERICNTYPE:
                 // DECIMALNTYPE & NUMERICNTYPE have precision
@@ -228,7 +223,7 @@ namespace tdsl { namespace detail {
                 // whereas scale is the multiplier.
                 result.size_type                   = e_tds_data_size_type::var_precision;
                 result.length.variable.length_size = 2;
-                result.flags.has_precision         = 1;
+                result.flags.has_precision         = {true};
                 break;
             // Variable length data types with 8-bit length bit width
             case e_tds_data_type::GUIDTYPE:
@@ -237,10 +232,10 @@ namespace tdsl { namespace detail {
             case e_tds_data_type::FLTNTYPE:
             case e_tds_data_type::MONEYNTYPE:
             case e_tds_data_type::DATETIMNTYPE:
-            case e_tds_data_type::CHARTYPE:
-            case e_tds_data_type::VARCHARTYPE:
-            case e_tds_data_type::BINARYTYPE:
-            case e_tds_data_type::VARBINARYTYPE:
+                // Nullable values are returned by using the INTNTYPE, BITNTYPE, FLTNTYPE, GUIDTYPE, MONEYNTYPE,
+                // and DATETIMNTYPE tokens which will use the length byte to specify the length of the value or
+                // GEN_NULL as appropriate.
+                result.flags.zero_represents_null  = {true};
                 result.size_type                   = e_tds_data_size_type::var_u8;
                 result.length.variable.length_size = sizeof(tdsl::uint8_t);
                 break;
@@ -249,14 +244,15 @@ namespace tdsl { namespace detail {
             case e_tds_data_type::BIGVARCHRTYPE:
             case e_tds_data_type::NVARCHARTYPE:
             case e_tds_data_type::NCHARTYPE:
-                result.flags.has_collation = true;
+                result.flags.has_collation = {true};
             // fallthrough
             case e_tds_data_type::BIGBINARYTYPE:
             case e_tds_data_type::BIGVARBINTYPE:
                 // COLLATION occurs only if the type is BIGCHARTYPE, BIGVARCHARTYPE, TEXTTYPE, NTEXTTYPE,
                 // NCHARTYPE, or NVARCHARTYPE.
-                result.size_type                   = e_tds_data_size_type::var_u16;
-                result.length.variable.length_size = sizeof(tdsl::uint16_t);
+                result.flags.maxlen_represents_null = {true};
+                result.size_type                    = e_tds_data_size_type::var_u16;
+                result.length.variable.length_size  = sizeof(tdsl::uint16_t);
                 break;
             // Variable length data types with 32-bit length bit width
             case e_tds_data_type::NTEXTTYPE:
@@ -264,14 +260,57 @@ namespace tdsl { namespace detail {
                 result.flags.has_collation = true;
             // fallthrough
             case e_tds_data_type::IMAGETYPE:
-                result.size_type                   = e_tds_data_size_type::var_u32;
-                result.length.variable.length_size = sizeof(tdsl::uint32_t);
+                result.flags.maxlen_represents_null = {true};
+                result.size_type                    = e_tds_data_size_type::var_u32;
+                result.length.variable.length_size  = sizeof(tdsl::uint32_t);
                 break;
             default:
                 result.size_type = e_tds_data_size_type::unknown;
                 break;
         }
         return result;
+    }
+
+    static inline bool is_valid_variable_length_for_type(e_tds_data_type type, tdsl::uint32_t length) noexcept {
+
+        if (length == 0x00) {
+            // For all variable length data types, the value is 0x00 for NULL instances.
+            return true;
+        }
+
+        switch (type) {
+            case e_tds_data_type::DECIMALNTYPE:
+            case e_tds_data_type::NUMERICNTYPE: {
+                switch (length) {
+                    case 0x05:
+                    case 0x09:
+                    case 0x0d:
+                    case 0x11:
+                        return true;
+                }
+                return false;
+            }
+            case e_tds_data_type::MONEYNTYPE:
+            case e_tds_data_type::DATETIMNTYPE:
+            case e_tds_data_type::FLTNTYPE:
+                return length == 0x04 || length == 0x08;
+            case e_tds_data_type::INTNTYPE:
+                switch (length) {
+                    case 0x01:
+                    case 0x02:
+                    case 0x04:
+                    case 0x08:
+                        return true;
+                }
+                break;
+
+            case e_tds_data_type::GUIDTYPE:
+                return length == 0x10;
+            case e_tds_data_type::BITNTYPE:
+                return length == 0x01;
+        }
+
+        return true;
     }
 }} // namespace tdsl::detail
 

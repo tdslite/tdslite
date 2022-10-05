@@ -299,21 +299,17 @@ namespace tdsl { namespace detail {
          * The return value would be non-zero only if the reader has partial
          * message data.
          */
-        inline tdsl::uint32_t handle_tabular_result_msg(tdsl::binary_reader<tdsl::endian::little> & rr) noexcept {
-            using token_type                     = tdsl::detail::e_tds_message_token_type;
+        inline tdsl::uint32_t handle_tabular_result_msg(tdsl::binary_reader<tdsl::endian::little> & msg_rdr) noexcept {
+            using e_token_type                   = tdsl::detail::e_tds_message_token_type;
 
             constexpr int k_min_token_need_bytes = 3;
             // start parsing tokens
-            while (rr.has_bytes(/*amount_of_bytes=*/k_min_token_need_bytes)) {
+            while (msg_rdr.has_bytes(/*amount_of_bytes=*/k_min_token_need_bytes)) {
 
-                // Save offset before token read in case we might
-                // need to revert.
-                const auto prev_offset = rr.offset();
-
-                const auto tt          = static_cast<token_type>(rr.read<tdsl::uint8_t>());
-
-                // TDSL_ASSERT_MSG( < length,
-                //                    "Something is wrong, token length is greater than the length of the encapsulating TDS PDU!");
+                // Save offset before token read in case
+                // we might need to revert (e.g. fragmented token).
+                const auto prev_offset = msg_rdr.offset();
+                const auto token_type  = static_cast<e_token_type>(msg_rdr.read<tdsl::uint8_t>());
 
                 // Yet again, the protocol designers have decided to not to
                 // be consistent with their design. Some of the tokens
@@ -328,12 +324,12 @@ namespace tdsl { namespace detail {
                 // We expect these handlers to advance the reader position themselves.
 
                 if (sub_token_handler) {
-                    const auto sth_r = sub_token_handler.invoke(tt, rr);
+                    const auto sth_r = sub_token_handler.invoke(token_type, msg_rdr);
                     if (not(sth_r.status == token_handler_status::unhandled)) {
                         if (sth_r.needed_bytes) {
                             // reseek to token start so the unread token
                             // data dont get discarded by the network layer
-                            rr.seek(prev_offset);
+                            msg_rdr.seek(prev_offset);
                             return sth_r.needed_bytes;
                         }
                         continue;
@@ -344,42 +340,45 @@ namespace tdsl { namespace detail {
                 // Possibility #2: Tokens with size information available
                 // beforehand. These are easier to parse since we know
                 // how many bytes to expect
-                if (not(tt == token_type::done)) {
-                    current_token_size = rr.read<tdsl::uint16_t>();
+                if (not(token_type == e_token_type::done)) {
+                    current_token_size = msg_rdr.read<tdsl::uint16_t>();
                 }
                 else {
                     current_token_size = {8}; // sizeof done token(fixed)
                 }
 
                 // Ensure that we got enough bytes to read the token
-                if (not(rr.has_bytes(current_token_size))) {
-                    return current_token_size - rr.remaining_bytes();
+                if (not(msg_rdr.has_bytes(current_token_size))) {
+                    // reseek to token start so the unread token
+                    // data dont get discarded by the network layer
+                    msg_rdr.seek(prev_offset);
+                    return current_token_size - msg_rdr.remaining_bytes();
                 }
 
                 tdsl::uint32_t subhandler_nb = {0};
-                auto token_reader            = rr.subreader(current_token_size);
-                switch (tt) {
-                    case token_type::envchange: {
+                auto token_reader            = msg_rdr.subreader(current_token_size);
+                switch (token_type) {
+                    case e_token_type::envchange: {
                         subhandler_nb = handle_envchange_token(token_reader);
                     } break;
-                    case token_type::error:
-                    case token_type::info: {
+                    case e_token_type::error:
+                    case e_token_type::info: {
                         subhandler_nb = handle_info_token(token_reader);
                     } break;
-                    case token_type::done: {
+                    case e_token_type::done: {
                         subhandler_nb = handle_done_token(token_reader);
                     } break;
-                    case token_type::loginack: {
+                    case e_token_type::loginack: {
                         subhandler_nb = handle_loginack_token(token_reader);
                     } break;
 
                     default: {
-                        TDSL_DEBUG_PRINTLN("Unhandled TOKEN type [%d (%s)]\n", static_cast<int>(tt),
-                                           message_token_type_to_str(static_cast<token_type>(tt)));
+                        TDSL_DEBUG_PRINTLN("Unhandled TOKEN type [%d (%s)]\n", static_cast<int>(token_type),
+                                           message_token_type_to_str(static_cast<e_token_type>(token_type)));
                     } break;
                 }
                 // Advance to the next token
-                rr.advance(current_token_size);
+                msg_rdr.advance(current_token_size);
 
                 // If we need more bytes to proceed, ask for more bytes
                 if (subhandler_nb > 0) {
@@ -389,12 +388,12 @@ namespace tdsl { namespace detail {
 
             // "All integer types are represented in reverse byte order (little-endian) unless otherwise specified."
 
-            TDSL_ASSERT_MSG(rr.remaining_bytes() < 3,
+            TDSL_ASSERT_MSG(msg_rdr.remaining_bytes() < 3,
                             "There are more than 3 bytes remaining in the reader, something is wrong in token handler loop!");
 
             // We expect here to have consumed all of the reader. If that is not the case
             // that means we got partial data.
-            return (rr.remaining_bytes() == 0 ? 0 : k_min_token_need_bytes - rr.remaining_bytes());
+            return (msg_rdr.remaining_bytes() == 0 ? 0 : k_min_token_need_bytes - msg_rdr.remaining_bytes());
         }
 
         // --------------------------------------------------------------------------------

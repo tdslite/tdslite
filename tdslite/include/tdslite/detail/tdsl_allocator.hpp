@@ -129,7 +129,7 @@ namespace tdsl {
         }
 
     private:
-        template <typename Q = T, traits::enable_if_class<Q> = true, typename... Args>
+        template <typename Q = T, traits::enable_when::class_type<Q> = true, typename... Args>
         static void construct(Q * storage, tdsl::uint32_t n_elems, Args &&... args) {
             for (tdsl::uint32_t i = 0; i < n_elems; i++) {
                 // placement new
@@ -137,19 +137,20 @@ namespace tdsl {
             }
         }
 
-        template <typename Q = T, traits::enable_if_class<Q> = true>
+        template <typename Q = T, traits::enable_when::class_type<Q> = true>
         static void destruct(Q * storage, tdsl::uint32_t n_elems) {
+
             for (tdsl::uint32_t i = 0; i < n_elems; i++) {
                 storage [i].~Q();
             }
         }
 
         // noop
-        template <typename Q, traits::enable_if_non_class<Q> = true>
+        template <typename Q, traits::enable_when::non_class_type<Q> = true>
         static void construct(Q *, tdsl::uint32_t) {}
 
         // noop
-        template <typename Q, traits::enable_if_non_class<Q> = true>
+        template <typename Q, traits::enable_when::non_class_type<Q> = true>
         static void destruct(Q *, tdsl::uint32_t) {}
     };
 } // namespace tdsl

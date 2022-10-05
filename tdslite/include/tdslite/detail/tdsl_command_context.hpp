@@ -46,10 +46,10 @@ namespace tdsl { namespace detail {
         command_context(tds_context_type & ctx) : tds_ctx(ctx) {
 
             tds_ctx.do_register_sub_token_handler(this, &token_handler);
-            tds_ctx.do_register_info_token_callback(
-                this, +[](void *, const tds_info_token &) -> tdsl::uint32_t {
-                    return 0;
-                });
+            // tds_ctx.do_register_info_token_callback(
+            //     this, +[](void *, const tds_info_token &) -> tdsl::uint32_t {
+            //         return 0;
+            //     });
             tds_ctx.do_register_done_token_callback(this, [](void * uptr, const tds_done_token & dt) -> tdsl::uint32_t {
                 command_context & ctx          = *static_cast<command_context *>(uptr);
                 ctx.qstate.affected_rows       = dt.done_row_count;
@@ -75,7 +75,7 @@ namespace tdsl { namespace detail {
          *
          * @return Rows affected
          */
-        template <typename T, traits::enable_if_same_any<T, string_view, wstring_view> = true>
+        template <typename T, traits::enable_when::same_any_of<T, string_view, wstring_view> = true>
         inline tdsl::uint32_t execute_query(
             T command, void * rcb_uptr = nullptr,
             row_callback_fn_t row_callback = +[](void *, const tds_colmetadata_token &, const tdsl_row &) {}) noexcept {
@@ -163,7 +163,7 @@ namespace tdsl { namespace detail {
                 return result;
             }
 
-            auto column_count = rr.read<tdsl::uint16_t>();
+            const auto column_count = rr.read<tdsl::uint16_t>();
             if (not qstate.colmd.allocate_colinfo_array(column_count)) {
                 result.status = token_handler_status::not_enough_memory;
                 TDSL_DEBUG_PRINTLN("failed to allocate memory for column info for %d column(s)", column_count);
@@ -289,11 +289,10 @@ namespace tdsl { namespace detail {
          *
          * @param [in] rr Reader to read from
          *
-         * @return tdsl::uint32_t Amount of needed bytes to read a complete DONE token, if any.
-         *                        The return value would be non-zero only if the reader has partial
-         *                        token data.
+         * @return token_handler_result
          */
         token_handler_result handle_row_token(tdsl::binary_reader<tdsl::endian::little> & rr) {
+            using data_size_type = tdsl::detail::e_tds_data_size_type;
 
             token_handler_result result{};
             // Invoke handler,return
@@ -303,15 +302,6 @@ namespace tdsl { namespace detail {
                 result.status = token_handler_status::missing_prior_colmetadata;
                 return result;
             }
-
-            // using data_type                        = tdsl::detail::e_tds_data_type;
-            using data_size_type = tdsl::detail::e_tds_data_size_type;
-
-            // constexpr static auto k_min_done_bytes = 8;
-
-            // if (not rr.has_bytes(k_min_done_bytes)) {
-            //     return k_min_done_bytes - rr.remaining_bytes();
-            // }
 
             auto row_data{tdsl_row::make(qstate.colmd.column_count)};
 
@@ -324,12 +314,13 @@ namespace tdsl { namespace detail {
 
             // Each row should contain N fields.
             for (tdsl::uint32_t cidx = 0; cidx < qstate.colmd.column_count; cidx++) {
-                // TDSL_ASSERT_MSG(colmetadata.columns [cidx] != nullptr, "column info is null!");
-                auto & field                = row_data->fields.data() [cidx];
-                const auto & column         = qstate.colmd.columns [cidx];
-                const auto & dprop          = get_data_type_props(column.type);
+                TDSL_ASSERT(cidx < row_data->fields.size());
+                const auto & column             = qstate.colmd.columns [cidx];
+                const auto & dprop              = get_data_type_props(column.type);
+                auto & field                    = row_data->fields [cidx];
+                bool field_length_equal_to_null = {false};
 
-                tdsl::uint32_t field_length = 0;
+                tdsl::uint32_t field_length     = 0;
                 switch (dprop.size_type) {
                     case data_size_type::fixed:
                         field_length = dprop.length.fixed;
@@ -341,7 +332,8 @@ namespace tdsl { namespace detail {
                             result.needed_bytes = 1;
                             return result;
                         }
-                        field_length = rr.read<tdsl::uint8_t>();
+                        field_length               = rr.read<tdsl::uint8_t>();
+                        field_length_equal_to_null = dprop.flags.zero_represents_null && (field_length == tdsl::uint8_t{0x00});
                         break;
                     case data_size_type::var_u16:
                         if (not rr.has_bytes(sizeof(tdsl::uint16_t))) {
@@ -349,7 +341,8 @@ namespace tdsl { namespace detail {
                             result.needed_bytes = sizeof(tdsl::uint16_t);
                             return result;
                         }
-                        field_length = rr.read<tdsl::uint16_t>();
+                        field_length               = rr.read<tdsl::uint16_t>();
+                        field_length_equal_to_null = dprop.flags.maxlen_represents_null && (field_length == tdsl::uint16_t{0xFFFF});
                         break;
                     case data_size_type::var_u32:
                         if (not rr.has_bytes(sizeof(tdsl::uint32_t))) {
@@ -357,12 +350,24 @@ namespace tdsl { namespace detail {
                             result.needed_bytes = sizeof(tdsl::uint32_t);
                             return result;
                         }
-                        field_length = rr.read<tdsl::uint32_t>();
+                        field_length               = rr.read<tdsl::uint32_t>();
+                        field_length_equal_to_null = dprop.flags.maxlen_represents_null && (field_length == tdsl::uint32_t{0xFFFFFFFF});
                         break;
                     case data_size_type::unknown:
                         TDSL_ASSERT_MSG(0, "unknown size_type");
                         TDSL_UNREACHABLE;
                         break;
+                }
+
+                if (dprop.is_variable_size() && not is_valid_variable_length_for_type(column.type, field_length)) {
+                    TDSL_DEBUG_PRINTLN("invalid varlength for column type %d -> %d", static_cast<int>(column.type), field_length);
+                    result.status = token_handler_status::invalid_field_length;
+                    return result;
+                }
+
+                if (field_length_equal_to_null) {
+                    field_length = {0};
+                    field.set_null();
                 }
 
                 if (not rr.has_bytes(field_length)) {
@@ -373,15 +378,13 @@ namespace tdsl { namespace detail {
                 }
 
                 if (field_length) {
-                    field.data = rr.read(field_length);
+                    field = rr.read(field_length);
                 }
-
-                // (mgilor) `%.*s` does not work here, printf stops printing
-                // characters immediately when it encounters a \0, regardless
-                // of the provided string's length.
-
+                // (mgilor): '%.*s' does not function here; printf stops writing
+                // characters when it reaches a \0 (NUL), regardless of the actual 
+                // length of the provided string.
                 TDSL_DEBUG_PRINT("row field %u -> [", cidx);
-                TDSL_DEBUG_HEXPRINT(field.data.data(), field_length);
+                TDSL_DEBUG_HEXPRINT(field.data(), field.size_bytes());
                 TDSL_DEBUG_PRINT("]\n");
             }
 

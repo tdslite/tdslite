@@ -62,7 +62,7 @@ using uut_t     = tdsl::detail::login_context<mock_network_impl>;
 
 using tds_ctx_t = uut_t::tds_context_type;
 
-struct tds_login_ctx_ut_fixture : public ::testing::Test {
+struct tdsl_login_ctx_ut_fixture : public ::testing::Test {
 
     virtual void TearDown() override {
         tdsl::util::hexdump(tds_ctx.buffer.data(), tds_ctx.buffer.size());
@@ -75,7 +75,7 @@ struct tds_login_ctx_ut_fixture : public ::testing::Test {
 
 // --------------------------------------------------------------------------------
 
-TEST_F(tds_login_ctx_ut_fixture, encode_password) {
+TEST_F(tdsl_login_ctx_ut_fixture, encode_password) {
 
     char16_t buf [] = u"JaxView";
     EXPECT_NO_THROW(uut_t::encode_password(reinterpret_cast<tdsl::uint8_t *>(buf), sizeof(buf) - 2));
@@ -90,7 +90,7 @@ TEST_F(tds_login_ctx_ut_fixture, encode_password) {
 
 // --------------------------------------------------------------------------------
 
-TEST_F(tds_login_ctx_ut_fixture, test_01) {
+TEST_F(tdsl_login_ctx_ut_fixture, test_01) {
 
     uut_t::login_parameters params;
     params.server_name = "localhost";
@@ -104,7 +104,7 @@ TEST_F(tds_login_ctx_ut_fixture, test_01) {
 
 // --------------------------------------------------------------------------------
 
-TEST_F(tds_login_ctx_ut_fixture, test_jaxview) {
+TEST_F(tdsl_login_ctx_ut_fixture, test_jaxview) {
     uut_t::login_parameters params;
     params.server_name            = "192.168.2.38";
     params.db_name                = "JaxView";
@@ -140,7 +140,7 @@ TEST_F(tds_login_ctx_ut_fixture, test_jaxview) {
 
 // --------------------------------------------------------------------------------
 
-TEST_F(tds_login_ctx_ut_fixture, test_mdac) {
+TEST_F(tdsl_login_ctx_ut_fixture, test_mdac) {
 
     uut_t::login_parameters params;
     params.server_name            = "217.77.3.25";

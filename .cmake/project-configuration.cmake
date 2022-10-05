@@ -39,3 +39,15 @@ add_link_options(${TDSLITE_PROJECT_LINK_OPTIONS_LIST})
 add_compile_options(${TDSLITE_PROJECT_COMPILE_OPTIONS_LIST})
 ###########################################################################################
 
+# Sanitizers
+if((${CMAKE_BUILD_TYPE} STREQUAL "Release") OR (${CMAKE_BUILD_TYPE} STREQUAL "RelWithDebInfo"))
+    if(TDSLITE_PROJECT_ENABLE_SANITIZERS_ON_RELEASE)
+        enable_sanitizers()
+        message(STATUS "> [OPT] Sanitizers are enabled")
+    endif()
+elseif(${CMAKE_BUILD_TYPE} STREQUAL "Debug")
+    if(TDSLITE_PROJECT_ENABLE_SANITIZERS_ON_DEBUG)
+        enable_sanitizers()
+        message(STATUS "> [OPT] Sanitizers are enabled")
+    endif()
+endif()
