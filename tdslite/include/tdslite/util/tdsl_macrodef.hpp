@@ -113,6 +113,8 @@
  */
 #define TDSL_NODISCARD __attribute__((warn_unused_result))
 
+#define TDSL_NORETURN __attribute__((noreturn))
+
 /**
  * Move macro
  */

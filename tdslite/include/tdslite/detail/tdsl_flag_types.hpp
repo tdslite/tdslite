@@ -30,7 +30,8 @@ namespace tdsl { namespace detail {
         tdsl::uint8_t odbc : 1;     // 0  = ODBC_OFF, 1 = ODBC_ON
         tdsl::uint8_t tran_boundary : 1;
         tdsl::uint8_t cache_connect : 1;
-        tdsl::uint8_t user_type : 3;    // 0 = USER_NORMAL, 1 = USER_SERVER, 2 = USER_REMUSER, 3 = USER_SQLREPL
+        tdsl::uint8_t
+            user_type : 3; // 0 = USER_NORMAL, 1 = USER_SERVER, 2 = USER_REMUSER, 3 = USER_SQLREPL
         tdsl::uint8_t int_security : 1; // 0 = INTEGRATED_SECURITY_OFF, 1 = INTEGRATED_SECURITY_ON
     };
 

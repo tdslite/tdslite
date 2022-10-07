@@ -16,7 +16,7 @@ IndentWidth: 4 # Each `indent` is indented to 4 spaces
 TabWidth: 4 # Each `tab` is indented to 4 spaces
 UseTab: Never # Do not use tab for indentation
 UseCRLF: false # Do not use windows style (CRLF) line endings
-ColumnLimit: 140 # Each line is 140 characters
+ColumnLimit: 100 # Each line is 140 characters
 SortIncludes: false # Enable include sorting
 SortUsingDeclarations: true # Enable include sorting
 IndentCaseLabels: true

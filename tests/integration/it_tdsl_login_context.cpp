@@ -37,6 +37,7 @@ struct tds_login_ctx_it_fixture : public ::testing::Test {
     }
 
     virtual void TearDown() override {}
+
     tds_ctx_t tds_ctx;
     uut_t login{tds_ctx};
 };

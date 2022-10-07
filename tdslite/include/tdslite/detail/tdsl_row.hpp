@@ -22,12 +22,37 @@ namespace tdsl {
 
     struct tdsl_row : util::noncopyable {
         using field_allocator_t = tds_allocator<tdsl_field>;
-        tdsl::span<tdsl_field> fields;
+        using fields_type_t     = tdsl::span<tdsl_field>;
 
         enum class e_tdsl_row_make_err
         {
             MEM_ALLOC = -1
         };
+
+        inline auto begin() const noexcept -> fields_type_t::iterator {
+            return fields.begin();
+        }
+
+        inline auto end() const noexcept -> fields_type_t::iterator {
+            return fields.end();
+        }
+
+        inline auto cbegin() const noexcept -> fields_type_t::const_iterator {
+            return fields.cbegin();
+        }
+
+        inline auto cend() const noexcept -> fields_type_t::const_iterator {
+            return fields.cend();
+        }
+
+        inline auto operator[](fields_type_t::size_type index) const noexcept
+            -> fields_type_t::reference {
+            return fields [index];
+        }
+
+        inline auto size() const noexcept -> fields_type_t::size_type {
+            return fields.size();
+        }
 
         /**
          * Allocate space for @p n_col fields and make a row object
@@ -40,7 +65,8 @@ namespace tdsl {
         static inline tdsl::expected<tdsl_row, e_tdsl_row_make_err> make(tdsl::uint32_t n_col) {
             tdsl_field * fields = field_allocator_t::create_n(n_col);
             if (fields) {
-                return TDSL_MOVE(tdsl::expected<tdsl_row, e_tdsl_row_make_err>{tdsl_row(fields, n_col)});
+                return TDSL_MOVE(
+                    tdsl::expected<tdsl_row, e_tdsl_row_make_err>{tdsl_row(fields, n_col)});
             }
             return tdsl::unexpected<e_tdsl_row_make_err>(e_tdsl_row_make_err::MEM_ALLOC);
         }
@@ -64,6 +90,8 @@ namespace tdsl {
         }
 
     private:
+        fields_type_t fields;
+
         /**
          * Private c-tor
          *
@@ -75,6 +103,7 @@ namespace tdsl {
          * @param fields Allocated fields
          * @param field_count Field count
          */
-        explicit tdsl_row(tdsl_field * fields, tdsl::uint32_t field_count) : fields(fields, field_count) {}
+        explicit tdsl_row(tdsl_field * fields, tdsl::uint32_t field_count) :
+            fields(fields, field_count) {}
     };
 } // namespace tdsl

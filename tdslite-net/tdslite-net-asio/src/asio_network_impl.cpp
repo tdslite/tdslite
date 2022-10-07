@@ -50,7 +50,8 @@ namespace tdsl { namespace net {
         recv_buffer.resize(8192);
         recv_buffer_consumable_bytes = 0;
         io_context                   = std::make_shared<io_context_t>(1);
-        io_context_work_guard        = std::make_shared<work_guard_t>(boost::asio::make_work_guard(*as_ctx(io_context)));
+        io_context_work_guard =
+            std::make_shared<work_guard_t>(boost::asio::make_work_guard(*as_ctx(io_context)));
         TDSL_DEBUG_PRINT("asio_network_impl::asio_network_impl() -> constructor return\n");
     }
 
@@ -88,21 +89,23 @@ namespace tdsl { namespace net {
 
         // Check whether the resolver has succeeded to resolve
         if (not rec) {
-            TDSL_DEBUG_PRINT("asio_network_impl::do_connect(...) -> resolve ok, %d (%s)\n", rec.value(), rec.what().c_str());
+            TDSL_DEBUG_PRINT("asio_network_impl::do_connect(...) -> resolve ok, %d (%s)\n",
+                             rec.value(), rec.what().c_str());
             // Prime the socket handle
             auto sock = std::make_shared<tcp_socket_t>(*as_ctx(io_context));
             // Attempt to connect to each resolve result, in order
 
             for (const auto & re : res) {
 
-                TDSL_DEBUG_PRINT("asio_network_impl::do_connect(...) -> attempting to connect %s:%s\n", re.host_name().c_str(),
-                                 re.service_name().c_str());
+                TDSL_DEBUG_PRINT(
+                    "asio_network_impl::do_connect(...) -> attempting to connect %s:%s\n",
+                    re.host_name().c_str(), re.service_name().c_str());
 
                 sock->connect(re.endpoint(), rec);
                 if (not rec) {
 
-                    TDSL_DEBUG_PRINT("asio_network_impl::do_connect(...) -> connected to %s:%s\n", re.host_name().c_str(),
-                                     re.service_name().c_str());
+                    TDSL_DEBUG_PRINT("asio_network_impl::do_connect(...) -> connected to %s:%s\n",
+                                     re.host_name().c_str(), re.service_name().c_str());
                     socket_handle = std::move(sock);
                     // We're connected to one endpoint, stop trying
                     TDSL_DEBUG_PRINT("asio_network_impl::do_connect(...) -> exit, connected\n");
@@ -126,10 +129,12 @@ namespace tdsl { namespace net {
         TDSL_ASSERT(socket_handle);
         boost::system::error_code ec;
 
-        const tdsl::int64_t rem_space = static_cast<tdsl::int64_t>(recv_buffer.size()) - tdsl::int64_t{recv_buffer_consumable_bytes};
+        const tdsl::int64_t rem_space = static_cast<tdsl::int64_t>(recv_buffer.size()) -
+                                        tdsl::int64_t{recv_buffer_consumable_bytes};
 
         if (transfer_exactly > rem_space) {
-            TDSL_DEBUG_PRINTLN("asio_network_impl::dispatch_receive(...) -> error, not enough space in recv buffer (%u vs %ld)",
+            TDSL_DEBUG_PRINTLN("asio_network_impl::dispatch_receive(...) -> error, not enough "
+                               "space in recv buffer (%u vs %ld)",
                                transfer_exactly, rem_space);
             TDSL_ASSERT(0);
             return;
@@ -138,16 +143,19 @@ namespace tdsl { namespace net {
         // Re-invoke receive
         const auto read_bytes =
             asio::read(*as_socket(socket_handle),
-                       asio::buffer(recv_buffer.data() + recv_buffer_consumable_bytes, recv_buffer.size() - recv_buffer_consumable_bytes),
+                       asio::buffer(recv_buffer.data() + recv_buffer_consumable_bytes,
+                                    recv_buffer.size() - recv_buffer_consumable_bytes),
                        asio::transfer_exactly(transfer_exactly), ec);
 
         recv_buffer_consumable_bytes += read_bytes;
-        TDSL_DEBUG_PRINTLN("asio_network_impl::do_recv(...) -> read bytes(%ld), consumable bytes (%u)", read_bytes,
-                           recv_buffer_consumable_bytes);
+        TDSL_DEBUG_PRINTLN(
+            "asio_network_impl::do_recv(...) -> read bytes(%ld), consumable bytes (%u)", read_bytes,
+            recv_buffer_consumable_bytes);
         if (ec) {
             // There is an error, we should handle it appropriately
-            TDSL_DEBUG_PRINT("asio_network_impl::dispatch_receive(...) -> error, %d (%s) aborting and disconnecting\n", ec.value(),
-                             ec.what().c_str());
+            TDSL_DEBUG_PRINT("asio_network_impl::dispatch_receive(...) -> error, %d (%s) aborting "
+                             "and disconnecting\n",
+                             ec.value(), ec.what().c_str());
 
             do_disconnect();
         }
@@ -190,11 +198,12 @@ namespace tdsl { namespace net {
 
         boost::system::error_code ec;
         const auto bytes_written =
-            asio::write(*as_socket(socket_handle), boost::asio::const_buffer(send_buffer.data(), send_buffer.size()), ec);
-
+            asio::write(*as_socket(socket_handle),
+                        boost::asio::const_buffer(send_buffer.data(), send_buffer.size()), ec);
+        (void) bytes_written;
         if (not ec) {
-            TDSL_DEBUG_PRINT("asio_network_impl::do_send(...) -> sent %ld byte(s), ec %d (%s)\n", bytes_written, ec.value(),
-                             ec.what().c_str());
+            TDSL_DEBUG_PRINT("asio_network_impl::do_send(...) -> sent %ld byte(s), ec %d (%s)\n",
+                             bytes_written, ec.value(), ec.what().c_str());
         }
 
         switch (ec.value()) {
@@ -210,7 +219,8 @@ namespace tdsl { namespace net {
         }
 
         send_buffer.clear();
-        TDSL_DEBUG_PRINTLN("asio_network_impl::do_send(...) -> exit, bytes written %ld", bytes_written);
+        TDSL_DEBUG_PRINTLN("asio_network_impl::do_send(...) -> exit, bytes written %ld",
+                           bytes_written);
         return e_result::success;
     }
 
@@ -226,8 +236,9 @@ namespace tdsl { namespace net {
         TDSL_ASSERT(beg < recv_buffer.end());
         TDSL_ASSERT(end <= recv_buffer.end());
         TDSL_ASSERT(cend <= recv_buffer.end());
-        TDSL_DEBUG_PRINTLN("asio_network_impl::do_consume_recv_buffer(...) -> consumed %ld, remaining %ld", std::distance(beg, end),
-                           std::distance(end, cend));
+        TDSL_DEBUG_PRINTLN(
+            "asio_network_impl::do_consume_recv_buffer(...) -> consumed %ld, remaining %ld",
+            std::distance(beg, end), std::distance(end, cend));
 
         if (std::distance(beg, end) > 0) {
             TDSL_DEBUG_PRINTLN("remainder:");
@@ -239,11 +250,13 @@ namespace tdsl { namespace net {
         return true;
     }
 
-    expected<tdsl::uint32_t, tdsl::int32_t> asio_network_impl::do_read(tdsl::span<tdsl::uint8_t> dst_buf, read_exactly) {
+    expected<tdsl::uint32_t, tdsl::int32_t>
+    asio_network_impl::do_read(tdsl::span<tdsl::uint8_t> dst_buf, read_exactly) {
         TDSL_ASSERT(socket_handle);
         boost::system::error_code ec;
 
-        const auto read_bytes = asio::read(*as_socket(socket_handle), asio::buffer(dst_buf.data(), dst_buf.size_bytes()),
+        const auto read_bytes = asio::read(*as_socket(socket_handle),
+                                           asio::buffer(dst_buf.data(), dst_buf.size_bytes()),
                                            asio::transfer_exactly(dst_buf.size_bytes()), ec);
 
         if (not ec) {
@@ -251,8 +264,9 @@ namespace tdsl { namespace net {
         }
 
         // There is an error, we should handle it appropriately
-        TDSL_DEBUG_PRINT("asio_network_impl::dispatch_receive(...) -> error, %d (%s) aborting and disconnecting\n", ec.value(),
-                         ec.what().c_str());
+        TDSL_DEBUG_PRINT("asio_network_impl::dispatch_receive(...) -> error, %d (%s) aborting and "
+                         "disconnecting\n",
+                         ec.value(), ec.what().c_str());
 
         do_disconnect();
         return unexpected<tdsl::int32_t>{-1}; // error case
@@ -260,5 +274,6 @@ namespace tdsl { namespace net {
 
     // void asio_network_impl::do_read(tdsl::span<tdsl::uint8_t> dst_buf) {}
 
-    // void asio_network_impl::do_read(tdsl::span<tdsl::uint8_t> dst_buf, tdsl::uint32_t at_least) {}
+    // void asio_network_impl::do_read(tdsl::span<tdsl::uint8_t> dst_buf, tdsl::uint32_t at_least)
+    // {}
 }} // namespace tdsl::net

@@ -75,7 +75,6 @@ namespace tdsl { namespace detail {
 
     private:
         tds_context_type & tds_ctx;
-        callback<e_login_status> login_cb_ctx;
 
     public:
         /**
@@ -90,29 +89,11 @@ namespace tdsl { namespace detail {
                     return 0;
                 });
 
-            tds_ctx.do_register_info_token_callback(
-                this, +[](void * uptr, const tds_info_token & info) -> tdsl::uint32_t {
-                    auto self = reinterpret_cast<self_type *>(uptr);
-
-                    switch (static_cast<e_mssql_error_code>(info.number)) {
-                        case tdsl::e_mssql_error_code::logon_failed: {
-                            // Mark current context as `not authenticated`
-                            self->tds_ctx.flags.authenticated = {false};
-                            self->login_cb_ctx.maybe_invoke(e_login_status::failure);
-                        } break;
-                    }
-
-                    return 0;
-                });
-
             tds_ctx.do_register_loginack_token_callback(
                 this, +[](void * uptr, const tds_login_ack_token &) -> tdsl::uint32_t {
                     auto self                         = reinterpret_cast<self_type *>(uptr);
-
                     // Mark current context as `authenticated`
                     self->tds_ctx.flags.authenticated = {true};
-                    // succeeded
-                    self->login_cb_ctx.maybe_invoke(e_login_status::success);
                     return 0;
                 });
         }
@@ -132,7 +113,9 @@ namespace tdsl { namespace detail {
         template <typename StringViewType = string_view>
         struct login_parameters_type {
             using sv_type = StringViewType;
-            StringViewType server_name;                    // Target server hostname or IP address
+            // Target server hostname or IP address
+            // Length: At most 128 characters
+            StringViewType server_name;
             StringViewType db_name;                        // Target database name
             StringViewType user_name;                      // Database user name
             StringViewType password;                       // Database user password

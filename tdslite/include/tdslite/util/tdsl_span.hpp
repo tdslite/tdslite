@@ -58,7 +58,8 @@ namespace tdsl {
          * @param [in] elem Pointer to the starting element
          * @param [in] elem_count Element count
          */
-        inline explicit constexpr span(element_type * elem, size_type elem_count) noexcept : data_(elem), element_count(elem_count) {}
+        inline explicit constexpr span(element_type * elem, size_type elem_count) noexcept :
+            data_(elem), element_count(elem_count) {}
 
         /**
          * Construct a new span object from a fixed-size
@@ -68,7 +69,8 @@ namespace tdsl {
          * @param [in] buffer Fixed-size buffer
          */
         template <size_type N>
-        inline constexpr span(element_type (&buffer) [N]) noexcept : data_(buffer), element_count(N) {}
+        inline constexpr span(element_type (&buffer) [N]) noexcept :
+            data_(buffer), element_count(N) {}
 
         /**
          * Construct a new span object from explicit begin
@@ -81,18 +83,21 @@ namespace tdsl {
          * @note @p start must be always lesser than @p end
          * @note @p end must be always greater than @p start
          */
-        inline explicit constexpr span(element_type * begin, element_type * end) noexcept : data_(begin), element_count(end - begin) {}
+        inline explicit constexpr span(element_type * begin, element_type * end) noexcept :
+            data_(begin), element_count(end - begin) {}
 
         /**
          * Copy c-tor
          */
-        inline constexpr span(const self_type & other) noexcept : data_(other.data_), element_count(other.element_count) {}
+        inline constexpr span(const self_type & other) noexcept :
+            data_(other.data_), element_count(other.element_count) {}
 
         /**
          * Move c-tor
          */
         inline constexpr span(self_type && other) noexcept :
-            data_(detail::exchange(other.data_, nullptr)), element_count(detail::exchange(other.element_count, 0)) {}
+            data_(detail::exchange(other.data_, nullptr)),
+            element_count(detail::exchange(other.element_count, 0)) {}
 
         /**
          * Copy assignment
@@ -100,7 +105,8 @@ namespace tdsl {
         inline TDSL_CXX14_CONSTEXPR span & operator=(const self_type & other) noexcept {
             // For avoiding "compound-statement in `constexpr` function warning in C++11 mode"
             &other != this ? (data_ = other.data_) : static_cast<element_type *>(nullptr);
-            &other != this ? (element_count = other.element_count) : static_cast<decltype(element_count)>(0);
+            &other != this ? (element_count = other.element_count)
+                           : static_cast<decltype(element_count)>(0);
             return *this;
         }
 
@@ -109,8 +115,10 @@ namespace tdsl {
          */
         inline TDSL_CXX14_CONSTEXPR span & operator=(self_type && other) noexcept {
             // For avoiding "compound-statement in `constexpr` function warning in C++11 mode"
-            &other != this ? (data_ = detail::exchange(other.data_, nullptr)) : static_cast<element_type *>(0);
-            &other != this ? (element_count = detail::exchange(other.element_count, 0)) : static_cast<decltype(element_count)>(0);
+            &other != this ? (data_ = detail::exchange(other.data_, nullptr))
+                           : static_cast<element_type *>(0);
+            &other != this ? (element_count = detail::exchange(other.element_count, 0))
+                           : static_cast<decltype(element_count)>(0);
             return *this;
         }
 
@@ -176,6 +184,24 @@ namespace tdsl {
         }
 
         /**
+         * Iterator interface begin() function
+         *
+         * @return T* Pointer to the beginning of the span
+         */
+        inline constexpr auto cbegin() const noexcept -> const_iterator {
+            return data_;
+        }
+
+        /**
+         * Iterator interface end() function
+         *
+         * @return T* Pointer to the one past last element of the span
+         */
+        inline constexpr auto cend() const noexcept -> const_iterator {
+            return (data_ + element_count);
+        }
+
+        /**
          * Subscript operator
          *
          * @param [in] index Element to access
@@ -213,8 +239,9 @@ namespace tdsl {
         template <typename Q, traits::enable_when::integral<Q> = true>
         inline constexpr auto rebind_cast() const noexcept -> span<const Q> {
             using rebound_span_type = span<const Q>;
-            return rebound_span_type{reinterpret_cast<typename rebound_span_type::const_pointer>(data()),
-                                     static_cast<typename rebound_span_type::size_type>(size_bytes() / sizeof(Q))};
+            return rebound_span_type{
+                reinterpret_cast<typename rebound_span_type::const_pointer>(data()),
+                static_cast<typename rebound_span_type::size_type>(size_bytes() / sizeof(Q))};
         }
 
     private:

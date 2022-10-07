@@ -14,8 +14,8 @@
 #include <tdslite/util/tdsl_inttypes.hpp>
 #include <tdslite/util/tdsl_type_traits.hpp>
 #include <tdslite/util/tdsl_macrodef.hpp>
+#include <tdslite/detail/tdsl_default_allocator.hpp>
 
-#include <cstdlib> // for default malloc-free
 #include <new>
 
 namespace tdsl {
@@ -24,8 +24,8 @@ namespace tdsl {
     using free_fn_type   = void (*)(void * ptr);
 
     struct mfctx {
-        malloc_fn_type a = std::malloc;
-        free_fn_type f   = std::free;
+        malloc_fn_type a = tdsl::tdsl_default_malloc;
+        free_fn_type f   = tdsl::tdsl_default_free;
     };
 
     /**
@@ -38,8 +38,10 @@ namespace tdsl {
      *
      * @return mfctx Object containing current malloc-free functions
      */
-    inline const mfctx & tdslite_malloc_free(malloc_fn_type mfn = nullptr, free_fn_type ffn = nullptr) {
-        TDSL_ASSERT_MSG(not(!(mfn) != !(ffn)), "malloc and free functions can either be both null or non-null.");
+    inline const mfctx & tdslite_malloc_free(malloc_fn_type mfn = nullptr,
+                                             free_fn_type ffn   = nullptr) {
+        TDSL_ASSERT_MSG(not(!(mfn) != !(ffn)),
+                        "malloc and free functions can either be both null or non-null.");
 
         // Since we're a header-only library we cannot use a global
         // static variable or static inline since we're targeting

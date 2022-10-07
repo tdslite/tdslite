@@ -33,20 +33,28 @@
 #include <tdslite/util/tdsl_debug_print.hpp>
 #include <tdslite/util/tdsl_expected.hpp>
 
-#define TDSL_TRY_READ_VARCHAR(TYPE, VARNAME, READER)                                                                                       \
-    const auto VARNAME##_octets = (READER.read<TYPE>() * 2);                                                                               \
-    if (not READER.has_bytes(VARNAME##_octets)) {                                                                                          \
-        return VARNAME##_octets - READER.remaining_bytes();                                                                                \
-    }                                                                                                                                      \
+#define TDSL_TRY_READ_VARCHAR(TYPE, VARNAME, READER)                                               \
+    const auto VARNAME##_octets = (READER.read<TYPE>() * 2);                                       \
+    if (not READER.has_bytes(VARNAME##_octets)) {                                                  \
+        return VARNAME##_octets - READER.remaining_bytes();                                        \
+    }                                                                                              \
     const auto VARNAME = READER.read(VARNAME##_octets)
 
-#define TDSL_TRY_READ_U16_VARCHAR(VARNAME, READER) TDSL_TRY_READ_VARCHAR(tdsl::uint16_t, VARNAME, READER)
-#define TDSL_TRY_READ_U8_VARCHAR(VARNAME, READER)  TDSL_TRY_READ_VARCHAR(tdsl::uint8_t, VARNAME, READER)
+#define TDSL_TRY_READ_U16_VARCHAR(VARNAME, READER)                                                 \
+    TDSL_TRY_READ_VARCHAR(tdsl::uint16_t, VARNAME, READER)
+#define TDSL_TRY_READ_U8_VARCHAR(VARNAME, READER)                                                  \
+    TDSL_TRY_READ_VARCHAR(tdsl::uint8_t, VARNAME, READER)
 
 namespace tdsl { namespace detail {
 
     template <typename NetImpl>
+    struct tdsl_driver;
+
+    template <typename NetImpl>
     struct login_context;
+
+    template <typename NetImpl>
+    struct command_context;
 
     /**
      * Base type for all TDS message contexts
@@ -73,8 +81,8 @@ namespace tdsl { namespace detail {
             tdsl::uint8_t window;
         } TDSL_PACKED;
 
-        using sub_token_handler_fn_t = token_handler_result (*)(void *, e_tds_message_token_type,
-                                                                tdsl::binary_reader<tdsl::endian::little> &);
+        using sub_token_handler_fn_t = token_handler_result (*)(
+            void *, e_tds_message_token_type, tdsl::binary_reader<tdsl::endian::little> &);
 
     private:
         // ENVCHANGE token callback
@@ -116,49 +124,7 @@ namespace tdsl { namespace detail {
             this->register_packet_data_callback(this, &handle_packet_data);
         }
 
-        // --------------------------------------------------------------------------------
-
-        /**
-         * Write common TDS header of the packet
-         *
-         * @note 16-bit zero value will be put for the `length` field as a placeholder.
-         * The real packet length must be substituted via calling @ref put_tds_header_length
-         * function afterwards.
-         */
-        inline void write_tds_header(e_tds_message_type msg_type) noexcept {
-            this->template write(static_cast<tdsl::uint8_t>(msg_type)); // Packet type
-            this->template write(/*arg=*/0x01_tdsu8);                   // STATUS
-            this->template write(/*arg=*/0_tdsu16);                     // Placeholder for length
-            this->template write(/*arg=*/0_tdsu32);                     // Channel, Packet ID and Window
-        }
-
-        // --------------------------------------------------------------------------------
-
-        /**
-         * Put the packet length into TDS packet.
-         *
-         * @note @ref write_tds_header() function must already be called
-         * before
-         *
-         * @param [in] data_length Length of the data section
-         */
-        void put_tds_header_length(tdsl::uint16_t data_length) noexcept {
-            // Length is the size of the packet inclusing the 8 bytes in the packet header.
-            // It is the number of bytes from start of this header to the start of the next packet header.
-            // Length is a 2-byte, unsigned short and is represented in network byte order (big-endian).
-            this->template write(TDSL_OFFSETOF(tds_header, length),
-                                 host_to_network(static_cast<tdsl::uint16_t>(data_length + sizeof(tds_header))));
-        }
-
-        // --------------------------------------------------------------------------------
-
-        /**
-         * Size of the TDS header
-         */
-        inline static auto tds_header_size() noexcept -> tdsl::uint32_t {
-            return sizeof(tds_header);
-        }
-
+    private:
         // --------------------------------------------------------------------------------
 
         /**
@@ -175,8 +141,9 @@ namespace tdsl { namespace detail {
          *                       The return value would be non-zero only if the reader has partial
          *                       TDS message data.
          */
-        static tdsl::uint32_t handle_packet_data(void * self_optr, tdsl::detail::e_tds_message_type message_type,
-                                                 tdsl::binary_reader<tdsl::endian::little> & nmsg_rdr) {
+        static tdsl::uint32_t
+        handle_packet_data(void * self_optr, tdsl::detail::e_tds_message_type message_type,
+                           tdsl::binary_reader<tdsl::endian::little> & nmsg_rdr) {
             using msg_type = tdsl::detail::e_tds_message_type;
             auto self      = reinterpret_cast<tds_context_type *>(self_optr);
 
@@ -185,12 +152,58 @@ namespace tdsl { namespace detail {
                     return self->handle_tabular_result_msg(nmsg_rdr);
                 } break;
                 default: {
-                    TDSL_DEBUG_PRINTLN("tds_context::handle_msg: unhandled (%ld) bytes of msg with type (%d)", nmsg_rdr.remaining_bytes(),
-                                       static_cast<int>(message_type));
+                    TDSL_DEBUG_PRINTLN(
+                        "tds_context::handle_msg: unhandled (%ld) bytes of msg with type (%d)",
+                        nmsg_rdr.remaining_bytes(), static_cast<int>(message_type));
                 } break;
             }
 
             return 0;
+        }
+
+        // --------------------------------------------------------------------------------
+
+        /**
+         * Write common TDS header of the packet
+         *
+         * @note 16-bit zero value will be put for the `length` field as a placeholder.
+         * The real packet length must be substituted via calling @ref put_tds_header_length
+         * function afterwards.
+         */
+        inline void write_tds_header(e_tds_message_type msg_type) noexcept {
+            this->template write(static_cast<tdsl::uint8_t>(msg_type)); // Packet type
+            this->template write(/*arg=*/0x01_tdsu8);                   // STATUS
+            this->template write(/*arg=*/0_tdsu16);                     // Placeholder for length
+            this->template write(/*arg=*/0_tdsu32); // Channel, Packet ID and Window
+        }
+
+        // --------------------------------------------------------------------------------
+
+        /**
+         * Put the packet length into TDS packet.
+         *
+         * @note @ref write_tds_header() function must already be called
+         * before
+         *
+         * @param [in] data_length Length of the data section
+         */
+        void put_tds_header_length(tdsl::uint16_t data_length) noexcept {
+            // Length is the size of the packet inclusing the 8 bytes in the packet header.
+            // It is the number of bytes from start of this header to the start of the next packet
+            // header. Length is a 2-byte, unsigned short and is represented in network byte order
+            // (big-endian).
+            this->template write(
+                TDSL_OFFSETOF(tds_header, length),
+                host_to_network(static_cast<tdsl::uint16_t>(data_length + sizeof(tds_header))));
+        }
+
+        // --------------------------------------------------------------------------------
+
+        /**
+         * Size of the TDS header
+         */
+        inline static auto tds_header_size() noexcept -> tdsl::uint32_t {
+            return sizeof(tds_header);
         }
 
         // --------------------------------------------------------------------------------
@@ -207,7 +220,9 @@ namespace tdsl { namespace detail {
          * @param [in] user_ptr User pointer
          * @param [in] cb Callback function
          */
-        TDSL_SYMBOL_VISIBLE void do_register_envchange_token_callback(void * user_ptr, typename decltype(envinfochg_cb)::function_type cb) {
+        TDSL_SYMBOL_VISIBLE void
+        do_register_envchange_token_callback(void * user_ptr,
+                                             typename decltype(envinfochg_cb)::function_type cb) {
             envinfochg_cb.set(user_ptr, cb);
         }
 
@@ -225,7 +240,9 @@ namespace tdsl { namespace detail {
          * @param [in] user_ptr User pointer
          * @param [in] cb Callback function
          */
-        TDSL_SYMBOL_VISIBLE void do_register_info_token_callback(void * user_ptr, typename decltype(info_cb)::function_type cb) {
+        TDSL_SYMBOL_VISIBLE void
+        do_register_info_token_callback(void * user_ptr,
+                                        typename decltype(info_cb)::function_type cb) {
             info_cb.set(user_ptr, cb);
         }
 
@@ -243,7 +260,9 @@ namespace tdsl { namespace detail {
          * @param [in] user_ptr User pointer
          * @param [in] cb Callback function
          */
-        TDSL_SYMBOL_VISIBLE void do_register_loginack_token_callback(void * user_ptr, typename decltype(loginack_cb)::function_type cb) {
+        TDSL_SYMBOL_VISIBLE void
+        do_register_loginack_token_callback(void * user_ptr,
+                                            typename decltype(loginack_cb)::function_type cb) {
             loginack_cb.set(user_ptr, cb);
         }
 
@@ -261,7 +280,9 @@ namespace tdsl { namespace detail {
          * @param [in] user_ptr User pointer
          * @param [in] cb Callback function
          */
-        TDSL_SYMBOL_VISIBLE void do_register_done_token_callback(void * user_ptr, typename decltype(done_cb)::function_type cb) {
+        TDSL_SYMBOL_VISIBLE void
+        do_register_done_token_callback(void * user_ptr,
+                                        typename decltype(done_cb)::function_type cb) {
             done_cb.set(user_ptr, cb);
         }
 
@@ -279,11 +300,12 @@ namespace tdsl { namespace detail {
          * @param [in] user_ptr User pointer
          * @param [in] cb Callback function
          */
-        TDSL_SYMBOL_VISIBLE void do_register_sub_token_handler(void * user_ptr, typename decltype(sub_token_handler)::function_type cb) {
+        TDSL_SYMBOL_VISIBLE void
+        do_register_sub_token_handler(void * user_ptr,
+                                      typename decltype(sub_token_handler)::function_type cb) {
             sub_token_handler.set(user_ptr, cb);
         }
 
-    private:
         // --------------------------------------------------------------------------------
 
         /**
@@ -299,7 +321,8 @@ namespace tdsl { namespace detail {
          * The return value would be non-zero only if the reader has partial
          * message data.
          */
-        inline tdsl::uint32_t handle_tabular_result_msg(tdsl::binary_reader<tdsl::endian::little> & msg_rdr) noexcept {
+        inline tdsl::uint32_t
+        handle_tabular_result_msg(tdsl::binary_reader<tdsl::endian::little> & msg_rdr) noexcept {
             using e_token_type                   = tdsl::detail::e_tds_message_token_type;
 
             constexpr int k_min_token_need_bytes = 3;
@@ -336,15 +359,26 @@ namespace tdsl { namespace detail {
                     }
                 }
 
-                tdsl::uint16_t current_token_size = 0;
+                auto is_fixed_token_size = [](e_token_type t) -> tdsl::uint32_t {
+                    switch (t) {
+                        case e_token_type::done:
+                        case e_token_type::doneinproc:
+                        case e_token_type::doneproc:
+                            return 8;
+                        case e_token_type::offset:
+                        case e_token_type::returnstatus:
+                            return 4;
+                        default:
+                            return 0;
+                    }
+                };
+
+                tdsl::uint16_t current_token_size = is_fixed_token_size(token_type);
                 // Possibility #2: Tokens with size information available
                 // beforehand. These are easier to parse since we know
                 // how many bytes to expect
-                if (not(token_type == e_token_type::done)) {
+                if (current_token_size == 0) {
                     current_token_size = msg_rdr.read<tdsl::uint16_t>();
-                }
-                else {
-                    current_token_size = {8}; // sizeof done token(fixed)
                 }
 
                 // Ensure that we got enough bytes to read the token
@@ -365,7 +399,11 @@ namespace tdsl { namespace detail {
                     case e_token_type::info: {
                         subhandler_nb = handle_info_token(token_reader);
                     } break;
-                    case e_token_type::done: {
+                    case e_token_type::done:
+                    case e_token_type::doneproc:   // FIXME: Distinguish
+                    case e_token_type::doneinproc: // FIXME: Distinguish
+
+                    {
                         subhandler_nb = handle_done_token(token_reader);
                     } break;
                     case e_token_type::loginack: {
@@ -373,8 +411,9 @@ namespace tdsl { namespace detail {
                     } break;
 
                     default: {
-                        TDSL_DEBUG_PRINTLN("Unhandled TOKEN type [%d (%s)]\n", static_cast<int>(token_type),
-                                           message_token_type_to_str(static_cast<e_token_type>(token_type)));
+                        TDSL_DEBUG_PRINTLN(
+                            "Unhandled TOKEN type [%d (%s)]\n", static_cast<int>(token_type),
+                            message_token_type_to_str(static_cast<e_token_type>(token_type)));
                     } break;
                 }
                 // Advance to the next token
@@ -386,14 +425,18 @@ namespace tdsl { namespace detail {
                 }
             }
 
-            // "All integer types are represented in reverse byte order (little-endian) unless otherwise specified."
+            // "All integer types are represented in reverse byte order (little-endian) unless
+            // otherwise specified."
 
             TDSL_ASSERT_MSG(msg_rdr.remaining_bytes() < 3,
-                            "There are more than 3 bytes remaining in the reader, something is wrong in token handler loop!");
+                            "There are more than 3 bytes remaining in the reader, something is "
+                            "wrong in token handler loop!");
 
             // We expect here to have consumed all of the reader. If that is not the case
             // that means we got partial data.
-            return (msg_rdr.remaining_bytes() == 0 ? 0 : k_min_token_need_bytes - msg_rdr.remaining_bytes());
+            return (msg_rdr.remaining_bytes() == 0
+                        ? 0
+                        : k_min_token_need_bytes - msg_rdr.remaining_bytes());
         }
 
         // --------------------------------------------------------------------------------
@@ -401,8 +444,8 @@ namespace tdsl { namespace detail {
         /**
          * Handler for ENVCHANGE token type
          *
-         * The function parses the given data in @p rr as ENVCHANGE token and calls the environment change
-         * callback function, if a callback function is assigned.
+         * The function parses the given data in @p rr as ENVCHANGE token and calls the environment
+         * change callback function, if a callback function is assigned.
          *
          * @param [in] rr Reader to read from
          *
@@ -410,7 +453,8 @@ namespace tdsl { namespace detail {
          *                        The return value would be non-zero only if the reader has partial
          *                        token data.
          */
-        inline tdsl::uint32_t handle_envchange_token(tdsl::binary_reader<tdsl::endian::little> & rr) noexcept {
+        inline tdsl::uint32_t
+        handle_envchange_token(tdsl::binary_reader<tdsl::endian::little> & rr) noexcept {
             using envchange_type = tdsl::detail::e_tds_envchange_type;
             // Read ENVCHANGE type
             const auto ect       = static_cast<envchange_type>(rr.read<tdsl::uint8_t>());
@@ -438,8 +482,10 @@ namespace tdsl { namespace detail {
                     envchange_info.new_value = nvval.rebind_cast<char16_t>();
                     envchange_info.old_value = ovval.rebind_cast<char16_t>();
                     TDSL_ASSERT_MSG(rr.remaining_bytes() == 0,
-                                    "There are unhandled stray bytes in ENVCHANGE token, probably something is wrong!");
-                    TDSL_DEBUG_PRINT("received environment change -> type [%d] | ", static_cast<int>(envchange_info.type));
+                                    "There are unhandled stray bytes in ENVCHANGE token, probably "
+                                    "something is wrong!");
+                    TDSL_DEBUG_PRINT("received environment change -> type [%d] | ",
+                                     static_cast<int>(envchange_info.type));
                     TDSL_DEBUG_PRINT("new_value: [");
                     TDSL_DEBUG_PRINT_U16_AS_MB(envchange_info.new_value);
                     TDSL_DEBUG_PRINT("] | ");
@@ -465,9 +511,8 @@ namespace tdsl { namespace detail {
          *
          * @param [in] rr Reader to read from
          *
-         * @return tdsl::uint32_t Amount of needed bytes to read a complete INFO/ERROR token, if any.
-         *                        The return value would be non-zero only if the reader has partial
-         *                        token data.
+         * @return tdsl::uint32_t Amount of needed bytes to read a complete INFO/ERROR token, if
+         * any. The return value would be non-zero only if the reader has partial token data.
          */
         inline tdsl::uint32_t handle_info_token(tdsl::binary_reader<tdsl::endian::little> & rr) {
             constexpr static auto k_min_info_bytes = 14;
@@ -492,10 +537,14 @@ namespace tdsl { namespace detail {
             info_msg.server_name = server_name.rebind_cast<char16_t>();
             info_msg.proc_name   = proc_name.rebind_cast<char16_t>();
 
-            TDSL_ASSERT_MSG(rr.remaining_bytes() == 0, "There are unhandled stray bytes in INFO token, probably something is wrong!");
+            TDSL_ASSERT_MSG(
+                rr.remaining_bytes() == 0,
+                "There are unhandled stray bytes in INFO token, probably something is wrong!");
 
-            TDSL_DEBUG_PRINT("received info message -> number [%d] | state [%d] | class [%d] | line number [%d] | ", info_msg.number,
-                             info_msg.state, info_msg.class_, info_msg.line_number);
+            TDSL_DEBUG_PRINT("received info message -> number [%d] | state [%d] | class [%d] | "
+                             "line number [%d] | ",
+                             info_msg.number, info_msg.state, info_msg.class_,
+                             info_msg.line_number);
             TDSL_DEBUG_PRINT("msgtext: [");
             TDSL_DEBUG_PRINT_U16_AS_MB(info_msg.msgtext);
             TDSL_DEBUG_PRINT("] | ");
@@ -523,7 +572,8 @@ namespace tdsl { namespace detail {
          *                        The return value would be non-zero only if the reader has partial
          *                        token data.
          */
-        inline tdsl::uint32_t handle_loginack_token(tdsl::binary_reader<tdsl::endian::little> & rr) {
+        inline tdsl::uint32_t
+        handle_loginack_token(tdsl::binary_reader<tdsl::endian::little> & rr) {
             constexpr static auto k_min_loginack_bytes = 10;
             constexpr static auto k_progver_bytes      = 4;
             if (not rr.has_bytes(k_min_loginack_bytes)) {
@@ -546,11 +596,13 @@ namespace tdsl { namespace detail {
             token.prog_version.buildnum_lo = rr.read<tdsl::uint8_t>();
             token.prog_name                = progname.rebind_cast<char16_t>();
 
-            TDSL_DEBUG_PRINT("received login ack token -> interface [%d] | tds version [0x%x] | ", +token.interface, token.tds_version);
+            TDSL_DEBUG_PRINT("received login ack token -> interface [%d] | tds version [0x%x] | ",
+                             +token.interface, token.tds_version);
             TDSL_DEBUG_PRINT("prog_name: [");
             TDSL_DEBUG_PRINT_U16_AS_MB(token.prog_name);
             TDSL_DEBUG_PRINT("] | ");
-            TDSL_DEBUG_PRINT("prog_version: [%d.%d.%d.%d]", token.prog_version.maj, token.prog_version.min, token.prog_version.buildnum_hi,
+            TDSL_DEBUG_PRINT("prog_version: [%d.%d.%d.%d]", token.prog_version.maj,
+                             token.prog_version.min, token.prog_version.buildnum_hi,
                              token.prog_version.buildnum_lo);
             TDSL_DEBUG_PRINT("\n");
             loginack_cb.maybe_invoke(token);
@@ -572,7 +624,8 @@ namespace tdsl { namespace detail {
          *                        token data.
          */
         inline tdsl::uint32_t handle_done_token(tdsl::binary_reader<tdsl::endian::little> & rr) {
-
+            // fe
+            // 02 00 e0 00 00 00 00 00
             constexpr static auto k_min_done_bytes = 8;
             if (not rr.has_bytes(k_min_done_bytes)) {
                 return k_min_done_bytes - rr.remaining_bytes();
@@ -584,14 +637,17 @@ namespace tdsl { namespace detail {
             token.curcmd         = rr.read<tdsl::uint16_t>();
             token.done_row_count = rr.read<tdsl::uint32_t>();
 
-            TDSL_DEBUG_PRINTLN("received done token -> status [%d] | cur_cmd [%d] | done_row_count [%d]", token.status, token.curcmd,
-                               token.done_row_count);
+            TDSL_DEBUG_PRINTLN(
+                "received done token -> status [%d] | cur_cmd [%d] | done_row_count [%d]",
+                token.status, token.curcmd, token.done_row_count);
             done_cb.maybe_invoke(token);
             return 0;
         }
 
         friend struct detail::net_recv_if_mixin<tds_context<ConcreteNetImpl>>;
         friend struct detail::net_send_if_mixin<tds_context<ConcreteNetImpl>>;
+        friend struct tdsl::detail::tdsl_driver<ConcreteNetImpl>;
         friend struct tdsl::detail::login_context<ConcreteNetImpl>;
+        friend struct tdsl::detail::command_context<ConcreteNetImpl>;
     };
 }} // namespace tdsl::detail

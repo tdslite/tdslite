@@ -63,9 +63,10 @@ namespace tdsl {
     struct tds_colmetadata_token : public util::noncopyable {
         tdsl::uint16_t column_count{0};
         tds_column_info * columns = {nullptr};
-        char16_t ** column_names  = {nullptr};
+        tdsl::span<tdsl::u16char_span> column_names;
+        // char16_t ** column_names  = {nullptr};
 
-        tds_colmetadata_token()   = default;
+        tds_colmetadata_token() = default;
 
         inline bool is_valid() const noexcept {
             return column_count > 0 && not(nullptr == columns);
@@ -93,7 +94,17 @@ namespace tdsl {
          * @return true if allocation successful, false otherwise.
          */
         bool allocate_column_name_array(tdsl::uint16_t col_count) {
-            return not(nullptr == (column_names = tds_allocator<char16_t *>::allocate(col_count)));
+
+            // Allocate N u16char_spans
+            auto colname_arr = tds_allocator<u16char_span>::allocate(col_count);
+            if (colname_arr) {
+                column_names = tdsl::span<tdsl::u16char_span>{colname_arr, colname_arr + col_count};
+                // zero-initialize all columns
+                for (auto & columnnspan : column_names) {
+                    columnnspan = tdsl::u16char_span{/*begin=*/nullptr, /*end=*/nullptr};
+                }
+            }
+            return not(nullptr == colname_arr);
         }
 
         /**
@@ -108,9 +119,25 @@ namespace tdsl {
          */
         bool set_column_name(tdsl::uint16_t index, tdsl::span<const tdsl::uint8_t> name) {
             TDSL_ASSERT(index < column_count);
-            column_names [index] = tds_allocator<char16_t>::allocate(name.size_bytes() / 2);
-            // FIXME: Set column name!
-            return not(nullptr == column_names [index]);
+            const auto name_u16 = name.rebind_cast<const char16_t>();
+            TDSL_ASSERT_MSG(name_u16.size_bytes() == name.size_bytes(),
+                            "The raw column name bytes has odd size_bytes(), which is 'odd'"
+                            "Column names are UCS-2 encoded so they must always have even size.");
+
+            // alloc N char16_t's
+            auto alloc = tds_allocator<char16_t>::allocate(name_u16.size());
+            if (alloc) {
+                column_names [index] = tdsl::u16char_span{alloc, alloc + name_u16.size()};
+                // Copy column name data to allocated space
+                for (tdsl::uint32_t i = 0; i < name.size_bytes(); i += 2) {
+                    char16_t cv        = name [i] | name [i + 1] << 8;
+                    *(alloc + (i / 2)) = cv;
+                }
+                TDSL_ASSERT(column_names [index].data() != nullptr);
+                TDSL_ASSERT(column_names [index].size() > 0);
+            }
+
+            return not(nullptr == alloc);
         }
 
         inline void reset() noexcept {
@@ -119,13 +146,20 @@ namespace tdsl {
                 columns = {nullptr};
             }
             if (column_names) {
-                for (int i = 0; i < column_count; i++) {
-                    if (not(nullptr == column_names [i])) {
-                        tds_allocator<char16_t>::deallocate(column_names [i], /*n_elems=*/0);
+
+                for (auto & colname : column_names) {
+                    if (colname) {
+                        // dealloc N char16_t's
+                        tds_allocator<char16_t>::deallocate(const_cast<char16_t *>(colname.data()),
+                                                            colname.size());
+                        colname = tdsl::u16char_span{/*begin=*/nullptr, /*end=*/nullptr};
                     }
                 }
-                tds_allocator<char16_t *>::deallocate(column_names, column_count);
-                column_names = {nullptr};
+
+                // free N spans
+                tds_allocator<tdsl::u16char_span>::deallocate(column_names.data(),
+                                                              column_names.size());
+                column_names = tdsl::span<tdsl::u16char_span>{/*begin=*/nullptr, /*end=*/nullptr};
             }
             column_count = 0;
         }
@@ -140,7 +174,7 @@ namespace tdsl {
             column_names       = other.column_names;
             other.column_count = 0;
             other.columns      = {nullptr};
-            other.column_names = {nullptr};
+            other.column_names = tdsl::span<tdsl::u16char_span>{/*begin=*/nullptr, /*end=*/nullptr};
         }
 
         tds_colmetadata_token & operator=(tds_colmetadata_token && other) noexcept {
@@ -149,7 +183,7 @@ namespace tdsl {
             column_names       = other.column_names;
             other.column_count = 0;
             other.columns      = {nullptr};
-            other.column_names = {nullptr};
+            other.column_names = tdsl::span<tdsl::u16char_span>{/*begin=*/nullptr, /*end=*/nullptr};
             return *this;
         }
     };

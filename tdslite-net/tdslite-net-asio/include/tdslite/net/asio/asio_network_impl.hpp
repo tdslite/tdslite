@@ -45,6 +45,12 @@ namespace tdsl { namespace net {
             };
         }
 
+        // inline netbuf_reader sbuf_reader() noexcept?? {
+        //     return netbuf_reader{
+        //         *this, tdsl::span<const tdsl::uint8_t>{recv_buffer.data(), recv_buffer_consumable_bytes}
+        //     };
+        // }
+
         /**
          * Connect to the target endpoint @p target : @p port
          *
