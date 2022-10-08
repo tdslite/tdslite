@@ -1,13 +1,15 @@
 /**
  * _________________________________________________
  *
- * @file   mock_network_impl.cpp
+ * @file   asio_network_impl.cpp
  * @author Mustafa K. GILOR <mustafagilor@gmail.com>
  * @date   20.04.2022
  *
  * SPDX-License-Identifier:    MIT
  * _________________________________________________
  */
+
+#define TDSL_DEBUG_PRINT_ENABLED
 
 #include <tdslite/net/asio/asio_network_impl.hpp>
 #include <tdslite/util/tdsl_hex_dump.hpp>
@@ -29,31 +31,69 @@ using tcp_resolver_t = tcp_t::resolver;
 
 namespace {
 
+    // --------------------------------------------------------------------------------
+
     auto as_ctx(std::shared_ptr<void> & v) noexcept -> io_context_t * {
         return reinterpret_cast<io_context_t *>(v.get());
     }
+
+    // --------------------------------------------------------------------------------
 
     auto as_socket(std::shared_ptr<void> & v) noexcept -> tcp_socket_t * {
         return reinterpret_cast<tcp_socket_t *>(v.get());
     }
 
+    // --------------------------------------------------------------------------------
+
     auto as_resolver(std::shared_ptr<void> & v) noexcept -> tcp_resolver_t * {
         return reinterpret_cast<tcp_resolver_t *>(v.get());
+    }
+
+    // --------------------------------------------------------------------------------
+
+    template <typename Container>
+    inline bool consume_buffer(Container & c, tdsl::uint32_t & consumable_bytes,
+                               tdsl::uint32_t amount, tdsl::uint32_t offset = 0) {
+        if (consumable_bytes < amount + offset) {
+            return false;
+        }
+
+        const auto beg  = std::next(c.begin(), offset);
+        const auto end  = std::next(beg, amount);
+        const auto cend = std::next(c.begin(), consumable_bytes);
+
+        TDSL_ASSERT(beg < c.end());
+        TDSL_ASSERT(end <= c.end());
+        TDSL_ASSERT(cend <= c.end());
+
+        TDSL_DEBUG_PRINTLN("consume(...) -> consumed %ld, remaining %ld", std::distance(beg, end),
+                           std::distance(end, cend));
+
+        if (std::distance(beg, end) > 0) {
+            TDSL_DEBUG_PRINTLN("remainder:");
+            TDSL_DEBUG_HEXDUMP(end.base(), std::distance(end, cend));
+        }
+
+        c                = {end, cend};
+        consumable_bytes = c.size();
+        return true;
     }
 
 } // namespace
 
 namespace tdsl { namespace net {
+
+    // --------------------------------------------------------------------------------
+
     asio_network_impl::asio_network_impl() {
         TDSL_DEBUG_PRINT("asio_network_impl::asio_network_impl() -> constructor call\n");
-
-        recv_buffer.resize(8192);
-        recv_buffer_consumable_bytes = 0;
-        io_context                   = std::make_shared<io_context_t>(1);
+        io_context = std::make_shared<io_context_t>(1);
         io_context_work_guard =
             std::make_shared<work_guard_t>(boost::asio::make_work_guard(*as_ctx(io_context)));
         TDSL_DEBUG_PRINT("asio_network_impl::asio_network_impl() -> constructor return\n");
     }
+
+    // --------------------------------------------------------------------------------
 
     asio_network_impl::~asio_network_impl() {
         TDSL_DEBUG_PRINT("asio_network_impl::~asio_network_impl() -> destructor call\n");
@@ -62,6 +102,8 @@ namespace tdsl { namespace net {
 
         TDSL_DEBUG_PRINT("asio_network_impl::~asio_network_impl() -> destructor return\n");
     }
+
+    // --------------------------------------------------------------------------------
 
     int asio_network_impl::do_connect(tdsl::span<const char> target, tdsl::uint16_t port) {
 
@@ -125,6 +167,8 @@ namespace tdsl { namespace net {
         return e_result::connection_failed;
     }
 
+    // --------------------------------------------------------------------------------
+
     void asio_network_impl::do_recv(std::uint32_t transfer_exactly, read_exactly) noexcept {
         TDSL_ASSERT(socket_handle);
         boost::system::error_code ec;
@@ -164,6 +208,8 @@ namespace tdsl { namespace net {
         }
     }
 
+    // --------------------------------------------------------------------------------
+
     int asio_network_impl::do_disconnect() noexcept {
         enum e_result : std::int32_t
         {
@@ -186,7 +232,7 @@ namespace tdsl { namespace net {
         return e_result::success;
     }
 
-    // command/response
+    // --------------------------------------------------------------------------------
 
     int asio_network_impl::do_send(void) noexcept {
         enum e_result : std::int32_t
@@ -224,34 +270,103 @@ namespace tdsl { namespace net {
         return e_result::success;
     }
 
-    bool asio_network_impl::do_consume_recv_buf(tdsl::uint32_t amount, tdsl::uint32_t offset) {
-        if (recv_buffer_consumable_bytes < amount + offset) {
-            return false;
+    // --------------------------------------------------------------------------------
+
+    int asio_network_impl::do_send(byte_view buf) noexcept {
+        enum e_result : std::int32_t
+        {
+            success      = 0,
+            cancelled    = -1,
+            disconnected = -2,
+        };
+
+        boost::system::error_code ec;
+
+        const auto bytes_written = asio::write(
+            *as_socket(socket_handle), boost::asio::const_buffer(buf.data(), buf.size()), ec);
+        if (not ec) {
+            TDSL_DEBUG_PRINT("asio_network_impl::do_send(...) -> sent %lu byte(s), ec %d (%s)\n",
+                             bytes_written, ec.value(), ec.what().c_str());
         }
 
-        const auto beg  = std::next(recv_buffer.begin(), offset);
-        const auto end  = std::next(beg, amount);
-        const auto cend = std::next(recv_buffer.begin(), recv_buffer_consumable_bytes);
-
-        TDSL_ASSERT(beg < recv_buffer.end());
-        TDSL_ASSERT(end <= recv_buffer.end());
-        TDSL_ASSERT(cend <= recv_buffer.end());
-        TDSL_DEBUG_PRINTLN(
-            "asio_network_impl::do_consume_recv_buffer(...) -> consumed %ld, remaining %ld",
-            std::distance(beg, end), std::distance(end, cend));
-
-        if (std::distance(beg, end) > 0) {
-            TDSL_DEBUG_PRINTLN("remainder:");
-            TDSL_DEBUG_HEXDUMP(end.base(), std::distance(end, cend));
+        switch (ec.value()) {
+            case 0: // success
+            case boost::asio::error::in_progress:
+                break;
+            case boost::asio::error::operation_aborted:
+                return e_result::cancelled;
+            default: {
+                do_disconnect();
+                return e_result::disconnected;
+            } break;
         }
-        recv_buffer                  = {end, cend};
-        recv_buffer_consumable_bytes = recv_buffer.size();
-        recv_buffer.resize(8192);
-        return true;
+
+        TDSL_DEBUG_PRINTLN("asio_network_impl::do_send(...) -> exit, bytes written %lu",
+                           bytes_written);
+        return e_result::success;
     }
 
-    expected<tdsl::uint32_t, tdsl::int32_t>
-    asio_network_impl::do_read(tdsl::span<tdsl::uint8_t> dst_buf, read_exactly) {
+    // --------------------------------------------------------------------------------
+
+    int asio_network_impl::do_send(byte_view header, byte_view message) noexcept {
+
+        enum e_result : std::int32_t
+        {
+            success      = 0,
+            cancelled    = -1,
+            disconnected = -2,
+        };
+
+        tdsl::uint32_t bytes_written{0};
+        boost::system::error_code ec;
+
+        const std::array<boost::asio::const_buffer, 2> bufs{
+            boost::asio::const_buffer{header.data(),  header.size() },
+            boost::asio::const_buffer{message.data(), message.size()},
+        };
+
+        bytes_written += asio::write(*as_socket(socket_handle), bufs, ec);
+        if (not ec) {
+            TDSL_DEBUG_PRINT("asio_network_impl::do_send(...) -> sent %u byte(s), ec %d (%s)\n",
+                             bytes_written, ec.value(), ec.what().c_str());
+        }
+
+        switch (ec.value()) {
+            case 0: // success
+            case boost::asio::error::in_progress:
+                break;
+            case boost::asio::error::operation_aborted:
+                return e_result::cancelled;
+            default: {
+                do_disconnect();
+                return e_result::disconnected;
+            } break;
+        }
+
+        TDSL_DEBUG_PRINTLN("asio_network_impl::do_send(...) -> exit, bytes written %u",
+                           bytes_written);
+        return e_result::success;
+    }
+
+    // --------------------------------------------------------------------------------
+
+    bool asio_network_impl::do_consume_recv_buf(tdsl::uint32_t amount, tdsl::uint32_t offset) {
+        bool r = consume_buffer(recv_buffer, recv_buffer_consumable_bytes, amount, offset);
+        recv_buffer.resize(8192);
+        return r;
+    }
+
+    // --------------------------------------------------------------------------------
+
+    bool asio_network_impl::do_consume_send_buf(tdsl::uint32_t amount, tdsl::uint32_t offset) {
+        tdsl::uint32_t send_buffer_consumable_bytes = send_buffer.size();
+        return consume_buffer(send_buffer, send_buffer_consumable_bytes, amount, offset);
+    }
+
+    // --------------------------------------------------------------------------------
+
+    expected<tdsl::uint32_t, tdsl::int32_t> asio_network_impl::do_read(byte_span dst_buf,
+                                                                       read_exactly) {
         TDSL_ASSERT(socket_handle);
         boost::system::error_code ec;
 
@@ -272,8 +387,8 @@ namespace tdsl { namespace net {
         return unexpected<tdsl::int32_t>{-1}; // error case
     }
 
-    // void asio_network_impl::do_read(tdsl::span<tdsl::uint8_t> dst_buf) {}
+    // void asio_network_impl::do_read(byte_span dst_buf) {}
 
-    // void asio_network_impl::do_read(tdsl::span<tdsl::uint8_t> dst_buf, tdsl::uint32_t at_least)
+    // void asio_network_impl::do_read(byte_span dst_buf, tdsl::uint32_t at_least)
     // {}
 }} // namespace tdsl::net

@@ -22,8 +22,8 @@ class alloc_f : public ::testing::Test {};
 TEST_F(alloc_f, default_alloc) {
     ASSERT_NE(tdsl::tdslite_malloc_free().a, nullptr);
     ASSERT_NE(tdsl::tdslite_malloc_free().f, nullptr);
-    EXPECT_EQ(tdsl::tdslite_malloc_free().a, std::malloc);
-    EXPECT_EQ(tdsl::tdslite_malloc_free().f, std::free);
+    EXPECT_EQ(tdsl::tdslite_malloc_free().a, tdsl::tdsl_default_malloc);
+    EXPECT_EQ(tdsl::tdslite_malloc_free().f, tdsl::tdsl_default_free);
 }
 
 // --------------------------------------------------------------------------------

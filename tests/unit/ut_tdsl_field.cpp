@@ -54,23 +54,25 @@ TEST_F(tdsl_field_fixture, field_as_uint64) {
 
 // --------------------------------------------------------------------------------
 
-TEST_F(tdsl_field_fixture, field_as_char_span) {
-    constexpr tdsl::uint8_t buf [14] = {0x74, 0x68, 0x69, 0x73, 0x20, 0x69, 0x73, 0x20, 0x61, 0x20, 0x74, 0x65, 0x73, 0x74};
+TEST_F(tdsl_field_fixture, field_as_string_view) {
+    constexpr tdsl::uint8_t buf [14] = {0x74, 0x68, 0x69, 0x73, 0x20, 0x69, 0x73,
+                                        0x20, 0x61, 0x20, 0x74, 0x65, 0x73, 0x74};
     field                            = buf;
     constexpr const char str []      = "this is a test";
-    tdsl::char_span expected_span{str, sizeof(str) - 1};
-    ASSERT_THAT(field.as<tdsl::char_span>(), testing::ElementsAreArray(expected_span));
+    tdsl::char_view expected_span{str, sizeof(str) - 1};
+    ASSERT_THAT(field.as<tdsl::char_view>(), testing::ElementsAreArray(expected_span));
 }
 
 // --------------------------------------------------------------------------------
 
-TEST_F(tdsl_field_fixture, field_as_u16char_span) {
-    constexpr tdsl::uint8_t buf [28] = {0x74, 0x00, 0x68, 0x00, 0x69, 0x00, 0x73, 0x00, 0x20, 0x00, 0x69, 0x00, 0x73, 0x00,
-                                        0x20, 0x00, 0x61, 0x00, 0x20, 0x00, 0x74, 0x00, 0x65, 0x00, 0x73, 0x00, 0x74, 0x00};
+TEST_F(tdsl_field_fixture, field_as_u16char_view) {
+    constexpr tdsl::uint8_t buf [28] = {0x74, 0x00, 0x68, 0x00, 0x69, 0x00, 0x73, 0x00, 0x20, 0x00,
+                                        0x69, 0x00, 0x73, 0x00, 0x20, 0x00, 0x61, 0x00, 0x20, 0x00,
+                                        0x74, 0x00, 0x65, 0x00, 0x73, 0x00, 0x74, 0x00};
     field                            = buf;
     constexpr const char16_t str []  = u"this is a test";
-    tdsl::u16char_span expected_span{str, (sizeof(str) / sizeof(char16_t)) - 1};
-    auto result = field.as<tdsl::u16char_span>();
+    tdsl::u16char_view expected_span{str, (sizeof(str) / sizeof(char16_t)) - 1};
+    auto result = field.as<tdsl::u16char_view>();
     ASSERT_EQ(result.size(), 14);
     ASSERT_EQ(result.size_bytes(), 28);
     ASSERT_THAT(result, testing::ElementsAreArray(expected_span));
@@ -78,15 +80,16 @@ TEST_F(tdsl_field_fixture, field_as_u16char_span) {
 
 // --------------------------------------------------------------------------------
 
-TEST_F(tdsl_field_fixture, field_as_u32char_span) {
-    constexpr tdsl::uint8_t buf [56] = {0x74, 0x00, 0x00, 0x00, 0x68, 0x00, 0x00, 0x00, 0x69, 0x00, 0x00, 0x00, 0x73, 0x00,
-                                        0x00, 0x00, 0x20, 0x00, 0x00, 0x00, 0x69, 0x00, 0x00, 0x00, 0x73, 0x00, 0x00, 0x00,
-                                        0x20, 0x00, 0x00, 0x00, 0x61, 0x00, 0x00, 0x00, 0x20, 0x00, 0x00, 0x00, 0x74, 0x00,
-                                        0x00, 0x00, 0x65, 0x00, 0x00, 0x00, 0x73, 0x00, 0x00, 0x00, 0x74, 0x00, 0x00, 0x00};
-    field                            = buf;
-    constexpr const char32_t str []  = U"this is a test";
-    tdsl::u32char_span expected_span{str, (sizeof(str) / sizeof(char32_t)) - 1};
-    auto result = field.as<tdsl::u32char_span>();
+TEST_F(tdsl_field_fixture, field_as_u32string_view) {
+    constexpr tdsl::uint8_t buf [56] = {
+        0x74, 0x00, 0x00, 0x00, 0x68, 0x00, 0x00, 0x00, 0x69, 0x00, 0x00, 0x00, 0x73, 0x00,
+        0x00, 0x00, 0x20, 0x00, 0x00, 0x00, 0x69, 0x00, 0x00, 0x00, 0x73, 0x00, 0x00, 0x00,
+        0x20, 0x00, 0x00, 0x00, 0x61, 0x00, 0x00, 0x00, 0x20, 0x00, 0x00, 0x00, 0x74, 0x00,
+        0x00, 0x00, 0x65, 0x00, 0x00, 0x00, 0x73, 0x00, 0x00, 0x00, 0x74, 0x00, 0x00, 0x00};
+    field                           = buf;
+    constexpr const char32_t str [] = U"this is a test";
+    tdsl::u32char_view expected_span{str, (sizeof(str) / sizeof(char32_t)) - 1};
+    auto result = field.as<tdsl::u32char_view>();
     ASSERT_EQ(result.size(), 14);
     ASSERT_EQ(result.size_bytes(), 56);
     ASSERT_THAT(result, testing::ElementsAreArray(expected_span));

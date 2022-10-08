@@ -33,7 +33,7 @@ namespace tdsl {
         /**
          * The name of the server
          */
-        tdsl::u16char_span prog_name;
+        tdsl::u16char_view prog_name;
 
         // The server version
         struct {

@@ -77,19 +77,13 @@ namespace tdsl { namespace detail {
             T command, void * rcb_uptr = nullptr,
             row_callback_fn_t row_callback = +[](void *, const tds_colmetadata_token &,
                                                  const tdsl_row &) -> void {}) noexcept {
-
+            // Reset query state object & reassign row callback
             qstate.reset();
-
             qstate.row_callback.set(rcb_uptr, row_callback);
-
-            // Write the TDS header for the command
-            tds_ctx.write_tds_header(e_tds_message_type::sql_batch);
             // Write the SQL command
             string_writer_type::write(tds_ctx, command);
-            // Put the data length (size of the SQL command)
-            tds_ctx.put_tds_header_length(string_writer_type::calculate_write_size(command));
             // Send the command
-            tds_ctx.send();
+            tds_ctx.send_tds_pdu(e_tds_message_type::sql_batch);
             // Receive the response
             tds_ctx.receive_tds_pdu();
             return qstate.affected_rows;
@@ -101,7 +95,6 @@ namespace tdsl { namespace detail {
                                                   tdsl::binary_reader<tdsl::endian::little> & rr) {
             TDSL_ASSERT(uptr);
             self_type & self = *static_cast<self_type *>(uptr);
-
             token_handler_result result{};
             switch (token_type) {
                 case e_tds_message_token_type::colmetadata:
@@ -111,15 +104,27 @@ namespace tdsl { namespace detail {
                     result = self.handle_row_token(rr);
                     break;
             }
-
-            // TDSL_ASSERT(reuu.status == token_handler_status::unhandled);
             return result;
         }
 
     private:
+        /**
+         * The query state object.
+         */
         struct query_state {
+            /**
+             * Column metadata for current query (if applicable)
+             */
             tds_colmetadata_token colmd;
+            /**
+             * Number of affected rows from current query
+             */
             tdsl::uint32_t affected_rows;
+            /**
+             * If the query returns a result set, this is the
+             * function to be called for every row read from
+             * the result set.
+             */
             callback<void, row_callback_fn_t> row_callback{};
 
             struct {
@@ -127,6 +132,9 @@ namespace tdsl { namespace detail {
                 tdsl::uint8_t reserved : 7;
             } flags;
 
+            /**
+             * Reset the query state
+             */
             inline void reset() {
                 colmd.reset();
                 affected_rows = 0;
@@ -184,11 +192,10 @@ namespace tdsl { namespace detail {
             // Absolute minimum COLMETADATA bytes, regardless of data type
             constexpr int k_colinfo_min_bytes = 6; // user_type + flags + type + colname len
             auto colindex                     = 0;
+
+            // Main column metadata read loop
             while (colindex < column_count && rr.has_bytes(k_colinfo_min_bytes)) {
                 tds_column_info & current_column = qstate.colmd.columns [colindex];
-
-                // keep column names separate? makes sense. allocate only if user decided to see
-                // column names.
                 current_column.user_type         = rr.read<tdsl::uint16_t>();
                 current_column.flags             = rr.read<tdsl::uint16_t>();
                 current_column.type    = static_cast<e_tds_data_type>(rr.read<tdsl::uint8_t>());
@@ -201,9 +208,8 @@ namespace tdsl { namespace detail {
                     return result;
                 }
 
-                // COLLATION occurs only if the type is BIGCHARTYPE, BIGVARCHARTYPE, TEXTTYPE,
-                // NTEXTTYPE, NCHARTYPE, or NVARCHARTYPE.
-
+                // column info layout depends on column's size type and
+                // other factors like collation.
                 switch (dtype_props.size_type) {
                     case e_tds_data_size_type::fixed:
                         // No extra info to read for these
@@ -239,8 +245,9 @@ namespace tdsl { namespace detail {
                         return result;
                 }
 
-                // If data type has collation info, read it
+                // If data type has collation info:
                 if (dtype_props.flags.has_collation) {
+
                     constexpr int k_collation_info_size = 5;
                     if (not rr.has_bytes(k_collation_info_size)) {
                         result.status       = token_handler_status::not_enough_bytes;
@@ -252,8 +259,38 @@ namespace tdsl { namespace detail {
                     }
                     // FIXME: Read this info into current_column
                     rr.advance(k_collation_info_size);
+
+                    TDSL_DEBUG_PRINTLN("command_context::handle_colmetadata_token(...) -> colidx "
+                                       "%d collinfo: \n",
+                                       colindex);
                 }
 
+                // If data type has table name info:
+                if (dtype_props.flags.has_table_name) {
+                    TDSL_DEBUG_PRINTLN("command_context::handle_colmetadata_token(...) -> colidx "
+                                       "%d has table name\n",
+                                       colindex);
+                    do {
+                        constexpr int k_table_name_size_len = 2;
+                        auto tname_needed_bytes             = k_table_name_size_len;
+                        if (rr.has_bytes(tname_needed_bytes)) {
+                            const auto table_name_length_in_chars = rr.read<tdsl::uint16_t>();
+                            tname_needed_bytes = (table_name_length_in_chars * 2);
+                            if (rr.has_bytes(tname_needed_bytes)) {
+                                // FIXME: Read this info into current_column?
+                                rr.advance(tname_needed_bytes);
+                                break;
+                            }
+                        }
+                        result.status       = token_handler_status::not_enough_bytes;
+                        result.needed_bytes = k_table_name_size_len - rr.remaining_bytes();
+                        TDSL_DEBUG_PRINTLN("not enough bytes to read table name, need %d, have %ld",
+                                           tname_needed_bytes, rr.remaining_bytes());
+                        return result;
+                    } while (0);
+                }
+
+                // Read column name
                 current_column.colname_length_in_chars = rr.read<tdsl::uint8_t>();
                 const auto colname_len_in_bytes = (current_column.colname_length_in_chars * 2);
                 if (not rr.has_bytes((colname_len_in_bytes))) {
@@ -269,7 +306,7 @@ namespace tdsl { namespace detail {
                 }
                 else {
                     const auto span = rr.read(colname_len_in_bytes);
-                    if (not qstate.colmd.set_column_name(colindex, span)) {
+                    if (span && not qstate.colmd.set_column_name(colindex, span)) {
                         result.status = token_handler_status::not_enough_memory;
                         TDSL_DEBUG_PRINTLN("failed to allocate memory for column index %d 's name",
                                            colindex);
@@ -280,7 +317,7 @@ namespace tdsl { namespace detail {
             }
 
             TDSL_DEBUG_PRINTLN("received COLMETADATA token -> column count [%d]",
-                               qstate.colmd.column_count);
+                               qstate.colmd.columns.size());
             result.status       = token_handler_status::success;
             result.needed_bytes = 0;
             return result;
@@ -311,7 +348,7 @@ namespace tdsl { namespace detail {
                 return result;
             }
 
-            auto row_data{tdsl_row::make(qstate.colmd.column_count)};
+            auto row_data{tdsl_row::make(qstate.colmd.columns.size())};
 
             if (not row_data) {
                 TDSL_DEBUG_PRINTLN("row data creation failed (%d)",
@@ -322,14 +359,47 @@ namespace tdsl { namespace detail {
             }
 
             // Each row should contain N fields.
-            for (tdsl::uint32_t cidx = 0; cidx < qstate.colmd.column_count; cidx++) {
+            for (tdsl::uint32_t cidx = 0; cidx < qstate.colmd.columns.size(); cidx++) {
                 TDSL_ASSERT(cidx < row_data->size());
                 const auto & column             = qstate.colmd.columns [cidx];
                 const auto & dprop              = get_data_type_props(column.type);
                 auto & field                    = (*row_data) [cidx];
                 bool field_length_equal_to_null = {false};
 
-                tdsl::uint32_t field_length     = 0;
+                // Allow me to present yet another nonsense from TDS:
+                if (dprop.flags.has_textptr) {
+                    // non-null text, ntext or img field.
+                    // FIXME: Is this any useful?
+                    do {
+                        auto textptr_need_bytes = 1;
+                        if (rr.has_bytes(textptr_need_bytes)) {
+                            textptr_need_bytes = rr.read<tdsl::uint8_t>();
+                            if (textptr_need_bytes == 0xFF) {
+                                // Revert read & break
+                                rr.advance(/*amount_of_bytes=*/-1);
+                                break;
+                            }
+                            if (rr.has_bytes(textptr_need_bytes)) {
+                                rr.advance(textptr_need_bytes);
+                                textptr_need_bytes = 8;
+                                if (rr.has_bytes(textptr_need_bytes)) {
+                                    rr.advance(textptr_need_bytes);
+                                    TDSL_DEBUG_PRINTLN("textptr skip exit");
+                                    break;
+                                }
+                            }
+                        }
+
+                        TDSL_DEBUG_PRINTLN(
+                            "not enough bytes for reading field textptr, %lu more bytes needed",
+                            textptr_need_bytes - rr.remaining_bytes());
+                        result.status       = token_handler_status::not_enough_bytes;
+                        result.needed_bytes = textptr_need_bytes - rr.remaining_bytes();
+                        return result;
+                    } while (0);
+                }
+
+                tdsl::uint32_t field_length = 0;
                 switch (dprop.size_type) {
                     case data_size_type::fixed:
                         field_length = dprop.length.fixed;
@@ -370,6 +440,8 @@ namespace tdsl { namespace detail {
                         TDSL_UNREACHABLE;
                         break;
                 }
+
+                // TEXT, NTEXT, IMAGE
 
                 if (dprop.is_variable_size() &&
                     not is_valid_variable_length_for_type(column.type, field_length)) {

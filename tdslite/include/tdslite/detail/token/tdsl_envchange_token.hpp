@@ -20,7 +20,7 @@ namespace tdsl {
      */
     struct tds_envchange_token {
         detail::e_tds_envchange_type type; // Environment change type
-        tdsl::u16char_span new_value;      // New value (if applicable)
-        tdsl::u16char_span old_value;      // Previous value (if applicable)
+        tdsl::u16char_view new_value;      // New value (if applicable)
+        tdsl::u16char_view old_value;      // Previous value (if applicable)
     };
 } // namespace tdsl

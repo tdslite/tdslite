@@ -35,8 +35,8 @@ namespace tdsl {
     /**
      * String view
      */
-    struct string_view : public tdsl::span<const char> {
-        using ::tdsl::span<const char>::span;
+    struct string_view : public tdsl::char_view {
+        using ::tdsl::char_view::span;
 
         string_view() : span() {}
 

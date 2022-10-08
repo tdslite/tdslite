@@ -19,6 +19,7 @@
 #include <tdslite/detail/tdsl_token_handler_result.hpp>
 #include <tdslite/detail/tdsl_net_recv_if_mixin.hpp>
 #include <tdslite/detail/tdsl_net_send_if_mixin.hpp>
+#include <tdslite/detail/tdsl_tds_header.hpp>
 #include <tdslite/detail/token/tdsl_envchange_token.hpp>
 #include <tdslite/detail/token/tdsl_info_token.hpp>
 #include <tdslite/detail/token/tdsl_loginack_token.hpp>
@@ -65,21 +66,9 @@ namespace tdsl { namespace detail {
     struct tds_context : public ConcreteNetImpl,
                          public detail::net_recv_if_mixin<tds_context<ConcreteNetImpl>>,
                          public detail::net_send_if_mixin<tds_context<ConcreteNetImpl>> {
-        using tds_context_type = tds_context<ConcreteNetImpl>;
-        using xmit_if          = detail::net_send_if_mixin<tds_context_type>;
-        using recv_if          = detail::net_recv_if_mixin<tds_context_type>;
-
-        /**
-         * The tabular data stream protocol header
-         */
-        struct tds_header {
-            tdsl::uint8_t type;
-            tdsl::uint8_t status;
-            tdsl::uint16_t length;
-            tdsl::uint16_t channel;
-            tdsl::uint8_t packet_number;
-            tdsl::uint8_t window;
-        } TDSL_PACKED;
+        using tds_context_type       = tds_context<ConcreteNetImpl>;
+        using xmit_if                = detail::net_send_if_mixin<tds_context_type>;
+        using recv_if                = detail::net_recv_if_mixin<tds_context_type>;
 
         using sub_token_handler_fn_t = token_handler_result (*)(
             void *, e_tds_message_token_type, tdsl::binary_reader<tdsl::endian::little> &);
@@ -195,15 +184,6 @@ namespace tdsl { namespace detail {
             this->template write(
                 TDSL_OFFSETOF(tds_header, length),
                 host_to_network(static_cast<tdsl::uint16_t>(data_length + sizeof(tds_header))));
-        }
-
-        // --------------------------------------------------------------------------------
-
-        /**
-         * Size of the TDS header
-         */
-        inline static auto tds_header_size() noexcept -> tdsl::uint32_t {
-            return sizeof(tds_header);
         }
 
         // --------------------------------------------------------------------------------

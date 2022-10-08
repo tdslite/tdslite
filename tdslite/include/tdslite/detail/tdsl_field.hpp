@@ -30,13 +30,15 @@ namespace tdsl {
          * @return T bytes of data converted to host endianness and reinterpreted as type T
          */
         template <typename T, typename traits::enable_when::integral<T> = true>
-        inline auto as_impl(tdsl::span<const tdsl::uint8_t> data) -> T {
-            TDSL_ASSERT_MSG(data.size_bytes() >= sizeof(T), "Given span does not have enough bytes to read a value with type T!");
+        inline auto as_impl(byte_view data) -> T {
+            TDSL_ASSERT_MSG(data.size_bytes() >= sizeof(T),
+                            "Given span does not have enough bytes to read a value with type T!");
             return tdsl::binary_reader<tdsl::endian::little>{data}.read<T>();
         }
 
-        template <typename T, typename traits::enable_when::template_instance_of<T, tdsl::span> = true>
-        inline auto as_impl(tdsl::span<const tdsl::uint8_t> data) -> T {
+        template <typename T,
+                  typename traits::enable_when::template_instance_of<T, tdsl::span> = true>
+        inline auto as_impl(byte_view data) -> T {
             return data.rebind_cast<typename T::element_type>();
         }
 
@@ -45,15 +47,15 @@ namespace tdsl {
     /**
      * Non-owning field view.
      */
-    struct tdsl_field : public tdsl::span<const tdsl::uint8_t> {
-        using tdsl::span<const tdsl::uint8_t>::span;
-        using tdsl::span<const tdsl::uint8_t>::operator=;
+    struct tdsl_field : public byte_view {
+        using byte_view::span;
+        using byte_view::operator=;
 
         // (mgilor): Little hack to make implicit
         // construction on assignment work, e.g. tdsl_field = buf[50];
         template <typename... Args>
         inline tdsl_field & operator=(Args &&... args) {
-            tdsl::span<const tdsl::uint8_t>::operator=(TDSL_FORWARD(args)...);
+            byte_view::operator=(TDSL_FORWARD(args)...);
             return *this;
         }
 

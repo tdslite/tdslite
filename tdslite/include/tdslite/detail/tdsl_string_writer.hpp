@@ -55,7 +55,8 @@ namespace tdsl { namespace detail {
             }
         }
 
-        static inline auto calculate_write_size(const wstring_view & sv) noexcept -> tdsl::uint32_t {
+        static inline auto calculate_write_size(const wstring_view & sv) noexcept
+            -> tdsl::uint32_t {
             return sv.size_bytes();
         }
 

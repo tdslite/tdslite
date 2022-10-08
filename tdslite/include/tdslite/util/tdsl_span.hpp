@@ -36,21 +36,39 @@ namespace tdsl {
     template <typename T = const tdsl::uint8_t>
     struct span {
 
-        using element_type    = T;
-        using value_type      = typename traits::remove_cv<T>::type;
-        using size_type       = tdsl::uint32_t;
-        using pointer         = T *;
-        using const_pointer   = const T *;
-        using reference       = T &;
-        using const_reference = const T &;
-        using iterator        = pointer;
-        using const_iterator  = const_pointer;
-        using self_type       = span<element_type>;
+        // select size type depending on pointer size?
+        // there is no point of having a size variable with 4 bytes
+        // if address space is only 2 bytes
+
+        using element_type               = T;
+        using value_type                 = typename traits::remove_cv<T>::type;
+        using size_type                  = tdsl::uint32_t;
+        using ssize_type                 = tdsl::int32_t;
+        using pointer                    = T *;
+        using const_pointer              = const T *;
+        using reference                  = T &;
+        using const_reference            = const T &;
+        using iterator                   = pointer;
+        using const_iterator             = const_pointer;
+        using self_type                  = span<element_type>;
 
         /**
          * Default c-tor
          */
-        inline TDSL_CXX14_CONSTEXPR span() noexcept : data_(nullptr), element_count(0){};
+        inline constexpr span() noexcept = default;
+
+        /**
+         * Copy c-tor
+         */
+        inline constexpr span(const self_type & other) noexcept :
+            data_(other.data_), element_count(other.element_count) {}
+
+        /**
+         * Move c-tor
+         */
+        inline constexpr span(self_type && other) noexcept :
+            data_(detail::exchange(other.data_, nullptr)),
+            element_count(detail::exchange(other.element_count, 0)) {}
 
         /**
          * Construct a new span object
@@ -60,17 +78,6 @@ namespace tdsl {
          */
         inline explicit constexpr span(element_type * elem, size_type elem_count) noexcept :
             data_(elem), element_count(elem_count) {}
-
-        /**
-         * Construct a new span object from a fixed-size
-         * array.
-         *
-         * @tparam N Auto-deduced length of the array
-         * @param [in] buffer Fixed-size buffer
-         */
-        template <size_type N>
-        inline constexpr span(element_type (&buffer) [N]) noexcept :
-            data_(buffer), element_count(N) {}
 
         /**
          * Construct a new span object from explicit begin
@@ -87,17 +94,15 @@ namespace tdsl {
             data_(begin), element_count(end - begin) {}
 
         /**
-         * Copy c-tor
+         * Construct a new span object from a fixed-size
+         * array.
+         *
+         * @tparam N Auto-deduced length of the array
+         * @param [in] buffer Fixed-size buffer
          */
-        inline constexpr span(const self_type & other) noexcept :
-            data_(other.data_), element_count(other.element_count) {}
-
-        /**
-         * Move c-tor
-         */
-        inline constexpr span(self_type && other) noexcept :
-            data_(detail::exchange(other.data_, nullptr)),
-            element_count(detail::exchange(other.element_count, 0)) {}
+        template <size_type N>
+        inline constexpr span(element_type (&buffer) [N]) noexcept :
+            data_(buffer), element_count(N) {}
 
         /**
          * Copy assignment
@@ -123,12 +128,9 @@ namespace tdsl {
         }
 
         /**
-         * D-tor
-         */
-        inline ~span() noexcept = default;
-
-        /**
          * Equality comparison operator
+         *
+         * Two spans are considered equal if they point to same memory
          *
          * @param [in] other Span to compare against
          * @return true Spans are equal
@@ -153,6 +155,15 @@ namespace tdsl {
          * @return size_type Amount of the element in the span
          */
         inline constexpr auto size() const noexcept -> size_type {
+            return element_count;
+        }
+
+        /**
+         * Get the amount of the elements in the span
+         *
+         * @return size_type Amount of the element in the span
+         */
+        inline constexpr auto ssize() const noexcept -> ssize_type {
             return element_count;
         }
 
@@ -251,9 +262,16 @@ namespace tdsl {
 
     }; // struct span
 
-    using char_span    = tdsl::span<const char>;
-    using u16char_span = tdsl::span<const char16_t>;
-    using u32char_span = tdsl::span<const char32_t>;
+    // views are just spans to const data
+    using char_view    = tdsl::span<const char>;
+    using u16char_view = tdsl::span<const char16_t>;
+    using u32char_view = tdsl::span<const char32_t>;
+    using byte_view    = tdsl::span<const tdsl::uint8_t>;
+
+    using char_span    = tdsl::span<char>;
+    using u16char_span = tdsl::span<char16_t>;
+    using u32char_span = tdsl::span<char32_t>;
+    using byte_span    = tdsl::span<tdsl::uint8_t>;
 
 } // namespace tdsl
 

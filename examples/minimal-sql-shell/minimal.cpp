@@ -11,7 +11,7 @@
  * _________________________________________________
  */
 
-// #define TDSL_DEBUG_PRINT_ENABLED
+#define TDSL_DEBUG_PRINT_ENABLED
 
 #include <tdslite/net/asio/asio_network_impl.hpp> // network implementation to use
 #include <tdslite/tdslite.hpp>                    // main tdslite header
@@ -21,6 +21,10 @@
 #include <iostream>
 
 struct table_context {
+    table_context() {
+        table.default_props().set_cell_text_align(fort::text_align::center);
+    }
+
     ~table_context() {
         std::cout << table.to_string() << std::endl;
     }
@@ -29,7 +33,7 @@ struct table_context {
     bool header_put = {false};
 };
 
-static inline std::string u16str_as_ascii(tdsl::u16char_span span) noexcept {
+static inline std::string u16str_as_ascii(tdsl::u16char_view span) noexcept {
     // (mgilor): It's a shame that both C and C++ standard
     // libraries lack char16_t string print support.
     std::string r;
@@ -72,10 +76,46 @@ static std::string field2str(const tdsl::tds_column_info & colinfo,
             break;
         case tdsl::data_type::BITTYPE:
             return field.as<tdsl::int8_t>() == 0 ? "False" : "True";
+        case tdsl::data_type::BIGCHARTYPE:
         case tdsl::data_type::BIGVARCHRTYPE:
-        case tdsl::data_type::NVARCHARTYPE:
-            const auto sv = field.as<tdsl::char_span>();
+        case tdsl::data_type::TEXTTYPE: {
+            const auto sv = field.as<tdsl::char_view>();
             return std::string(sv.begin(), sv.end());
+        } break;
+        case tdsl::data_type::NCHARTYPE:
+        case tdsl::data_type::NVARCHARTYPE:
+        case tdsl::data_type::NTEXTTYPE: {
+            const auto sv = field.as<tdsl::u16char_view>();
+            return u16str_as_ascii(sv);
+        } break;
+
+        case tdsl::data_type::DECIMALNTYPE:
+        case tdsl::data_type::MONEYNTYPE: {
+            auto rr = tdsl::binary_reader<tdsl::endian::little>{field};
+            TDSL_DEBUG_PRINTLN("%ld\n", rr.remaining_bytes());
+            const auto sign = rr.read<tdsl::uint8_t>();
+            const auto val  = rr.read<tdsl::uint32_t>();
+            return std::to_string((sign ? val : static_cast<tdsl::int32_t>(-val)));
+        } break;
+        case tdsl::data_type::GUIDTYPE: {
+            char buf [sizeof("00000001-0000-0000-0000-000000000000")] = {0};
+            tdsl::binary_reader<tdsl::endian::little> guid_reader{field};
+            constexpr int k_guid_size = 16;
+            if (guid_reader.size_bytes() == k_guid_size) {
+                const auto time_low          = guid_reader.read<tdsl::uint32_t>();
+                const auto time_mid          = guid_reader.read<tdsl::uint16_t>();
+                const auto time_hi_ver       = guid_reader.read<tdsl::uint16_t>();
+                const auto cseqh_rcseql_node = guid_reader.read(/*number_of_elements=*/8);
+                std::snprintf(buf, sizeof(buf), "%08x-%04x-%04x-%02x%02x-%02x%02x%02x%02x%02x%02x",
+                              time_low, time_mid, time_hi_ver, cseqh_rcseql_node [0],
+                              cseqh_rcseql_node [1], cseqh_rcseql_node [2], cseqh_rcseql_node [3],
+                              cseqh_rcseql_node [4], cseqh_rcseql_node [5], cseqh_rcseql_node [6],
+                              cseqh_rcseql_node [7]);
+                return std::string{buf};
+            }
+            return std::string{"<invalid GUID size " + std::to_string(guid_reader.size_bytes()) +
+                               ">"};
+        } break;
     }
     return "<not implemented yet " + std::to_string(static_cast<int>(colinfo.type)) + ">";
 }
@@ -87,7 +127,6 @@ static std::string field2str(const tdsl::tds_column_info & colinfo,
  */
 static tdsl::uint32_t info_callback(void *, const tdsl::tds_info_token & token) {
     const auto msgtext = u16str_as_ascii(token.msgtext);
-
     std::printf("%c: [%d/%d/%d @%d] --> %.*s\n", token.is_info() ? 'I' : 'E', token.number,
                 token.state, token.class_, token.line_number, static_cast<int>(msgtext.size()),
                 msgtext.data());
@@ -107,9 +146,13 @@ static void row_callback(void * u, const tdsl::tds_colmetadata_token & colmd,
     table_context & table = *reinterpret_cast<table_context *>(u);
 
     if (not table.header_put) {
+        // dump_colmetadata(colmd);
         table.table << fort::header;
-        for (const auto & colname : colmd.column_names) {
-            table.table << u16str_as_ascii(colname);
+        for (tdsl::uint32_t i = 0; i < colmd.columns.size(); i++) {
+            const auto colname = colmd.column_names [i];
+            const auto colinfo = colmd.columns [i];
+            table.table << u16str_as_ascii(colname) + "\n" +
+                               tdsl::detail::data_type_to_str(colinfo.type);
         }
         table.table << fort::endr;
         table.header_put = {true};
@@ -128,7 +171,7 @@ int main(void) {
     // Use info_callback function for printing user info
     driver.set_info_callback(/*user_ptr=*/nullptr, info_callback);
 
-    //
+    // Define the connection parameters
     decltype(driver)::connection_parameters conn_params;
     conn_params.server_name = "mssql-2017";
     conn_params.port        = 1433;
@@ -136,7 +179,6 @@ int main(void) {
     conn_params.password    = "2022-tds-lite-test!";
     conn_params.app_name    = "tdslite minimal example";
     conn_params.db_name     = "master";
-
     // Connect & login to the SQL server described in conn_params
     driver.connect(conn_params);
 
@@ -147,11 +189,15 @@ int main(void) {
             std::printf("Bye!\n");
             std::exit(0);
         }
-        // Define a table context, in case we need to display output for the command
-        table_context table;
-        // Create a string view of line
-        tdsl::string_view query{line.data(), static_cast<tdsl::uint32_t>(line.size())};
-        // Run the query
-        printf("\nRows affected: %d\n", driver.execute_query(query, &table, row_callback));
+        tdsl::uint32_t rows_affected = 0;
+        {
+            // Define a table context, in case we need to display output for the command
+            table_context table;
+            // Create a string view of line
+            tdsl::string_view query{line.data(), static_cast<tdsl::uint32_t>(line.size())};
+            // Run the query
+            rows_affected = driver.execute_query(query, &table, row_callback);
+        }
+        printf("[[[Rows affected: %d]]]\n", rows_affected);
     }
 }

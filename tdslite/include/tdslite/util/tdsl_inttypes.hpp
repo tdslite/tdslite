@@ -66,6 +66,7 @@ namespace tdsl {
 
     using ::uintmax_t;
     using ::uintptr_t;
+
 } // namespace tdsl
 
 // user-defined literals for casting integers

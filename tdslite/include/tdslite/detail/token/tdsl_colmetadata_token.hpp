@@ -61,15 +61,16 @@ namespace tdsl {
     };
 
     struct tds_colmetadata_token : public util::noncopyable {
-        tdsl::uint16_t column_count{0};
-        tds_column_info * columns = {nullptr};
-        tdsl::span<tdsl::u16char_span> column_names;
+        // tdsl::uint16_t column_count{0};
+        // tds_column_info * columns = {nullptr};
+        tdsl::span<tds_column_info> columns;
+        tdsl::span<tdsl::u16char_view> column_names;
         // char16_t ** column_names  = {nullptr};
 
         tds_colmetadata_token() = default;
 
         inline bool is_valid() const noexcept {
-            return column_count > 0 && not(nullptr == columns);
+            return columns;
         }
 
         /**
@@ -80,10 +81,12 @@ namespace tdsl {
          * @return true if allocation successful, false otherwise.
          */
         bool allocate_colinfo_array(tdsl::uint16_t col_count) {
-            if ((columns = tds_allocator<tds_column_info>::allocate(col_count))) {
-                column_count = col_count;
+
+            auto calloc = tds_allocator<tds_column_info>::create_n(col_count);
+            if (calloc) {
+                columns = tdsl::span<tdsl::tds_column_info>{calloc, calloc + col_count};
             }
-            return not(nullptr == columns);
+            return not(nullptr == calloc);
         }
 
         /**
@@ -96,13 +99,13 @@ namespace tdsl {
         bool allocate_column_name_array(tdsl::uint16_t col_count) {
 
             // Allocate N u16char_spans
-            auto colname_arr = tds_allocator<u16char_span>::allocate(col_count);
+            auto colname_arr = tds_allocator<u16char_view>::create_n(col_count);
             if (colname_arr) {
-                column_names = tdsl::span<tdsl::u16char_span>{colname_arr, colname_arr + col_count};
-                // zero-initialize all columns
-                for (auto & columnnspan : column_names) {
-                    columnnspan = tdsl::u16char_span{/*begin=*/nullptr, /*end=*/nullptr};
-                }
+                column_names = tdsl::span<tdsl::u16char_view>{colname_arr, colname_arr + col_count};
+                // // zero-initialize all columns
+                // for (auto & columnnspan : column_names) {
+                //     columnnspan = tdsl::u16char_span{/*begin=*/nullptr, /*end=*/nullptr};
+                // }
             }
             return not(nullptr == colname_arr);
         }
@@ -117,8 +120,13 @@ namespace tdsl {
          * @param [in] name Name value
          * @return true if set successful, false if memory allocation failed
          */
-        bool set_column_name(tdsl::uint16_t index, tdsl::span<const tdsl::uint8_t> name) {
-            TDSL_ASSERT(index < column_count);
+        bool set_column_name(tdsl::uint16_t index, byte_view name) {
+            TDSL_ASSERT(index < columns.size());
+
+            if (not name) {
+                return false;
+            }
+
             const auto name_u16 = name.rebind_cast<const char16_t>();
             TDSL_ASSERT_MSG(name_u16.size_bytes() == name.size_bytes(),
                             "The raw column name bytes has odd size_bytes(), which is 'odd'"
@@ -127,7 +135,7 @@ namespace tdsl {
             // alloc N char16_t's
             auto alloc = tds_allocator<char16_t>::allocate(name_u16.size());
             if (alloc) {
-                column_names [index] = tdsl::u16char_span{alloc, alloc + name_u16.size()};
+                column_names [index] = tdsl::u16char_view{alloc, alloc + name_u16.size()};
                 // Copy column name data to allocated space
                 for (tdsl::uint32_t i = 0; i < name.size_bytes(); i += 2) {
                     char16_t cv        = name [i] | name [i + 1] << 8;
@@ -142,26 +150,26 @@ namespace tdsl {
 
         inline void reset() noexcept {
             if (columns) {
-                tds_allocator<tds_column_info>::deallocate(columns, column_count);
-                columns = {nullptr};
+                tds_allocator<tds_column_info>::destroy_n(columns.data(), columns.size());
+                columns = tdsl::span<tds_column_info>{/*begin=*/nullptr, /*end=*/nullptr};
             }
             if (column_names) {
+
+                // tds_allocator<
 
                 for (auto & colname : column_names) {
                     if (colname) {
                         // dealloc N char16_t's
                         tds_allocator<char16_t>::deallocate(const_cast<char16_t *>(colname.data()),
                                                             colname.size());
-                        colname = tdsl::u16char_span{/*begin=*/nullptr, /*end=*/nullptr};
+                        colname = tdsl::u16char_view{/*begin=*/nullptr, /*end=*/nullptr};
                     }
                 }
 
                 // free N spans
-                tds_allocator<tdsl::u16char_span>::deallocate(column_names.data(),
-                                                              column_names.size());
-                column_names = tdsl::span<tdsl::u16char_span>{/*begin=*/nullptr, /*end=*/nullptr};
+                tds_allocator<u16char_view>::destroy_n(column_names.data(), column_names.size());
+                column_names = tdsl::span<tdsl::u16char_view>{/*begin=*/nullptr, /*end=*/nullptr};
             }
-            column_count = 0;
         }
 
         ~tds_colmetadata_token() {
@@ -169,21 +177,17 @@ namespace tdsl {
         }
 
         tds_colmetadata_token(tds_colmetadata_token && other) noexcept {
-            column_count       = other.column_count;
             columns            = other.columns;
             column_names       = other.column_names;
-            other.column_count = 0;
-            other.columns      = {nullptr};
-            other.column_names = tdsl::span<tdsl::u16char_span>{/*begin=*/nullptr, /*end=*/nullptr};
+            other.columns      = tdsl::span<tds_column_info>{/*begin=*/nullptr, /*end=*/nullptr};
+            other.column_names = tdsl::span<tdsl::u16char_view>{/*begin=*/nullptr, /*end=*/nullptr};
         }
 
         tds_colmetadata_token & operator=(tds_colmetadata_token && other) noexcept {
-            column_count       = other.column_count;
             columns            = other.columns;
             column_names       = other.column_names;
-            other.column_count = 0;
-            other.columns      = {nullptr};
-            other.column_names = tdsl::span<tdsl::u16char_span>{/*begin=*/nullptr, /*end=*/nullptr};
+            other.columns      = tdsl::span<tds_column_info>{/*begin=*/nullptr, /*end=*/nullptr};
+            other.column_names = tdsl::span<tdsl::u16char_view>{/*begin=*/nullptr, /*end=*/nullptr};
             return *this;
         }
     };

@@ -14,86 +14,41 @@
 #define TDSL_DETAIL_TDS_DATA_TYPE_HPP
 
 #include <tdslite/util/tdsl_inttypes.hpp>
+#include <tdslite/util/tdsl_macrodef.hpp>
 
 namespace tdsl { namespace detail {
 
-    /**
-     *
-     *
-     */
     enum class e_tds_data_type : tdsl::uint8_t
     {
-        /* Null */
-        NULLTYPE      = 0x1,
-        /* Tinyint */
-        INT1TYPE      = 0x30,
-        /* Alias for INT1TYPE */
-        TINYINTTYPE   = INT1TYPE,
-        /* Bit */
-        BITTYPE       = 0x32,
-        /* Smallint */
-        INT2TYPE      = 0x34,
-        /* Alias for INT2TYPE */
-        SMALLINTTYPE  = INT2TYPE,
-        /* Int */
-        INT4TYPE      = 0x38,
-        /* Alias for INT4TYPE */
-        INTTYPE       = INT4TYPE,
-        /* Smalldatetime */
-        DATETIM4TYPE  = 0x3A,
-        /* Real */
-        FLT4TYPE      = 0x3B,
-        /* Money */
-        MONEYTYPE     = 0x3C,
-        /* Datetime */
-        DATETIMETYPE  = 0x3D,
-        /* Float */
-        FLT8TYPE      = 0x3E,
-        /* Smallmoney */
-        MONEY4TYPE    = 0x7A,
-        /* Bigint */
-        INT8TYPE      = 0x7F,
-        /* Alias for INT8TYPE */
-        BIGINTTYPE    = INT8TYPE,
-        /* Unique identifier 16 byte binary */
-        GUIDTYPE      = 0x24,
-        /* N int */
-        INTNTYPE      = 0x26,
-        /* Decimal */
-        DECIMALTYPE   = 0x37,
-        /* Numeric */
-        NUMERICTYPE   = 0x3F,
-        /* N bit */
-        BITNTYPE      = 0x68,
-        /* Decimal N */
-        DECIMALNTYPE  = 0x6A,
-        /* Numeric with variable length */
-        NUMERICNTYPE  = 0x6C,
-        /* Float with variable length */
-        FLTNTYPE      = 0x6D,
-        /* Money with variable length*/
-        MONEYNTYPE    = 0x6E,
-        /* Date time with variable length*/
-        DATETIMNTYPE  = 0x6F,
-        /*VarBinary*/
-        BIGVARBINTYPE = 0xA5,
-        /* VarChar*/
-        BIGVARCHRTYPE = 0xA7,
-        /* Binary*/
-        BIGBINARYTYPE = 0xAD,
-        /*Char*/
-        BIGCHARTYPE   = 0xAF,
-        /*NVarChar*/
-        NVARCHARTYPE  = 0xE7,
-        /*NChar*/
-        NCHARTYPE     = 0xEF,
-        /* Text */
-        TEXTTYPE      = 0x23,
-        /* Image */
-        IMAGETYPE     = 0x22,
-        /* Ntext */
-        NTEXTTYPE     = 0x63
+    // clang-format off
+        #define TDSL_DATA_TYPE_DECL(NAME, VALUE) NAME = VALUE
+        #define TDSL_DATA_TYPE_LIST_DELIM        ,
+        #include <tdslite/detail/tdsl_data_type.inc>
+        // clang-format on
     };
+
+    /**
+     * Translate data type value @type to string
+     *
+     * @param [in] type Token type
+     * @return Token type as string if @p type has a corresponding string representation,
+     * "UNDEFINED" otherwise.
+     */
+    inline static TDSL_CXX14_CONSTEXPR const char *
+    data_type_to_str(e_tds_data_type type) noexcept {
+
+        switch (type) {
+            // clang-format off
+            #define TDSL_DATA_TYPE_DECL(NAME, VALUE)                                                           \
+                case e_tds_data_type::NAME:                                                                    \
+                    return #NAME "(" #VALUE ")";
+            #define TDSL_DATA_TYPE_LIST_DELIM ;
+            #include <tdslite/detail/tdsl_data_type.inc>
+            // clang-format on
+        }
+
+        return "UNDEFINED";
+    }
 
     enum class e_tds_data_size_type : tdsl::uint16_t
     {
@@ -113,7 +68,8 @@ namespace tdsl { namespace detail {
 
         union {
             struct {
-                tdsl::uint16_t length_size; // size of the length (only valid for variable length data types)
+                tdsl::uint16_t length_size; // size of the length (only valid for variable
+                                            // length data types)
             } variable;
 
             tdsl::uint16_t fixed; // size of the data (only valid for fixed length data types)
@@ -122,17 +78,20 @@ namespace tdsl { namespace detail {
         struct {
             tdsl::uint8_t has_collation : 1;
             tdsl::uint8_t has_precision : 1;
-            // Char and binary data types have values that either are null or are 0 to 65534 (0x0000 to 0xFFFE)
-            // bytes of data. Null is represented by a length of 65535 (0xFFFF). A non-nullable char or binary can
-            // still have a length of zero (for example, an empty value). A program that MUST pad a value to a fixed
-            // length typically adds blanks to the end of a char and adds binary zeros to the end of a binary.
-            // Text and image data types have values that either are null or are 0 to 2 gigabytes (0x00000000 to
-            // 0x7FFFFFFF bytes) of data. Null is represented by a length of -1 (0xFFFFFFFF). No other length
-            // specification is supported
+            tdsl::uint8_t has_table_name : 1;
+            tdsl::uint8_t has_textptr : 1;
+            // Char and binary data types have values that either are null or are 0 to 65534
+            // (0x0000 to 0xFFFE) bytes of data. Null is represented by a length of 65535
+            // (0xFFFF). A non-nullable char or binary can still have a length of zero (for
+            // example, an empty value). A program that MUST pad a value to a fixed length
+            // typically adds blanks to the end of a char and adds binary zeros to the end of a
+            // binary. Text and image data types have values that either are null or are 0 to 2
+            // gigabytes (0x00000000 to 0x7FFFFFFF bytes) of data. Null is represented by a
+            // length of -1 (0xFFFFFFFF). No other length specification is supported
             tdsl::uint8_t maxlen_represents_null : 1;
             // .. Other nullable data types have a length of 0 when they are null.
             tdsl::uint8_t zero_represents_null : 1;
-            tdsl::uint8_t reserved : 4;
+            tdsl::uint8_t reserved : 2;
         } flags;
 
         /**
@@ -162,6 +121,7 @@ namespace tdsl { namespace detail {
          */
         inline auto min_colmetadata_size() const noexcept -> tdsl::uint32_t {
             constexpr int k_colname_size   = 1;
+            constexpr int k_tablename_size = 2; // UCS-2 string, so 2 bytes len.
             constexpr int k_collation_size = 5;
             constexpr int k_precision_size = 2; // precision, scale
 
@@ -169,6 +129,7 @@ namespace tdsl { namespace detail {
             final_size += (is_variable_size() ? length.variable.length_size : length.fixed);
             final_size += (flags.has_collation ? k_collation_size : 0);
             final_size += (flags.has_precision ? k_precision_size : 0);
+            final_size += (flags.has_table_name ? k_tablename_size : 0);
             final_size += k_colname_size;
             return final_size;
         }
@@ -232,9 +193,9 @@ namespace tdsl { namespace detail {
             case e_tds_data_type::FLTNTYPE:
             case e_tds_data_type::MONEYNTYPE:
             case e_tds_data_type::DATETIMNTYPE:
-                // Nullable values are returned by using the INTNTYPE, BITNTYPE, FLTNTYPE, GUIDTYPE, MONEYNTYPE,
-                // and DATETIMNTYPE tokens which will use the length byte to specify the length of the value or
-                // GEN_NULL as appropriate.
+                // Nullable values are returned by using the INTNTYPE, BITNTYPE, FLTNTYPE,
+                // GUIDTYPE, MONEYNTYPE, and DATETIMNTYPE tokens which will use the length byte
+                // to specify the length of the value or GEN_NULL as appropriate.
                 result.flags.zero_represents_null  = {true};
                 result.size_type                   = e_tds_data_size_type::var_u8;
                 result.length.variable.length_size = sizeof(tdsl::uint8_t);
@@ -248,8 +209,8 @@ namespace tdsl { namespace detail {
             // fallthrough
             case e_tds_data_type::BIGBINARYTYPE:
             case e_tds_data_type::BIGVARBINTYPE:
-                // COLLATION occurs only if the type is BIGCHARTYPE, BIGVARCHARTYPE, TEXTTYPE, NTEXTTYPE,
-                // NCHARTYPE, or NVARCHARTYPE.
+                // COLLATION occurs only if the type is BIGCHARTYPE, BIGVARCHARTYPE, TEXTTYPE,
+                // NTEXTTYPE, NCHARTYPE, or NVARCHARTYPE.
                 result.flags.maxlen_represents_null = {true};
                 result.size_type                    = e_tds_data_size_type::var_u16;
                 result.length.variable.length_size  = sizeof(tdsl::uint16_t);
@@ -257,9 +218,13 @@ namespace tdsl { namespace detail {
             // Variable length data types with 32-bit length bit width
             case e_tds_data_type::NTEXTTYPE:
             case e_tds_data_type::TEXTTYPE:
-                result.flags.has_collation = true;
+                result.flags.has_collation = {true};
             // fallthrough
             case e_tds_data_type::IMAGETYPE:
+                // The TableName element is specified only if a text, ntext,
+                // or image column is included in the result
+                result.flags.has_textptr            = {true};
+                result.flags.has_table_name         = {true};
                 result.flags.maxlen_represents_null = {true};
                 result.size_type                    = e_tds_data_size_type::var_u32;
                 result.length.variable.length_size  = sizeof(tdsl::uint32_t);
@@ -271,7 +236,8 @@ namespace tdsl { namespace detail {
         return result;
     }
 
-    static inline bool is_valid_variable_length_for_type(e_tds_data_type type, tdsl::uint32_t length) noexcept {
+    static inline bool is_valid_variable_length_for_type(e_tds_data_type type,
+                                                         tdsl::uint32_t length) noexcept {
 
         if (length == 0x00) {
             // For all variable length data types, the value is 0x00 for NULL instances.

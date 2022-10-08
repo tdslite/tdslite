@@ -15,7 +15,7 @@
 #include <gtest/gtest.h>
 
 TEST(span, default_construct) {
-    tdsl::span<tdsl::uint8_t> buf_span{};
+    tdsl::byte_span buf_span{};
     EXPECT_EQ(buf_span.data(), nullptr);
     EXPECT_EQ(buf_span.size_bytes(), 0);
     EXPECT_FALSE(buf_span);
@@ -23,7 +23,7 @@ TEST(span, default_construct) {
 
 TEST(span, construct_from_fs_array) {
     tdsl::uint8_t buf [4];
-    tdsl::span<tdsl::uint8_t> buf_span{buf};
+    tdsl::byte_span buf_span{buf};
     EXPECT_EQ(buf_span.data(), buf);
     EXPECT_EQ(buf_span.size_bytes(), sizeof(buf));
     EXPECT_EQ(buf_span.begin(), buf);
@@ -33,7 +33,7 @@ TEST(span, construct_from_fs_array) {
 
 TEST(span, construct_from_buf_with_size) {
     tdsl::uint8_t buf [4];
-    tdsl::span<tdsl::uint8_t> buf_span{buf, sizeof(buf)};
+    tdsl::byte_span buf_span{buf, sizeof(buf)};
     EXPECT_EQ(buf_span.data(), buf);
     EXPECT_EQ(buf_span.size_bytes(), sizeof(buf));
     EXPECT_EQ(buf_span.begin(), buf);
@@ -43,7 +43,7 @@ TEST(span, construct_from_buf_with_size) {
 
 TEST(span, construct_from_buf_with_begin_end) {
     tdsl::uint8_t buf [4];
-    tdsl::span<tdsl::uint8_t> buf_span{buf, &buf [4]};
+    tdsl::byte_span buf_span{buf, &buf [4]};
     EXPECT_EQ(buf_span.data(), buf);
     EXPECT_EQ(buf_span.size_bytes(), sizeof(buf));
     EXPECT_EQ(buf_span.begin(), buf);
@@ -53,8 +53,8 @@ TEST(span, construct_from_buf_with_begin_end) {
 
 TEST(span, copy_construct) {
     tdsl::uint8_t buf [4];
-    tdsl::span<tdsl::uint8_t> buf_span{buf};
-    tdsl::span<tdsl::uint8_t> buf_span_cc{buf_span};
+    tdsl::byte_span buf_span{buf};
+    tdsl::byte_span buf_span_cc{buf_span};
     EXPECT_EQ(buf_span, buf_span_cc);
     EXPECT_EQ(buf_span.data(), buf);
     EXPECT_EQ(buf_span.size_bytes(), sizeof(buf));
@@ -71,8 +71,8 @@ TEST(span, copy_construct) {
 
 TEST(span, copy_assign) {
     tdsl::uint8_t buf [4];
-    tdsl::span<tdsl::uint8_t> buf_span{buf};
-    tdsl::span<tdsl::uint8_t> buf_span_cc = buf_span;
+    tdsl::byte_span buf_span{buf};
+    tdsl::byte_span buf_span_cc = buf_span;
     EXPECT_EQ(buf_span, buf_span_cc);
     EXPECT_EQ(buf_span.data(), buf);
     EXPECT_EQ(buf_span.size_bytes(), sizeof(buf));
@@ -89,8 +89,8 @@ TEST(span, copy_assign) {
 
 TEST(span, move_construct) {
     tdsl::uint8_t buf [4];
-    tdsl::span<tdsl::uint8_t> buf_span{buf};
-    tdsl::span<tdsl::uint8_t> buf_span_mc{TDSL_MOVE(buf_span)};
+    tdsl::byte_span buf_span{buf};
+    tdsl::byte_span buf_span_mc{TDSL_MOVE(buf_span)};
     EXPECT_NE(buf_span, buf_span_mc);
     EXPECT_EQ(buf_span.data(), nullptr);
     EXPECT_EQ(buf_span.size_bytes(), 0);
@@ -107,8 +107,8 @@ TEST(span, move_construct) {
 
 TEST(span, move_assign) {
     tdsl::uint8_t buf [4];
-    tdsl::span<tdsl::uint8_t> buf_span{buf};
-    tdsl::span<tdsl::uint8_t> buf_span_mc = TDSL_MOVE(buf_span);
+    tdsl::byte_span buf_span{buf};
+    tdsl::byte_span buf_span_mc = TDSL_MOVE(buf_span);
     EXPECT_NE(buf_span, buf_span_mc);
     EXPECT_EQ(buf_span.data(), nullptr);
     EXPECT_EQ(buf_span.size_bytes(), 0);
@@ -123,12 +123,13 @@ TEST(span, move_assign) {
     EXPECT_TRUE(buf_span_mc);
 }
 
-TEST(span, string_view_construct) {
-    tdsl::span<const char> buf_span{"test"};
+TEST(span, char_view_construct) {
+    tdsl::char_view buf_span{"test"};
     (void) buf_span;
 }
 
-TEST(span, string_view_assign) {
-    tdsl::span<const char> buf_span{};
+TEST(span, char_view_assign) {
+    tdsl::char_view buf_span{};
     EXPECT_NO_THROW({ buf_span = "test"; });
+    EXPECT_EQ(buf_span.size(), 5);
 }

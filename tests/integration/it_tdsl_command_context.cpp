@@ -9,6 +9,8 @@
  * _________________________________________________
  */
 
+#define TDSL_DEBUG_PRINT_ENABLED
+
 #include <tdslite/detail/tdsl_login_context.hpp>
 #include <tdslite/detail/tdsl_command_context.hpp>
 #include <tdslite/net/asio/asio_network_impl.hpp>
@@ -22,6 +24,17 @@
 
 // --------------------------------------------------------------------------------
 
+static void default_row_callback(void *, const tdsl::tds_colmetadata_token & colmd,
+                                 const tdsl::tdsl_row & row_data) {
+    std::printf("colcnt %d\n", colmd.columns.size());
+    std::printf("row with %d fields\n", row_data.size());
+    for (tdsl::uint32_t i = 0; i < row_data.size(); i++) {
+        std::printf("%d: ", i);
+        tdsl::util::hexprint(row_data [i].data(), row_data [i].size());
+    }
+    std::printf("\n");
+}
+
 /**
  * The type of the unit-under-test
  */
@@ -29,10 +42,19 @@ using uut_t       = tdsl::detail::command_context<tdsl::net::asio_network_impl>;
 using login_ctx_t = tdsl::detail::login_context<tdsl::net::asio_network_impl>;
 using tds_ctx_t   = uut_t::tds_context_type;
 
+/**
+ * tds_command_context integration tests.
+ *
+ * NOTE: Prefix all table names with single `#` so
+ * the table becomes a session-specific temporary table.
+ * Otherwise, concurrent tests running in parallel can step
+ * each other's feet.
+ */
 struct tds_command_ctx_it_fixture : public ::testing::Test {
 
     virtual void SetUp() override {
-
+        login_ctx_t::login_parameters params;
+        login_ctx_t login{tds_ctx};
         params.server_name  = "mssql-2017";
         params.user_name    = "sa";
         params.password     = "2022-tds-lite-test!";
@@ -46,56 +68,40 @@ struct tds_command_ctx_it_fixture : public ::testing::Test {
         ASSERT_TRUE(tds_ctx.is_authenticated());
     }
 
-    virtual void TearDown() override {}
-
     tds_ctx_t tds_ctx;
     uut_t command_ctx{tds_ctx};
-    login_ctx_t::login_parameters params;
-    login_ctx_t login{tds_ctx};
 };
 
 TEST_F(tds_command_ctx_it_fixture, ct_int_int) {
-    // row callback
-    // done callback?
     command_ctx.execute_query(
-        tdsl::string_view{/*str=*/"DROP TABLE test_ct_int_int;CREATE TABLE test_ct_int_int(q int,y "
-                                  "int);"}); // callback
+        tdsl::string_view{/*str=*/"CREATE TABLE #test_ct_int_int(q int,y int);"}); // callback
 }
 
 TEST_F(tds_command_ctx_it_fixture, cti_int_int) {
     command_ctx.execute_query(
-        tdsl::string_view{/*str=*/"DROP TABLE test_cti_int_int;CREATE TABLE test_cti_int_int(q "
-                                  "int,y int);"}); // callback
+        tdsl::string_view{/*str=*/"CREATE TABLE #test_cti_int_int(q int,y int);"}); // callback
     command_ctx.execute_query(
-        tdsl::string_view{/*str=*/"INSERT INTO test_cti_int_int VALUES(1,1);"}); // callback
+        tdsl::string_view{/*str=*/"INSERT INTO #test_cti_int_int VALUES(1,1);"}); // callback
 }
 
 TEST_F(tds_command_ctx_it_fixture, ctis_int_int) {
     // row callback
     // done callback?
-
     // should return 0 rows affected?
-    EXPECT_EQ(0, command_ctx.execute_query(
-                     tdsl::string_view{/*str=*/"DROP TABLE test_ctis_int_int;CREATE TABLE "
-                                               "test_ctis_int_int(q int,y int);"})); // callback
+    EXPECT_EQ(0, command_ctx.execute_query(tdsl::string_view{
+                     /*str=*/"CREATE TABLE #test_ctis_int_int(q int,y int);"})); // callback
     // should return 1 rows affected
     EXPECT_EQ(1, command_ctx.execute_query(tdsl::string_view{
-                     /*str=*/"INSERT INTO test_ctis_int_int VALUES(1,1);"})); // callback
+                     /*str=*/"INSERT INTO #test_ctis_int_int VALUES(1,1);"})); // callback
     EXPECT_EQ(1, command_ctx.execute_query(tdsl::string_view{
-                     /*str=*/"INSERT INTO test_ctis_int_int VALUES(1,1);"})); // callback
+                     /*str=*/"INSERT INTO #test_ctis_int_int VALUES(1,1);"})); // callback
     EXPECT_EQ(1, command_ctx.execute_query(tdsl::string_view{
-                     /*str=*/"INSERT INTO test_ctis_int_int VALUES(1,1);"})); // callback
-
-    auto callback =
-        +[](void *, const tdsl::tds_colmetadata_token & colmd, const tdsl::tdsl_row & row_data) {
-            std::printf("colcnt %d\n", colmd.column_count);
-            std::printf("row with %d fields\n", row_data.size());
-        };
+                     /*str=*/"INSERT INTO #test_ctis_int_int VALUES(1,1);"})); // callback
 
     // should return 1 rows with 2 int fields.
-    tdsl::uint32_t rows_affected =
-        command_ctx.execute_query(tdsl::string_view{/*str=*/"SELECT q,y from test_ctis_int_int;"},
-                                  nullptr, callback); // callback
+    tdsl::uint32_t rows_affected = command_ctx.execute_query(
+        tdsl::string_view{/*str=*/"SELECT q,y from #test_ctis_int_int;"}, nullptr,
+        default_row_callback); // callback
     std::printf("rows affected %d\n", rows_affected);
 }
 
@@ -104,28 +110,18 @@ TEST_F(tds_command_ctx_it_fixture, ctis_varcharn_real) {
     // done callback?
 
     // should return 0 rows affected?
-    EXPECT_EQ(0, command_ctx.execute_query(tdsl::string_view{
-                     /*str=*/"DROP TABLE test_ctis_varcharn_real;CREATE TABLE "
-                             "test_ctis_varcharn_real(q varchar(255),y real);"})); // callback
+    EXPECT_EQ(
+        0,
+        command_ctx.execute_query(tdsl::string_view{
+            /*str=*/"CREATE TABLE #test_ctis_varcharn_real(q varchar(255),y real);"})); // callback
     // should return 1 rows affected
     EXPECT_EQ(1,
               command_ctx.execute_query(tdsl::string_view{
-                  /*str=*/"INSERT INTO test_ctis_varcharn_real VALUES('aaaa',0.5);"})); // callback
-
-    auto callback =
-        +[](void *, const tdsl::tds_colmetadata_token & colmd, const tdsl::tdsl_row & row_data) {
-            std::printf("colcnt %d\n", colmd.column_count);
-            std::printf("row with %d fields\n", row_data.size());
-            for (tdsl::uint32_t i = 0; i < row_data.size(); i++) {
-                std::printf("%d: ", i);
-                tdsl::util::hexprint(row_data [i].data(), row_data [i].size());
-            }
-            std::printf("\n");
-        };
+                  /*str=*/"INSERT INTO #test_ctis_varcharn_real VALUES('aaaa',0.5);"})); // callback
 
     tdsl::uint32_t rows_affected = command_ctx.execute_query(
-        tdsl::string_view{/*str=*/"SELECT q,y from test_ctis_varcharn_real;"}, nullptr,
-        callback); // callback
+        tdsl::string_view{/*str=*/"SELECT q,y from #test_ctis_varcharn_real;"}, nullptr,
+        default_row_callback); // callback
     std::printf("rows affected %d\n", rows_affected);
 }
 
@@ -134,27 +130,16 @@ TEST_F(tds_command_ctx_it_fixture, ctis_decimal_real) {
     // done callback?
 
     // should return 0 rows affected?
-    EXPECT_EQ(0, command_ctx.execute_query(tdsl::string_view{
-                     /*str=*/"DROP TABLE test_ctis_decimal_real;CREATE TABLE "
-                             "test_ctis_decimal_real(q decimal,y real);"})); // callback
+    EXPECT_EQ(0,
+              command_ctx.execute_query(tdsl::string_view{
+                  /*str=*/"CREATE TABLE #test_ctis_decimal_real(q decimal,y real);"})); // callback
     // should return 1 rows affected
     EXPECT_EQ(1, command_ctx.execute_query(tdsl::string_view{
-                     /*str=*/"INSERT INTO test_ctis_decimal_real VALUES(1,0.5);"})); // callback
-
-    auto callback =
-        +[](void *, const tdsl::tds_colmetadata_token & colmd, const tdsl::tdsl_row & row_data) {
-            std::printf("colcnt %d\n", colmd.column_count);
-            std::printf("row with %d fields\n", row_data.size());
-            for (tdsl::uint32_t i = 0; i < row_data.size(); i++) {
-                std::printf("%d: ", i);
-                tdsl::util::hexprint(row_data [i].data(), row_data [i].size());
-            }
-            std::printf("\n");
-        };
+                     /*str=*/"INSERT INTO #test_ctis_decimal_real VALUES(1,0.5);"})); // callback
 
     tdsl::uint32_t rows_affected = command_ctx.execute_query(
-        tdsl::string_view{/*str=*/"SELECT q,y from test_ctis_decimal_real;"}, nullptr,
-        callback); // callback
+        tdsl::string_view{/*str=*/"SELECT q,y from #test_ctis_decimal_real;"}, nullptr,
+        default_row_callback); // callback
     std::printf("rows affected %d\n", rows_affected);
 }
 
@@ -164,28 +149,16 @@ TEST_F(tds_command_ctx_it_fixture, ctis_guid_varchar_int) {
 
     // should return 0 rows affected?
     EXPECT_EQ(0, command_ctx.execute_query(tdsl::string_view{
-                     /*str=*/"DROP TABLE test_ctis_guid_varchar_int;CREATE TABLE "
-                             "test_ctis_guid_varchar_int(q "
+                     /*str=*/"CREATE TABLE #test_ctis_guid_varchar_int(q "
                              "UNIQUEIDENTIFIER,y varchar(512),z int);"})); // callback
     // should return 1 rows affected
-    EXPECT_EQ(1, command_ctx.execute_query(
-                     tdsl::string_view{/*str=*/"INSERT INTO test_ctis_guid_varchar_int VALUES(0x0, "
-                                               "'this is a test', 0);"})); // callback
-
-    auto callback =
-        +[](void *, const tdsl::tds_colmetadata_token & colmd, const tdsl::tdsl_row & row_data) {
-            std::printf("colcnt %d\n", colmd.column_count);
-            std::printf("row with %d fields\n", row_data.size());
-            for (tdsl::uint32_t i = 0; i < row_data.size(); i++) {
-                std::printf("%d: ", i);
-                tdsl::util::hexprint(row_data [i].data(), row_data [i].size());
-            }
-            std::printf("\n");
-        };
+    EXPECT_EQ(1, command_ctx.execute_query(tdsl::string_view{
+                     /*str=*/"INSERT INTO #test_ctis_guid_varchar_int VALUES(0x0, "
+                             "'this is a test', 0);"})); // callback
 
     tdsl::uint32_t rows_affected = command_ctx.execute_query(
-        tdsl::string_view{/*str=*/"SELECT q,y,z from test_ctis_guid_varchar_int;"}, nullptr,
-        callback); // callback
+        tdsl::string_view{/*str=*/"SELECT q,y,z from #test_ctis_guid_varchar_int;"}, nullptr,
+        default_row_callback); // callback
     std::printf("rows affected %d\n", rows_affected);
 }
 
@@ -197,14 +170,13 @@ TEST_F(tds_command_ctx_it_fixture, ctis_10k_rows_multi_packet) {
 
     // should return 0 rows affected?
     ASSERT_EQ(0, command_ctx.execute_query(tdsl::string_view{
-                     /*str=*/"DROP TABLE test_ctis_10k_rows_multi_packet;CREATE TABLE "
-                             "test_ctis_10k_rows_multi_packet(q"
+                     /*str=*/"CREATE TABLE #test_ctis_10k_rows_multi_packet(q "
                              "UNIQUEIDENTIFIER,y varchar(512),z int);"})); //
                                                                            // callback
 
     for (int i = 0; i < 10000; i++) {
         ASSERT_EQ(1, command_ctx.execute_query(
-                         tdsl::string_view{/*str=*/"INSERT INTO test_ctis_10k_rows_multi_packet "
+                         tdsl::string_view{/*str=*/"INSERT INTO #test_ctis_10k_rows_multi_packet "
                                                    "VALUES(0x0, 'this is a test', 0);"})); //
         // callback
     }
@@ -212,19 +184,13 @@ TEST_F(tds_command_ctx_it_fixture, ctis_10k_rows_multi_packet) {
 
     auto callback =
         +[](void *, const tdsl::tds_colmetadata_token & colmd, const tdsl::tdsl_row & row_data) {
+            default_row_callback(nullptr, colmd, row_data);
             callback_invoked++;
-            std::printf("colcnt %d\n", colmd.column_count);
-            std::printf("row with %d fields\n", row_data.size());
-            for (tdsl::uint32_t i = 0; i < row_data.size(); i++) {
-                std::printf("%d: ", i);
-                tdsl::util::hexprint(row_data [i].data(), row_data [i].size());
-            }
-            std::printf("\n");
         };
 
     {
         tdsl::uint32_t rows_affected = command_ctx.execute_query(
-            tdsl::string_view{/*str=*/"SELECT q,y,z from test_ctis_10k_rows_multi_packet;"},
+            tdsl::string_view{/*str=*/"SELECT q,y,z from #test_ctis_10k_rows_multi_packet;"},
             nullptr, callback); // callback
         std::printf("rows affected %d\n", rows_affected);
         EXPECT_EQ(10000, rows_affected);
@@ -233,7 +199,7 @@ TEST_F(tds_command_ctx_it_fixture, ctis_10k_rows_multi_packet) {
     {
         tdsl::uint32_t rows_affected = command_ctx.execute_query(
             tdsl::string_view{
-                /*str=*/"SELECT TOP 500 q,y,z from test_ctis_10k_rows_multi_packet ORDER BY z;"},
+                /*str=*/"SELECT TOP 500 q,y,z from #test_ctis_10k_rows_multi_packet ORDER BY z;"},
             nullptr, callback); // callback
         std::printf("rows affected %d\n", rows_affected);
         EXPECT_EQ(500, rows_affected);
@@ -242,71 +208,59 @@ TEST_F(tds_command_ctx_it_fixture, ctis_10k_rows_multi_packet) {
 }
 
 TEST_F(tds_command_ctx_it_fixture, ctis_guid_varchar_int_null) {
-    // row callback
-    // done callback?
 
-    // should return 0 rows affected?
+    // const char q[]= "DROP TABLE #test_ctis_guid_varchar_int_null;CREATE TABLE"
+    //::testing::UnitTest::GetInstance()->current_test_case()->
     EXPECT_EQ(0, command_ctx.execute_query(tdsl::string_view{
-                     /*str=*/"DROP TABLE test_ctis_guid_varchar_int_null;CREATE TABLE "
-                             "test_ctis_guid_varchar_int_null(q"
+                     /*str=*/"CREATE TABLE #test_ctis_guid_varchar_int_null(q "
                              "UNIQUEIDENTIFIER,y varchar(512),z int);"})); // callback
     // should return 1 rows affected
     EXPECT_EQ(1, command_ctx.execute_query(
-                     tdsl::string_view{/*str=*/"INSERT INTO test_ctis_guid_varchar_int_null "
+                     tdsl::string_view{/*str=*/"INSERT INTO #test_ctis_guid_varchar_int_null "
                                                "VALUES(NULL, NULL, NULL);"})); // callback
 
     auto callback =
         +[](void *, const tdsl::tds_colmetadata_token & colmd, const tdsl::tdsl_row & row_data) {
-            std::printf("colcnt %d\n", colmd.column_count);
-            std::printf("row with %d fields\n", row_data.size());
+            default_row_callback(nullptr, colmd, row_data);
             for (tdsl::uint32_t i = 0; i < row_data.size(); i++) {
-                std::printf("%d: ", i);
-                tdsl::util::hexprint(row_data [i].data(), row_data [i].size());
                 EXPECT_EQ(true, row_data [i].is_null());
             }
-            std::printf("\n");
         };
 
     tdsl::uint32_t rows_affected = command_ctx.execute_query(
-        tdsl::string_view{/*str=*/"SELECT q,y,z from test_ctis_guid_varchar_int_null;"}, nullptr,
+        tdsl::string_view{/*str=*/"SELECT q,y,z from #test_ctis_guid_varchar_int_null;"}, nullptr,
         callback); // callback
     std::printf("rows affected %d\n", rows_affected);
     EXPECT_EQ(rows_affected, 1);
 }
 
-// TEST_F(tds_command_ctx_it_fixture, row_single_field_fragmentation) {
-//     // should return 0 rows affected?
-//     EXPECT_EQ(0, command_ctx.execute_query(tdsl::string_view{/*str=*/"DROP TABLE
-//     test_row_single_field_fragmentation;CREATE TABLE "
-//                                                                      "test_row_single_field_fragmentation(y
-//                                                                      varchar(8000));"})); //
-//                                                                      callback
-//     constexpr const char arr [] = "INSERT INTO test_row_single_field_fragmentation VALUES('";
-//     std::string dummy           = arr;
-//     dummy.resize(2500);
-//     std::fill_n(std::next(dummy.begin(), sizeof(arr) - 1), 2500 - sizeof(arr) - 1, 'a');
-//     dummy.append("');");
+TEST_F(tds_command_ctx_it_fixture, ctis_long_query_test) {
 
-//     tdsl::string_view query{dummy.data(), static_cast<tdsl::uint32_t>(dummy.size())};
+    // const char q[]= "DROP TABLE #test_ctis_guid_varchar_int_null;CREATE TABLE"
+    //::testing::UnitTest::GetInstance()->current_test_case()->
+    EXPECT_EQ(0, command_ctx.execute_query(tdsl::string_view{
+                     /*str=*/"CREATE TABLE #test_ctis_guid_varchar_int_null(q "
+                             "UNIQUEIDENTIFIER,y varchar(512),z int);"})); // callback
+    std::string queries;
+    for (int i = 0; i < 100; i++) {
+        queries += "INSERT INTO #test_ctis_guid_varchar_int_null VALUES(NULL, NULL, NULL);";
+    }
 
-//     // should return 1 rows affected
-//     EXPECT_EQ(1, command_ctx.execute_query(query)); // callback
+    // should return 1 rows affected, 100 times
+    EXPECT_EQ(1, command_ctx.execute_query(tdsl::string_view{
+                     queries.data(), static_cast<tdsl::uint32_t>(queries.size())})); // callback
 
-//     auto callback = +[](void *, const tdsl::tds_colmetadata_token & colmd, const tdsl::tdsl_row &
-//     row_data) {
-//         std::printf("colcnt %d\n", colmd.column_count);
-//         std::printf("row with %d fields\n", row_data.fields.size());
-//         for (tdsl::uint32_t i = 0; i < row_data.fields.size(); i++) {
-//             std::printf("%d: ", i);
-//             tdsl::util::hexprint(row_data.fields [i].data(), row_data.fields [i].size());
-//             EXPECT_EQ(true, row_data.fields [i].is_null());
-//         }
-//         std::printf("\n");
-//     };
+    auto callback =
+        +[](void *, const tdsl::tds_colmetadata_token & colmd, const tdsl::tdsl_row & row_data) {
+            default_row_callback(nullptr, colmd, row_data);
+            for (tdsl::uint32_t i = 0; i < row_data.size(); i++) {
+                EXPECT_EQ(true, row_data [i].is_null());
+            }
+        };
 
-//     tdsl::uint32_t rows_affected = command_ctx.execute_query(
-//         tdsl::string_view{/*str=*/"SELECT q,y,z from test_ctis_guid_varchar_int_null;"}, nullptr,
-//         callback); // callback
-//     std::printf("rows affected %d\n", rows_affected);
-//     EXPECT_EQ(rows_affected, 1);
-// }
+    tdsl::uint32_t rows_affected = command_ctx.execute_query(
+        tdsl::string_view{/*str=*/"SELECT q,y,z from #test_ctis_guid_varchar_int_null;"}, nullptr,
+        callback); // callback
+    std::printf("rows affected %d\n", rows_affected);
+    EXPECT_EQ(rows_affected, 100);
+}

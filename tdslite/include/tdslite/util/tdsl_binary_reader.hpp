@@ -44,9 +44,9 @@ namespace tdsl {
      * @tparam ReaderEndianness Default endianness of the reader
      */
     template <tdsl::endian ReaderEndianness>
-    class binary_reader : private tdsl::span<const tdsl::uint8_t> {
+    class binary_reader : private byte_view {
     public:
-        using span_type = tdsl::span<const tdsl::uint8_t>;
+        using span_type = byte_view;
         // Expose span constructors
         using span_type::span;
         using span_type::operator bool;
@@ -70,8 +70,10 @@ namespace tdsl {
          * @tparam T Type to read
          * @tparam ReadEndianness Endianness of the data (default=ReaderEndianness)
          *
-         * @returns sizeof(T) bytes read from current position as-is if ReadEndianness==HostEndianness
-         * @returns sizeof(T) bytes read from current position (byte-order swapped) if ReadEndianness!=HostEndianness
+         * @returns sizeof(T) bytes read from current position as-is if
+         * ReadEndianness==HostEndianness
+         * @returns sizeof(T) bytes read from current position (byte-order swapped) if
+         * ReadEndianness!=HostEndianness
          */
         template <typename T, tdsl::endian ReadEndianness = ReaderEndianness>
         inline TDSL_NODISCARD TDSL_CXX14_CONSTEXPR auto read() noexcept -> T {
@@ -81,13 +83,14 @@ namespace tdsl {
         /**
          * Make a subreader with @p size at current position.
          *
-         * @param size Size of the subreader. size + current + offset be in bounds of current reader. If not,
-         *             size will be automatically truncated to remaining_bytes
+         * @param size Size of the subreader. size + current + offset be in bounds of current
+         * reader. If not, size will be automatically truncated to remaining_bytes
          *
          * @return A new reader in [current - next(min(size, remaining_bytes))] range
          */
         template <tdsl::endian SubreaderEndianness = ReaderEndianness>
-        inline auto subreader(tdsl::uint32_t size) const noexcept -> binary_reader<SubreaderEndianness> {
+        inline auto subreader(tdsl::uint32_t size) const noexcept
+            -> binary_reader<SubreaderEndianness> {
 
             if (!has_bytes(size)) {
                 return binary_reader<SubreaderEndianness>{nullptr, static_cast<tdsl::uint32_t>(0)};
@@ -102,14 +105,15 @@ namespace tdsl {
          * @param number_of_elements How many elements
          * @return std::span<const T>
          */
-        TDSL_NODISCARD inline TDSL_CXX14_CONSTEXPR auto read(tdsl::uint32_t number_of_elements) noexcept -> span_type {
+        TDSL_NODISCARD inline TDSL_CXX14_CONSTEXPR auto
+        read(tdsl::uint32_t number_of_elements) noexcept -> span_type {
 
             if (number_of_elements > 0 && has_bytes(number_of_elements)) {
                 span_type result{current(), (current() + number_of_elements)};
                 do_advance(number_of_elements);
                 return result;
             }
-            return span_type(/*elem=*/nullptr, static_cast<tdsl::uint32_t>(0));
+            return span_type(/*begin=*/nullptr, /*end=*/nullptr);
         }
 
         /**
@@ -196,7 +200,8 @@ namespace tdsl {
          */
         inline TDSL_CXX14_CONSTEXPR bool advance(tdsl::int32_t amount_of_bytes) noexcept {
             // Check boundaries
-            if ((static_cast<tdsl::int64_t>(offset_) + static_cast<tdsl::int64_t>(amount_of_bytes)) > size_bytes() ||
+            if ((static_cast<tdsl::int64_t>(offset_) +
+                 static_cast<tdsl::int64_t>(amount_of_bytes)) > size_bytes() ||
                 (static_cast<tdsl::int64_t>(offset_) + amount_of_bytes) < 0) {
                 return false;
             }
@@ -215,7 +220,8 @@ namespace tdsl {
         inline TDSL_CXX14_CONSTEXPR bool has_bytes(tdsl::uint32_t amount_of_bytes) const noexcept {
             // Promote offset and v to next greater signed integer type
             // since the result of the sum may overflow
-            return (tdsl::int64_t{offset_} + tdsl::int64_t{amount_of_bytes}) <= tdsl::int64_t{size_bytes()};
+            return (tdsl::int64_t{offset_} + tdsl::int64_t{amount_of_bytes}) <=
+                   tdsl::int64_t{size_bytes()};
         }
 
         /**
@@ -251,11 +257,11 @@ namespace tdsl {
  * shortcut macro to return N if READER does
  * not have at least N bytes
  */
-#define TDSL_RETIF_LESS_BYTES(READER, N)                                                                                                   \
-    do {                                                                                                                                   \
-        if (not READER.has_bytes(N)) {                                                                                                     \
-            return N - READER.remaining_bytes();                                                                                           \
-        }                                                                                                                                  \
+#define TDSL_RETIF_LESS_BYTES(READER, N)                                                           \
+    do {                                                                                           \
+        if (not READER.has_bytes(N)) {                                                             \
+            return N - READER.remaining_bytes();                                                   \
+        }                                                                                          \
     } while (0)
 
 #endif

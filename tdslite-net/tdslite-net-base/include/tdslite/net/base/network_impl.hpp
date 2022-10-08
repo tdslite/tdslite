@@ -11,12 +11,15 @@
 
 #pragma once
 
+#include <tdslite/net/base/network_impl_contract.hpp>
+
 #include <tdslite/detail/tdsl_callback.hpp>
 #include <tdslite/detail/tdsl_message_type.hpp>
 #include <tdslite/detail/tdsl_message_token_type.hpp>
 #include <tdslite/detail/tdsl_envchange_type.hpp>
 #include <tdslite/detail/tdsl_packet_handler_result.hpp>
 #include <tdslite/detail/tdsl_message_status.hpp>
+#include <tdslite/detail/tdsl_tds_header.hpp>
 
 #include <tdslite/util/tdsl_span.hpp>
 #include <tdslite/util/tdsl_macrodef.hpp>
@@ -27,60 +30,41 @@
 
 namespace tdsl { namespace net {
 
-    namespace detail {
-
-        template <typename T>
-        using has_recv_member_fn_t = decltype(traits::declval<T>().do_recv(
-            static_cast<tdsl::uint32_t>(0), typename T::read_at_least{}));
-
-        template <typename T>
-        using has_recv_member_fn = traits::is_detected<has_recv_member_fn_t, T>;
-
-        template <typename T>
-        using has_consume_recv_buf_fn_t = decltype(traits::declval<T>().do_consume_recv_buf(
-            static_cast<tdsl::uint32_t>(0), static_cast<tdsl::uint32_t>(0)));
-
-        template <typename T>
-        using has_consume_recv_buf = traits::is_detected<has_consume_recv_buf_fn_t, T>;
-
-        template <typename T>
-        using has_do_connect_fn_t = decltype(traits::declval<T>().do_connect(
-            traits::declval<tdsl::span<const char>>(), static_cast<tdsl::uint16_t>(0)));
-
-        template <typename T>
-        using has_do_connect_fn = traits::is_detected<has_do_connect_fn_t, T>;
-
-        // int asio_network_impl::do_connect(tdsl::span<const char> target, tdsl::uint16_t port) {
-
-    } // namespace detail
-
+    /**
+     * Base netwo
+     *
+     * @tparam ConcreteNetImpl
+     */
     template <typename ConcreteNetImpl>
-    struct network_impl_base {
+    struct network_impl : private network_impl_contract<ConcreteNetImpl> {
         struct read_exactly {};
 
         struct read_at_least {};
 
-        struct netbuf_reader : public binary_reader<tdsl::endian::little> {
-            netbuf_reader(ConcreteNetImpl & n, tdsl::span<const tdsl::uint8_t> buf) :
-                binary_reader<tdsl::endian::little>{buf.data(), buf.size()}, nimplb(n) {
+        struct net_rbuf_reader : public binary_reader<tdsl::endian::little> {
+            net_rbuf_reader(ConcreteNetImpl & n, byte_view buf) :
+                binary_reader<tdsl::endian::little>{buf.data(), buf.size()}, nimplb(n) {}
 
-                static_assert(traits::dependent_bool<
-                                  detail::has_consume_recv_buf<ConcreteNetImpl>::value>::value,
-                              "The type ConcreteNetImpl must implement void "
-                              "do_consume_recv_buf(tdsl::uint32_t, tdsl::uint32_t) function!");
-            }
-
-            ~netbuf_reader() {
+            ~net_rbuf_reader() {
                 nimplb.do_consume_recv_buf(offset(), 0);
             }
 
         private:
             ConcreteNetImpl & nimplb;
         }; // give rbuf_reader object
-    private:
-        // on destruct, trim read amount bytes from buf
-        // rbuf_reader,
 
+        struct net_sbuf_reader : public binary_reader<tdsl::endian::little> {
+            net_sbuf_reader(ConcreteNetImpl & n, byte_view buf) :
+                binary_reader<tdsl::endian::little>{buf.data(), buf.size()}, nimplb(n) {}
+
+            ~net_sbuf_reader() {
+                nimplb.do_consume_send_buf(offset(), 0);
+            }
+
+        private:
+            ConcreteNetImpl & nimplb;
+        }; // give rbuf_reader object
+    private:
         inline void call_recv(tdsl::uint32_t min_amount, read_at_least) {
             static_cast<ConcreteNetImpl &>(*this).do_recv(min_amount, read_at_least{});
         }
@@ -89,16 +73,25 @@ namespace tdsl { namespace net {
             static_cast<ConcreteNetImpl &>(*this).do_recv(exact_amount, read_exactly{});
         }
 
-        inline expected<tdsl::uint32_t, tdsl::int32_t> call_read(tdsl::span<tdsl::uint8_t> dst_buf,
-                                                                 read_exactly) {
+        inline void call_send(byte_view view) const noexcept {
+            static_cast<ConcreteNetImpl &>(*this).do_send(view);
+        }
+
+        inline void call_send(byte_view header, byte_view message) noexcept {
+            static_cast<ConcreteNetImpl &>(*this).do_send(header, message);
+        }
+
+        inline expected<tdsl::uint32_t, tdsl::int32_t> call_read(byte_span dst_buf, read_exactly) {
             return static_cast<ConcreteNetImpl &>(*this).do_read(dst_buf, read_exactly{});
         }
 
-        inline auto call_rbuf_reader() -> netbuf_reader {
+        inline auto call_rbuf_reader() -> net_rbuf_reader {
             return static_cast<ConcreteNetImpl &>(*this).rbuf_reader();
         }
 
-        // sbuf_reader?
+        inline auto call_sbuf_reader() -> net_sbuf_reader {
+            return static_cast<ConcreteNetImpl &>(*this).sbuf_reader();
+        }
 
     public:
         using tds_msg_handler_result = packet_handler_result<bool, false>;
@@ -124,21 +117,11 @@ namespace tdsl { namespace net {
         using connection_state_callback_ctx =
             callback<void, void (*)(/*user_ptr*/ void *, e_conection_state)>;
 
-        network_impl_base() noexcept {
-            // If you are hitting this static assertion, it means either your ConcreteNetImpl
-            // does not have do_recv function, or it does not have the expected function signature.
-            static_assert(
-                traits::dependent_bool<detail::has_recv_member_fn<ConcreteNetImpl>::value>::value,
-                "The type ConcreteNetImpl must implement void do_recv(tdsl::uint32_t) function!");
-
-            static_assert(
-                traits::dependent_bool<detail::has_do_connect_fn<ConcreteNetImpl>::value>::value,
-                "The type ConcreteNetImpl must implement void do_connect(tdsl::span<const char>, "
-                "tdsl::uint16_t) function!");
-
-            // static_assert(traits::dependent_bool<detail::has_recv_buf_member_fn<ConcreteNetImpl>::value>::value,
-            //               "The type ConcreteNetImpl must implement tdsl::span<const
-            //               tdsl::uint8_t> recv_buf() function!");
+        network_impl() noexcept {
+            if (tds_packet_size <= 512) {
+                TDSL_ASSERT(0);
+                TDSL_UNREACHABLE;
+            }
         }
 
         /**
@@ -148,8 +131,7 @@ namespace tdsl { namespace net {
          * @param [in] port TCP port number
          * @return int
          */
-        TDSL_NODISCARD inline int connect(tdsl::span<const char> host,
-                                          tdsl::uint16_t port) noexcept {
+        TDSL_NODISCARD inline int connect(tdsl::char_view host, tdsl::uint16_t port) noexcept {
             return static_cast<ConcreteNetImpl &>(*this).do_connect(host, port);
         }
 
@@ -171,7 +153,6 @@ namespace tdsl { namespace net {
              * (for diagnostic purposes only)
              */
             tdsl::uint32_t processed_tds_message_count = 0;
-            constexpr static auto k_tds_hdr_len        = 8;
 
             /**
              * The main TDS message receive loop.
@@ -195,8 +176,8 @@ namespace tdsl { namespace net {
                 // packet data into internal packet buffer of network
                 // stack, which allows us to handle fragmented packets
                 // more easily (no header data to remove from buffer)
-                tdsl::uint8_t tds_hbuf [k_tds_hdr_len] = {0};
-                tdsl::span<tdsl::uint8_t> tds_hbuf_s{tds_hbuf};
+                tdsl::uint8_t tds_hbuf [sizeof(detail::tds_header)] = {0};
+                byte_span tds_hbuf_s{tds_hbuf};
 
                 // We demand exactly `k_tds_hdr_len` bytes,even if the network
                 // receive buffer has more available. This is done preventing
@@ -226,14 +207,14 @@ namespace tdsl { namespace net {
                 // logged in.
                 constexpr static auto k_max_length = 32767;
                 const auto length                  = thdr_rdr.read<tdsl::uint16_t>();
-                if (length < k_tds_hdr_len || length > k_max_length) {
+                if (length < sizeof(detail::tds_header) || length > k_max_length) {
                     // invalid length
                     TDSL_ASSERT_MSG(0, "Invalid tds message length!");
                     return processed_tds_message_count;
                 }
 
                 // Length field includes the header length too, so subtract it
-                const auto packet_data_size = length - k_tds_hdr_len;
+                const auto packet_data_size = length - sizeof(detail::tds_header);
                 call_recv(packet_data_size, read_exactly{}); // may throw?
 
                 // This is a netbuf_reader instance.
@@ -264,15 +245,62 @@ namespace tdsl { namespace net {
 
                 eom_flag = status.end_of_message;
             } while (processed_tds_message_count++, not eom_flag);
+
+            // NOTE: Sometimes, the message contains some parts that
+            // not yet be parsed, which results in parsing failure.
+            // The unparsed data remains in the receive buffer and
+            // affects the consequent responses' parsing. In such case
+            // it is for better to flush the receive buffer.
+            {
+                auto rbuf_reader = call_rbuf_reader();
+                if (rbuf_reader.remaining_bytes()) {
+                    TDSL_DEBUG_PRINTLN(
+                        "Although the EOM is received, receive buffer still contains %ld bytes of "
+                        "data which means packet handler failed to handle all the data in the "
+                        "message. Discarding the data.",
+                        rbuf_reader.remaining_bytes());
+                    // Consume the remaining data
+                    rbuf_reader.advance(rbuf_reader.remaining_bytes());
+                }
+            }
+
+            // FIXME: Discard send buffer here too
             return processed_tds_message_count;
         }
 
-        void do_send_tds_pdu() {
-            //
-            // send_buffer will contain the data to be sent
-            // split PDU so each TDS packet will be `packet_size` bytes
+        /**
+         * Send contents of the message buffer in one or more TDS PDU's,
+         * depending on negotiated packet size.
+         *
+         * @param [in] mtype Message type
+         */
+        void do_send_tds_pdu(tdsl::detail::e_tds_message_type mtype) noexcept {
+            const int k_message_segmentation_size = (tds_packet_size - 8);
+            auto sbuf_reader                      = call_sbuf_reader();
+            auto fragment_count = (sbuf_reader.remaining_bytes() / k_message_segmentation_size);
+            do {
+                auto segment_size = sbuf_reader.has_bytes(k_message_segmentation_size)
+                                        ? k_message_segmentation_size
+                                        : sbuf_reader.remaining_bytes();
+                auto segment      = sbuf_reader.read(segment_size);
+                const tdsl::uint16_t segsize_nbo = host_to_network(
+                    static_cast<tdsl::uint16_t>(segment.size_bytes() + sizeof(detail::tds_header)));
+                const tdsl::uint8_t(&segsize_nbo_b) [2] =
+                    reinterpret_cast<const tdsl::uint8_t(&) [2]>(segsize_nbo);
 
-            // write header, append packet_size - 8 bytes, EOM=false
+                const tdsl::uint8_t tds_hbuf [sizeof(detail::tds_header)] = {
+                    static_cast<tdsl::uint8_t>(mtype),
+                    static_cast<tdsl::uint8_t>(fragment_count == 0),
+                    segsize_nbo_b [0],
+                    segsize_nbo_b [1],
+                    0x00,
+                    0x00,
+                    0x00,
+                    0x00};
+                call_send(byte_view{tds_hbuf}, segment);
+            } while (fragment_count--);
+
+            TDSL_ASSERT_MSG(not sbuf_reader.has_bytes(1), "Send buffer must be empty after!");
         }
 
         /**

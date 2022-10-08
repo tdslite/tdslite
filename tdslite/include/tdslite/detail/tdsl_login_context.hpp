@@ -18,6 +18,7 @@
 #include <tdslite/detail/tdsl_mssql_error_codes.hpp>
 #include <tdslite/detail/tdsl_callback.hpp>
 #include <tdslite/detail/tdsl_string_writer.hpp>
+#include <tdslite/detail/tdsl_tds_header.hpp>
 
 #include <tdslite/util/tdsl_inttypes.hpp>
 #include <tdslite/util/tdsl_macrodef.hpp>
@@ -50,7 +51,6 @@ namespace tdsl { namespace detail {
          * The tabular data stream protocol header
          */
         struct tds_login7_header {
-            typename tds_context_type::tds_header th;
             tdsl::uint32_t packet_length;
             tdsl::uint32_t tds_version;
             tdsl::uint32_t packet_size;
@@ -65,7 +65,7 @@ namespace tdsl { namespace detail {
             tdsl::uint32_t collation;
         } TDSL_PACKED;
 
-        static_assert(sizeof(tds_login7_header) == 44, "Invalid TDS Login7 header size");
+        static_assert(sizeof(tds_login7_header) == 36, "Invalid TDS Login7 header size");
 
         enum class e_login_status : tdsl::int8_t
         {
@@ -98,12 +98,7 @@ namespace tdsl { namespace detail {
                 });
         }
 
-        ~login_context() {
-            // TODO: Unregister from tds_context safely
-            // tds_ctx.do_register_envchange_token_callback(nullptr, nullptr);
-            // tds_ctx.do_register_info_token_callback(nullptr, nullptr);
-            // tds_ctx.do_register_loginack_token_callback(nullptr, nullptr);
-        }
+        ~login_context() = default;
 
         /**
          * The arguments for the login operation
@@ -116,23 +111,24 @@ namespace tdsl { namespace detail {
             // Target server hostname or IP address
             // Length: At most 128 characters
             StringViewType server_name;
-            StringViewType db_name;                        // Target database name
-            StringViewType user_name;                      // Database user name
-            StringViewType password;                       // Database user password
-            StringViewType app_name;                       // Client application name
-            StringViewType client_name{""};                // The client machine name
-            StringViewType library_name{"tdslite"};        // The library name
-            tdsl::uint32_t packet_size{4096};              // Desired packet size (default = 4096)
-            tdsl::uint32_t client_program_version{101010}; // Client program version
-            tdsl::uint32_t client_pid{0};                  // Client PID
-            tdsl::uint32_t connection_id{0};               // Connection ID
-            tdsl::uint8_t option_flags_1{0xE0};            // Option Flags (1)
-            tdsl::uint8_t option_flags_2{0x03};            // Option Flags (2)
-            tdsl::uint8_t sql_type_flags{0x00};            // SQL type flags
-            tdsl::uint8_t option_flags_3{0x00};            // Option Flags (3)
-            tdsl::uint32_t timezone{0};                    // Timezone
-            tdsl::uint32_t collation{0};                   // Collation
-            tdsl::uint8_t client_id [6]{0};                // Client ID
+            StringViewType db_name;                 // Target database name
+            StringViewType user_name;               // Database user name
+            StringViewType password;                // Database user password
+            StringViewType app_name;                // Client application name
+            StringViewType client_name{""};         // The client machine name
+            StringViewType library_name{"tdslite"}; // The library name
+            tdsl::uint32_t packet_size{4096};       // Desired packet size (default = 4096)
+            tdsl::uint32_t client_program_version{
+                native_to_be(/*v=*/0x0BADC0DE_tdsu32)}; // Client program version
+            tdsl::uint32_t client_pid{0};               // Client PID
+            tdsl::uint32_t connection_id{0};            // Connection ID
+            tdsl::uint8_t option_flags_1{0xE0};         // Option Flags (1)
+            tdsl::uint8_t option_flags_2{0x03};         // Option Flags (2)
+            tdsl::uint8_t sql_type_flags{0x00};         // SQL type flags
+            tdsl::uint8_t option_flags_3{0x00};         // Option Flags (3)
+            tdsl::uint32_t timezone{0};                 // Timezone
+            tdsl::uint32_t collation{0};                // Collation
+            tdsl::uint8_t client_id [6]{0};             // Client ID
         };
 
         /**
@@ -166,7 +162,9 @@ namespace tdsl { namespace detail {
         // 14 bytes? 8 = 4
 
         constexpr static tdsl::uint16_t calc_sizeof_offset_size_section() noexcept {
-            return ((static_cast<tdsl::uint16_t>(e_tds_login_parameter_idx::end) - 1) * sizeof(tdsl::uint32_t)) + 6 /*client id size*/;
+            return ((static_cast<tdsl::uint16_t>(e_tds_login_parameter_idx::end) - 1) *
+                    sizeof(tdsl::uint32_t)) +
+                   6 /*client id size*/;
         }
 
         /**
@@ -176,9 +174,10 @@ namespace tdsl { namespace detail {
          */
         static inline void encode_password(tdsl::uint8_t * buf, tdsl::uint32_t sz) {
             // Quoting TDS:
-            // "Before submitting a password from the client to the server, for every byte in the password buffer"
-            // "starting with the position pointed to by ibPassword or ibChangePassword, the client SHOULD first
-            // swap" "the four high bits with the four low bits and then do a bit-XOR with 0xA5 (10100101).""
+            // "Before submitting a password from the client to the server, for every byte in the
+            // password buffer" "starting with the position pointed to by ibPassword or
+            // ibChangePassword, the client SHOULD first swap" "the four high bits with the four low
+            // bits and then do a bit-XOR with 0xA5 (10100101).""
             for (tdsl::uint32_t i = 0; i < sz; i++) {
                 auto & ch = buf [i];
                 ch        = (((ch & 0x0F) << 4 | (ch & 0xF0) >> 4) ^ 0xA5);
@@ -225,40 +224,41 @@ namespace tdsl { namespace detail {
          */
         template <typename LoginParamsType>
         e_login_status do_login_impl(const LoginParamsType & params) noexcept {
-            tds_ctx.write_tds_header(e_tds_message_type::login);
-            tds_ctx.write_le(/*arg=*/0_tdsu32);                                                // placeholder for packet length
-            tds_ctx.write_be(static_cast<tdsl::uint32_t>(e_tds_version::sql_server_2000_sp1)); // TDS version
-            tds_ctx.write_le(params.packet_size);                                              // Requested packet size by the client
-            tds_ctx.write_le(params.client_program_version);                                   // Client program version
-            tds_ctx.write_le(params.client_pid);                                               // Client program PID
-            tds_ctx.write_le(params.connection_id);                                            // Connection ID
-            tds_ctx.write(params.option_flags_1);                                              // Option Flags (1)
-            tds_ctx.write(params.option_flags_2);                                              // Option Flags (2)
-            tds_ctx.write(params.sql_type_flags);                                              // Type Flags
-            tds_ctx.write(params.option_flags_3);                                              // Option Flags (3)
-            tds_ctx.write_le(params.timezone);                                                 // Client Timezone (unused)
-            tds_ctx.write_le(params.collation);                                                // Client language code ID
+            tds_ctx.write_le(/*arg=*/0_tdsu32); // placeholder for packet length
+            tds_ctx.write_be(
+                static_cast<tdsl::uint32_t>(e_tds_version::sql_server_2000_sp1)); // TDS version
+            tds_ctx.write_le(params.packet_size);            // Requested packet size by the client
+            tds_ctx.write_le(params.client_program_version); // Client program version
+            tds_ctx.write_le(params.client_pid);             // Client program PID
+            tds_ctx.write_le(params.connection_id);          // Connection ID
+            tds_ctx.write(params.option_flags_1);            // Option Flags (1)
+            tds_ctx.write(params.option_flags_2);            // Option Flags (2)
+            tds_ctx.write(params.sql_type_flags);            // Type Flags
+            tds_ctx.write(params.option_flags_3);            // Option Flags (3)
+            tds_ctx.write_le(params.timezone);               // Client Timezone (unused)
+            tds_ctx.write_le(params.collation);              // Client language code ID
 
             // Calculate the total packet data section size.
             tdsl::uint16_t total_packet_data_size =
-                (sizeof(tds_login7_header) - sizeof(typename tds_context_type::tds_header)) + calc_sizeof_offset_size_section();
+                (sizeof(tds_login7_header)) + calc_sizeof_offset_size_section();
             // Calculate the starting positiof of the offset/size table. This will act as base
             // offset for the offset/size table's offset values.
             constexpr tdsl::uint32_t string_table_offset_start =
-                (sizeof(tds_login7_header) - sizeof(typename tds_context_type::tds_header)) + calc_sizeof_offset_size_section();
+                (sizeof(tds_login7_header)) + calc_sizeof_offset_size_section();
 
             // Indicates the offset of the current string in the string table
             tdsl::uint16_t current_string_offset = string_table_offset_start;
 
-            static_assert(tdsl::traits::is_same<decltype(current_string_offset), tdsl::uint16_t>::value,
-                          "The `current_string_offset` variable is intended to be an uint16!");
+            static_assert(
+                tdsl::traits::is_same<decltype(current_string_offset), tdsl::uint16_t>::value,
+                "The `current_string_offset` variable is intended to be an uint16!");
 
             // Length of the string section in the data packet (sum of all string lengths)
             tdsl::uint16_t string_section_size = 0;
 
             // We will fill the offset/length table and string table in two passes:
-            // Pass 0: Fill the offset/length table
-            // Pass 1: Fill the strings
+            //  - Pass 0: Fill the offset/length table
+            //  - Pass 1: Fill the strings
             enum class pass_type : tdsl::uint8_t
             {
                 begin             = 0,
@@ -266,9 +266,11 @@ namespace tdsl { namespace detail {
                 string_table,
                 end
             };
+
             using param_idx = e_tds_login_parameter_idx;
 
-            for (pass_type pt = pass_type::begin; pt < pass_type::end; pt = static_cast<pass_type>(static_cast<tdsl::uint8_t>(pt) + 1)) {
+            for (pass_type pt = pass_type::begin; pt < pass_type::end;
+                 pt           = static_cast<pass_type>(static_cast<tdsl::uint8_t>(pt) + 1)) {
                 for (param_idx pi = param_idx::begin; pi < param_idx::end;
                      pi           = static_cast<param_idx>(static_cast<tdsl::uint8_t>(pi) + 1)) {
                     // Write offset and length values for each extension
@@ -297,7 +299,8 @@ namespace tdsl { namespace detail {
                             break;
                         case param_idx::client_id:
                             if (pt == pass_type::offset_size_table) {
-                                tds_ctx.write(tdsl::span<>{&params.client_id [0], sizeof(params.client_id)});
+                                tds_ctx.write(
+                                    tdsl::span<>{&params.client_id [0], sizeof(params.client_id)});
                             }
                             continue;
                             break;
@@ -331,7 +334,8 @@ namespace tdsl { namespace detail {
                         // Character count, not length in bytes
                         tds_ctx.write_le(static_cast<tdsl::uint16_t>((*tw).size()));
 
-                        current_string_offset += string_parameter_writer<tds_context_type>::calculate_write_size((*tw));
+                        current_string_offset +=
+                            string_parameter_writer<tds_context_type>::calculate_write_size((*tw));
                     }
                     else {
 
@@ -342,9 +346,12 @@ namespace tdsl { namespace detail {
 
                         // Write the string itself.
                         if (*tw) {
-                            string_parameter_writer<tds_context_type>::write(tds_ctx, *tw,
-                                                                             (pi == param_idx::password ? &encode_password : nullptr));
-                            string_section_size += string_parameter_writer<tds_context_type>::calculate_write_size((*tw));
+                            string_parameter_writer<tds_context_type>::write(
+                                tds_ctx, *tw,
+                                (pi == param_idx::password ? &encode_password : nullptr));
+                            string_section_size +=
+                                string_parameter_writer<tds_context_type>::calculate_write_size(
+                                    (*tw));
                         }
                     }
                 } // ... for (int j = 0; j < parameter_count; j++) {
@@ -358,12 +365,10 @@ namespace tdsl { namespace detail {
             // Now we exactly know how much packet data we got our hand.
             // Replace the placeholder value (0) with the actual packet
             // length.
-            // Write the login packet length first
+            // Write the login packet length
             put_login_header_length(total_packet_data_size);
-            // ... then, the TDS packet length
-            tds_ctx.put_tds_header_length(total_packet_data_size);
             // Send the login request.
-            tds_ctx.send();
+            tds_ctx.send_tds_pdu(e_tds_message_type::login);
 
             // Receive the login response
             tds_ctx.receive_tds_pdu();

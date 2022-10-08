@@ -11,6 +11,8 @@
 
 #pragma once
 
+#include <tdslite/detail/tdsl_message_type.hpp>
+
 #include <tdslite/util/tdsl_inttypes.hpp>
 #include <tdslite/util/tdsl_type_traits.hpp>
 #include <tdslite/util/tdsl_span.hpp>
@@ -29,7 +31,7 @@ namespace tdsl { namespace detail {
 
         template <typename T, traits::enable_when::integral<T> = true>
         inline auto write(T v) noexcept -> void {
-            tdsl::span<const tdsl::uint8_t> data(reinterpret_cast<const tdsl::uint8_t *>(&v), sizeof(T));
+            byte_view data(reinterpret_cast<const tdsl::uint8_t *>(&v), sizeof(T));
             write(data);
         }
 
@@ -45,7 +47,7 @@ namespace tdsl { namespace detail {
 
         template <typename T, traits::enable_when::integral<T> = true>
         inline auto write(tdsl::uint32_t offset, T v) noexcept -> void {
-            tdsl::span<const tdsl::uint8_t> data(reinterpret_cast<const tdsl::uint8_t *>(&v), sizeof(T));
+            byte_view data(reinterpret_cast<const tdsl::uint8_t *>(&v), sizeof(T));
             write(offset, data);
         }
 
@@ -72,6 +74,10 @@ namespace tdsl { namespace detail {
         template <typename... Args>
         inline void send(Args &&... args) noexcept {
             static_cast<Derived &>(*this).do_send(TDSL_FORWARD(args)...);
+        }
+
+        inline void send_tds_pdu(detail::e_tds_message_type mtype) noexcept {
+            static_cast<Derived &>(*this).do_send_tds_pdu(mtype);
         }
     };
 
