@@ -9,7 +9,8 @@
  * _________________________________________________
  */
 
-#pragma once
+#ifndef TDSL_DETAIL_TDS_CONTEXT_HPP
+#define TDSL_DETAIL_TDS_CONTEXT_HPP
 
 #include <tdslite/detail/tdsl_message_type.hpp>
 #include <tdslite/detail/tdsl_message_token_type.hpp>
@@ -20,10 +21,10 @@
 #include <tdslite/detail/tdsl_net_recv_if_mixin.hpp>
 #include <tdslite/detail/tdsl_net_send_if_mixin.hpp>
 #include <tdslite/detail/tdsl_tds_header.hpp>
-#include <tdslite/detail/token/tdsl_envchange_token.hpp>
-#include <tdslite/detail/token/tdsl_info_token.hpp>
-#include <tdslite/detail/token/tdsl_loginack_token.hpp>
-#include <tdslite/detail/token/tdsl_done_token.hpp>
+#include <tdslite/detail/token/tds_envchange_token.hpp>
+#include <tdslite/detail/token/tds_info_token.hpp>
+#include <tdslite/detail/token/tds_loginack_token.hpp>
+#include <tdslite/detail/token/tds_done_token.hpp>
 
 #include <tdslite/util/tdsl_binary_reader.hpp>
 #include <tdslite/util/tdsl_byte_swap.hpp>
@@ -60,37 +61,45 @@ namespace tdsl { namespace detail {
     /**
      * Base type for all TDS message contexts
      *
-     * @tparam NetImpl Network-layer Implementation
+     * @tparam ConcreteNetImpl Network-layer Implementation
      */
     template <typename ConcreteNetImpl>
     struct tds_context : public ConcreteNetImpl,
                          public detail::net_recv_if_mixin<tds_context<ConcreteNetImpl>>,
                          public detail::net_send_if_mixin<tds_context<ConcreteNetImpl>> {
         using tds_context_type       = tds_context<ConcreteNetImpl>;
-        using xmit_if                = detail::net_send_if_mixin<tds_context_type>;
-        using recv_if                = detail::net_recv_if_mixin<tds_context_type>;
-
         using sub_token_handler_fn_t = token_handler_result (*)(
             void *, e_tds_message_token_type, tdsl::binary_reader<tdsl::endian::little> &);
+        using info_callback_type             = callback<tds_info_token>;
+        using envchange_callback_type        = callback<tds_envchange_token>;
+        using loginack_callback_type         = callback<tds_login_ack_token>;
+        using done_callback_type             = callback<tds_done_token>;
+        using subtoken_handler_callback_type = callback<void, sub_token_handler_fn_t>;
+        using xmit_if                        = detail::net_send_if_mixin<tds_context_type>;
+        using recv_if                        = detail::net_recv_if_mixin<tds_context_type>;
+
+        // --------------------------------------------------------------------------------
+
+        struct {
+            // ENVCHANGE token callback
+            envchange_callback_type envinfochg               = {};
+            // INFO/ERROR token callback
+            info_callback_type info                          = {};
+            // LOGINACK token callback
+            loginack_callback_type loginack                  = {};
+            // DONE token callback
+            done_callback_type done                          = {};
+            // Subtoken handler
+            subtoken_handler_callback_type sub_token_handler = {};
+        } callbacks;
 
     private:
-        // ENVCHANGE token callback
-        callback<tds_envchange_token> envinfochg_cb{};
-        // INFO/ERROR token callback
-        callback<tds_info_token> info_cb{};
-        // LOGINACK token callback
-        callback<tds_login_ack_token> loginack_cb{};
-        // DONE token callback
-        callback<tds_done_token> done_cb{};
-        // Subtoken handler
-        callback<void, sub_token_handler_fn_t> sub_token_handler{};
-
         struct {
             // Indicates that the tds_context is authenticated against
             // the connected server.
             bool authenticated : 1;
             bool reserved : 7;
-        } flags;
+        } flags = {};
 
     public:
         // --------------------------------------------------------------------------------
@@ -123,8 +132,8 @@ namespace tdsl { namespace detail {
          * handler function.
          *
          * @param [in] self_optr Opaque pointer to self (tds_context)
-         * @param [in] mt Incoming message type
-         * @param [in] message Incoming message data
+         * @param [in] message_type Incoming message type
+         * @param [in] nmsg_rdr Reader to the incoming message data
          *
          * @return tdsl::uint32_t Amount of needed bytes to read a complete TDS message, if any.
          *                       The return value would be non-zero only if the reader has partial
@@ -189,113 +198,13 @@ namespace tdsl { namespace detail {
         // --------------------------------------------------------------------------------
 
         /**
-         * Register ENVCHANGE token callback.
-         *
-         * The given callback function will be invoked with token info
-         * when a ENVCHANGE token is received.
-         *
-         * The @p user_ptr will be passed as the first argument to callback
-         * function
-         *
-         * @param [in] user_ptr User pointer
-         * @param [in] cb Callback function
-         */
-        TDSL_SYMBOL_VISIBLE void
-        do_register_envchange_token_callback(void * user_ptr,
-                                             typename decltype(envinfochg_cb)::function_type cb) {
-            envinfochg_cb.set(user_ptr, cb);
-        }
-
-        // --------------------------------------------------------------------------------
-
-        /**
-         * Register INFO/ERROR token callback.
-         *
-         * The given callback function will be invoked with token info
-         * when a INFO or ERROR token is received.
-         *
-         * The @p user_ptr will be passed as the first argument to callback
-         * function
-         *
-         * @param [in] user_ptr User pointer
-         * @param [in] cb Callback function
-         */
-        TDSL_SYMBOL_VISIBLE void
-        do_register_info_token_callback(void * user_ptr,
-                                        typename decltype(info_cb)::function_type cb) {
-            info_cb.set(user_ptr, cb);
-        }
-
-        // --------------------------------------------------------------------------------
-
-        /**
-         * Register LOGINACK token callback.
-         *
-         * The given callback function will be invoked with token info
-         * when a LOGINACK token is received.
-         *
-         * The @p user_ptr will be passed as the first argument to callback
-         * function
-         *
-         * @param [in] user_ptr User pointer
-         * @param [in] cb Callback function
-         */
-        TDSL_SYMBOL_VISIBLE void
-        do_register_loginack_token_callback(void * user_ptr,
-                                            typename decltype(loginack_cb)::function_type cb) {
-            loginack_cb.set(user_ptr, cb);
-        }
-
-        // --------------------------------------------------------------------------------
-
-        /**
-         * Register DONE token callback.
-         *
-         * The given callback function will be invoked with token info
-         * when a DONE token is received.
-         *
-         * The @p user_ptr will be passed as the first argument to callback
-         * function
-         *
-         * @param [in] user_ptr User pointer
-         * @param [in] cb Callback function
-         */
-        TDSL_SYMBOL_VISIBLE void
-        do_register_done_token_callback(void * user_ptr,
-                                        typename decltype(done_cb)::function_type cb) {
-            done_cb.set(user_ptr, cb);
-        }
-
-        // --------------------------------------------------------------------------------
-
-        /**
-         * Register sub token handler function
-         *
-         * The given function will be invoked first
-         * while handling the tokens.
-         *
-         * The @p user_ptr will be passed as the first argument to callback
-         * function
-         *
-         * @param [in] user_ptr User pointer
-         * @param [in] cb Callback function
-         */
-        TDSL_SYMBOL_VISIBLE void
-        do_register_sub_token_handler(void * user_ptr,
-                                      typename decltype(sub_token_handler)::function_type cb) {
-            sub_token_handler.set(user_ptr, cb);
-        }
-
-        // --------------------------------------------------------------------------------
-
-        /**
          * Handler for TDS tabular result message type.
          *
          * The function extracts each individual token present
          * in the tabular result message and calls the appropriate
          * handler function for the extracted token.
          *
-         * @param [in] rr Reader to read from
+         * @param [in] msg_rdr Reader to read from
          * @returns
          * Amount of needed bytes to read a complete tabular result message, if any.
          * The return value would be non-zero only if the reader has partial
@@ -326,8 +235,8 @@ namespace tdsl { namespace detail {
                 // Possibility #1: Tokens with no size information
                 // We expect these handlers to advance the reader position themselves.
 
-                if (sub_token_handler) {
-                    const auto sth_r = sub_token_handler.invoke(token_type, msg_rdr);
+                if (callbacks.sub_token_handler) {
+                    const auto sth_r = callbacks.sub_token_handler(token_type, msg_rdr);
                     if (not(sth_r.status == token_handler_status::unhandled)) {
                         if (sth_r.needed_bytes) {
                             // reseek to token start so the unread token
@@ -472,7 +381,8 @@ namespace tdsl { namespace detail {
                     TDSL_DEBUG_PRINT("old_value: [");
                     TDSL_DEBUG_PRINT_U16_AS_MB(envchange_info.old_value);
                     TDSL_DEBUG_PRINT("]\n");
-                    return envinfochg_cb.maybe_invoke(envchange_info);
+                    callbacks.envinfochg(envchange_info);
+                    return 0;
                 } break;
                 default: {
                     TDSL_DEBUG_PRINTLN("Unhandled ENVCHANGE type [%d]", static_cast<int>(ect));
@@ -535,7 +445,8 @@ namespace tdsl { namespace detail {
             TDSL_DEBUG_PRINT_U16_AS_MB(info_msg.proc_name);
             TDSL_DEBUG_PRINT("]\n");
 
-            return info_cb.maybe_invoke(info_msg);
+            callbacks.info(info_msg);
+            return 0;
         }
 
         // --------------------------------------------------------------------------------
@@ -585,7 +496,7 @@ namespace tdsl { namespace detail {
                              token.prog_version.min, token.prog_version.buildnum_hi,
                              token.prog_version.buildnum_lo);
             TDSL_DEBUG_PRINT("\n");
-            loginack_cb.maybe_invoke(token);
+            callbacks.loginack(token);
             return 0;
         }
 
@@ -620,7 +531,7 @@ namespace tdsl { namespace detail {
             TDSL_DEBUG_PRINTLN(
                 "received done token -> status [%d] | cur_cmd [%d] | done_row_count [%d]",
                 token.status, token.curcmd, token.done_row_count);
-            done_cb.maybe_invoke(token);
+            callbacks.done(token);
             return 0;
         }
 
@@ -631,3 +542,5 @@ namespace tdsl { namespace detail {
         friend struct tdsl::detail::command_context<ConcreteNetImpl>;
     };
 }} // namespace tdsl::detail
+
+#endif

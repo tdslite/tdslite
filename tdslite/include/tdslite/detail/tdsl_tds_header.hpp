@@ -9,7 +9,8 @@
  * _________________________________________________
  */
 
-#pragma once
+#ifndef TDSL_DETAIL_TDS_HEADER_HPP
+#define TDSL_DETAIL_TDS_HEADER_HPP
 
 #include <tdslite/util/tdsl_inttypes.hpp>
 #include <tdslite/util/tdsl_macrodef.hpp>
@@ -27,3 +28,5 @@ namespace tdsl { namespace detail {
         tdsl::uint8_t window;
     } TDSL_PACKED;
 }} // namespace tdsl::detail
+
+#endif

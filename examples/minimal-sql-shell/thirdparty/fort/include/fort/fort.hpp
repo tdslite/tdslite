@@ -782,8 +782,9 @@ namespace fort {
          *
          * Write objects from range to consecutive cells in the current row.
          *
-         * @param first, last
-         *   Range of elements.
+         * @param first BOR
+         * @param last EOR
+         *
          * @return
          *   - 0: Success; data were written
          *   - (<0): In case of error
@@ -803,8 +804,9 @@ namespace fort {
          * Write objects from range to consecutive cells in the current row and
          * move current position to the first cell of the next line(row).
          *
-         * @param first, last
-         *   Range of elements.
+         * @param first BOR
+         * @param last EOR
+         *
          * @return
          *   - 0: Success; data were written
          *   - (<0): In case of error
@@ -1136,8 +1138,6 @@ namespace fort {
         /**
          * Get range of cells.
          *
-         * @param col_idx
-         *   Column index.
          * @return
          *   table_column object.
          */

@@ -116,8 +116,10 @@ static std::string field2str(const tdsl::tds_column_info & colinfo,
             return std::string{"<invalid GUID size " + std::to_string(guid_reader.size_bytes()) +
                                ">"};
         } break;
+        default:
+            return "<not implemented yet " + std::to_string(static_cast<int>(colinfo.type)) + ">";
     }
-    return "<not implemented yet " + std::to_string(static_cast<int>(colinfo.type)) + ">";
+    TDSL_UNREACHABLE;
 }
 
 /**
@@ -125,13 +127,11 @@ static std::string field2str(const tdsl::tds_column_info & colinfo,
  *
  * @param [in] token INFO/ERROR token
  */
-static tdsl::uint32_t info_callback(void *, const tdsl::tds_info_token & token) {
+static void info_callback(void *, const tdsl::tds_info_token & token) noexcept {
     const auto msgtext = u16str_as_ascii(token.msgtext);
     std::printf("%c: [%d/%d/%d @%d] --> %.*s\n", token.is_info() ? 'I' : 'E', token.number,
                 token.state, token.class_, token.line_number, static_cast<int>(msgtext.size()),
                 msgtext.data());
-
-    return 0;
 }
 
 /**
@@ -166,6 +166,13 @@ static void row_callback(void * u, const tdsl::tds_colmetadata_token & colmd,
     table.table << fort::endr;
 }
 
+void handle_command(const std::string & cmd) {
+    if (cmd == "!q" || cmd == "!exit") {
+        std::printf("Bye!\n");
+        std::exit(0);
+    }
+}
+
 int main(void) {
     tdsl::driver<tdsl::net::asio_network_impl> driver{};
     // Use info_callback function for printing user info
@@ -185,10 +192,13 @@ int main(void) {
     // Start accepting SQL commands from the shell
     std::string line;
     while (putchar('>'), std::getline(std::cin, line)) {
-        if (line == "q" || line == "exit") {
-            std::printf("Bye!\n");
-            std::exit(0);
+
+        // Handle tool commands
+        if (not line.empty() && line [0] == '!') {
+            handle_command(line);
+            continue;
         }
+
         tdsl::uint32_t rows_affected = 0;
         {
             // Define a table context, in case we need to display output for the command

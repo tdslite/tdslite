@@ -9,7 +9,8 @@
  * _________________________________________________
  */
 
-#pragma once
+#ifndef TDSL_UTIL_STRING_VIEW_HPP
+#define TDSL_UTIL_STRING_VIEW_HPP
 
 #include <tdslite/util/tdsl_span.hpp>
 
@@ -49,3 +50,5 @@ namespace tdsl {
         }
     };
 } // namespace tdsl
+
+#endif

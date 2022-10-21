@@ -9,7 +9,8 @@
  * _________________________________________________
  */
 
-#pragma once
+#ifndef TDSL_DETAIL_NET_SEND_IF_MIXIN_HPP
+#define TDSL_DETAIL_NET_SEND_IF_MIXIN_HPP
 
 #include <tdslite/detail/tdsl_message_type.hpp>
 
@@ -19,6 +20,7 @@
 #include <tdslite/util/tdsl_byte_swap.hpp>
 
 namespace tdsl { namespace detail {
+    
     // --------------------------------------------------------------------------------
 
     /**
@@ -82,3 +84,5 @@ namespace tdsl { namespace detail {
     };
 
 }} // namespace tdsl::detail
+
+#endif

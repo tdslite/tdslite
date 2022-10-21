@@ -13,8 +13,8 @@
 #include <tdslite/util/tdsl_type_traits.hpp>
 #include <cassert>
 
-#ifndef TDSL_DETAIL_TDS_MACRODEF_HPP
-#define TDSL_DETAIL_TDS_MACRODEF_HPP
+#ifndef TDSL_UTIL_TDS_MACRODEF_HPP
+#define TDSL_UTIL_TDS_MACRODEF_HPP
 
 /**
  * Mark a line of code as unreachable. If code flow reaches
@@ -27,7 +27,8 @@
  * @brief [intrinsics.gcc] Specify minimum alignment for given type. This causes target type to
  * be allocated and aligned at least Alignment bytes boundary.
  *
- * @note The `aligned` attribute can only increase alignment boundary. To decrease, see `packed` attribute as well.
+ * @note The `aligned` attribute can only increase alignment boundary. To decrease, see `packed`
+ * attribute as well.
  *
  * @note Maximum alignment may depend on your linker.
  *
@@ -57,7 +58,8 @@
 #define TDSL_SYMBOL_HIDDEN TDSL_SYMBOL_VISIBILITY("hidden")
 
 /**
- * @brief [intrinsics.gcc] Pack a struct or union type to layout which allows smallest possible space.
+ * @brief [intrinsics.gcc] Pack a struct or union type to layout which allows smallest possible
+ * space.
  *
  * This prevents compiler to pad variables inside struct or union type to largest possible
  * type alignment available for target platform.
@@ -65,7 +67,8 @@
  * @note Packed types are usually used for mapping transmitted messages directly to data types,
  * or space-limited environments.
  *
- * @warning Taking address of a variable declared inside of a packed type may result in undefined behavior.
+ * @warning Taking address of a variable declared inside of a packed type may result in undefined
+ * behavior.
  */
 #define TDSL_PACKED __attribute__((packed))
 
@@ -77,7 +80,8 @@
  * @note Packed types are usually used for mapping transmitted messages directly to data types,
  * or space-limited environments.
  *
- * @warning Taking address of a variable declared inside of a packed type may result in undefined behavior.
+ * @warning Taking address of a variable declared inside of a packed type may result in undefined
+ * behavior.
  */
 #define TDSL_PACKED_ALIGNED(Alignment) __attribute__((packed, aligned(Alignment)))
 
@@ -118,7 +122,9 @@
 /**
  * Move macro
  */
-#define TDSL_MOVE(...) static_cast<typename tdsl::traits::remove_reference<decltype(__VA_ARGS__)>::type &&>(__VA_ARGS__)
+#define TDSL_MOVE(...)                                                                             \
+    static_cast<typename tdsl::traits::remove_reference<decltype(__VA_ARGS__)>::type &&>(          \
+        __VA_ARGS__)
 
 /**
  * Forward macro

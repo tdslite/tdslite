@@ -9,7 +9,8 @@
  * _________________________________________________
  */
 
-#pragma once
+#ifndef TDSL_UTIL_HEX_DUMP_HPP
+#define TDSL_UTIL_HEX_DUMP_HPP
 
 #include <stdio.h>
 #include <ctype.h>
@@ -51,3 +52,5 @@ namespace tdsl { namespace util {
         }
     }
 }} // namespace tdsl::util
+
+#endif

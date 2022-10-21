@@ -9,7 +9,8 @@
  * _________________________________________________
  */
 
-#pragma once
+#ifndef TDSL_DETAIL_DRIVER_HPP
+#define TDSL_DETAIL_DRIVER_HPP
 
 #include <tdslite/detail/tdsl_tds_context.hpp>
 #include <tdslite/detail/tdsl_login_context.hpp>
@@ -18,9 +19,9 @@
 namespace tdsl { namespace detail {
 
     /**
-     * tds-lite TDS driver
+     * tdslite TDS driver
      *
-     * @tparam NetImpl The networking implementation type
+     * @tparam NetImpl The networking implementation
      */
     template <typename NetImpl>
     struct tdsl_driver {
@@ -32,40 +33,53 @@ namespace tdsl { namespace detail {
         using row_type               = tdsl_row;
 
         struct connection_parameters : public login_parameters_type {
-            tdsl::uint16_t port{1433};
+            tdsl::uint16_t port = {1433};
         };
+
+        // TODO: Implement this
+        inline auto connect(tdsl::string_view connection_string) -> int;
+        // TODO: Implement this?
+        void logout();
+
+        // --------------------------------------------------------------------------------
 
         // connect & login here
         inline auto connect(const connection_parameters & p) -> int {
             auto result = tds_ctx.connect(p.server_name, p.port);
-            if (not result == 0) {
+            if (not(result == 0)) {
                 return result;
             }
             login_context_type{tds_ctx}.do_login(p);
             return result;
         }
 
+        // --------------------------------------------------------------------------------
+
         void login(const wlogin_parameters_type & p) {
             login_context_type{tds_ctx}.do_login(p);
         }
 
-        void logout();
+        // --------------------------------------------------------------------------------
 
         /**
          *
          *
          */
-        void set_info_callback(void * user_ptr,
-                               tdsl::uint32_t (*callback)(/*user_ptr*/ void *,
-                                                          /*info type*/ const tds_info_token &)) {
-            tds_ctx.do_register_info_token_callback(user_ptr, callback);
+        void
+        set_info_callback(void * user_ptr,
+                          typename tds_context_type::info_callback_type::function_type callback) {
+            tds_ctx.callbacks.info = {user_ptr, callback};
         }
+
+        // --------------------------------------------------------------------------------
 
         template <typename T>
         inline auto execute_query(T command) noexcept -> tdsl::uint32_t {
             TDSL_ASSERT(tds_ctx.is_authenticated());
             return sql_command_type{tds_ctx}.execute_query(command);
         }
+
+        // --------------------------------------------------------------------------------
 
         template <typename T>
         inline auto execute_query(T command, void * uptr,
@@ -80,3 +94,5 @@ namespace tdsl { namespace detail {
         tds_context_type tds_ctx;
     };
 }} // namespace tdsl::detail
+
+#endif

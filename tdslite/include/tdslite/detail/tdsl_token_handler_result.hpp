@@ -9,7 +9,8 @@
  * _________________________________________________
  */
 
-#pragma once
+#ifndef TDSL_DETAIL_TOKEN_HANDLER_STATUS_HPP
+#define TDSL_DETAIL_TOKEN_HANDLER_STATUS_HPP
 
 #include <tdslite/detail/tdsl_packet_handler_result.hpp>
 
@@ -26,6 +27,9 @@ namespace tdsl {
         invalid_field_length      = -6
     };
 
-    using token_handler_result = packet_handler_result<token_handler_status, token_handler_status::unhandled>;
+    using token_handler_result =
+        packet_handler_result<token_handler_status, token_handler_status::unhandled>;
 
 } // namespace tdsl
+
+#endif

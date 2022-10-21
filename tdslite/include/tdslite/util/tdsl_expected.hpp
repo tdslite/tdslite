@@ -9,7 +9,8 @@
  * _________________________________________________
  */
 
-#pragma once
+#ifndef TDSL_UTIL_EXPECTED_HPP
+#define TDSL_UTIL_EXPECTED_HPP
 
 #include <tdslite/util/tdsl_inttypes.hpp>
 #include <tdslite/util/tdsl_macrodef.hpp>
@@ -30,7 +31,8 @@ namespace tdsl {
         unexpected(ET && unexpected) : value(TDSL_MOVE(unexpected)) {}
 
         ET value;
-        static_assert(tdsl::traits::is_reference<ET>::value == false, "ET cannot be a reference type");
+        static_assert(tdsl::traits::is_reference<ET>::value == false,
+                      "ET cannot be a reference type");
     };
 
     template <typename ET>
@@ -48,7 +50,8 @@ namespace tdsl {
     template <typename ST, typename ET = tdsl::uint32_t>
     struct expected {
     private:
-        static_assert(tdsl::traits::is_reference<ST>::value == false, "ST cannot be a reference type");
+        static_assert(tdsl::traits::is_reference<ST>::value == false,
+                      "ST cannot be a reference type");
 
         // member access wrapper
         struct maw {
@@ -70,9 +73,6 @@ namespace tdsl {
             unexpected_type unexpected_value{};
         };
 
-        // TODO operator *
-        // TODO operator ->
-
         inline auto operator->() noexcept -> maw {
             return maw{get()};
         }
@@ -89,7 +89,7 @@ namespace tdsl {
         /**
          * Construct a new expected object
          *
-         * @param expected
+         * @param [in] expected The expected value
          */
         expected(ST && expected) : value(TDSL_MOVE(expected)), has_expected(true) {}
 
@@ -130,43 +130,47 @@ namespace tdsl {
             return has_value();
         }
 
-        inline ST & get() & {
+        inline TDSL_NODISCARD ST & get() & {
             TDSL_ASSERT_MSG(has_value(), "invalid expected access,expected does not have a value");
             return value;
         }
 
-        inline const ST & get() const & {
+        inline TDSL_NODISCARD const ST & get() const & {
             TDSL_ASSERT_MSG(has_value(), "invalid expected access,expected does not have a value");
             return value;
         }
 
-        inline ST && get() && {
+        inline TDSL_NODISCARD ST && get() && {
             TDSL_ASSERT_MSG(has_value(), "invalid expected access,expected does not have a value");
             return TDSL_MOVE(value);
         }
 
-        inline const ST && get() const && {
+        inline TDSL_NODISCARD const ST && get() const && {
             TDSL_ASSERT_MSG(has_value(), "invalid expected access,expected does not have a value");
             return TDSL_MOVE(value);
         }
 
-        inline ET & error() & {
-            TDSL_ASSERT_MSG(!has_value(), "invalid expected access, unexpected does not have a value");
+        inline TDSL_NODISCARD ET & error() & {
+            TDSL_ASSERT_MSG(!has_value(),
+                            "invalid expected access, unexpected does not have a value");
             return unexpected_value.value;
         }
 
-        inline const ET & error() const & {
-            TDSL_ASSERT_MSG(!has_value(), "invalid expected access, unexpected does not have a value");
+        inline TDSL_NODISCARD const ET & error() const & {
+            TDSL_ASSERT_MSG(!has_value(),
+                            "invalid expected access, unexpected does not have a value");
             return unexpected_value.value;
         }
 
-        inline ET && error() && {
-            TDSL_ASSERT_MSG(!has_value(), "invalid expected access, unexpected does not have a value");
+        inline TDSL_NODISCARD ET && error() && {
+            TDSL_ASSERT_MSG(!has_value(),
+                            "invalid expected access, unexpected does not have a value");
             return TDSL_MOVE(unexpected_value.value);
         }
 
-        inline const ET && error() const && {
-            TDSL_ASSERT_MSG(!has_value(), "invalid expected access, unexpected does not have a value");
+        inline TDSL_NODISCARD const ET && error() const && {
+            TDSL_ASSERT_MSG(!has_value(),
+                            "invalid expected access, unexpected does not have a value");
             return TDSL_MOVE(unexpected_value.value);
         }
 
@@ -187,3 +191,5 @@ namespace tdsl {
     };
 
 } // namespace tdsl
+
+#endif

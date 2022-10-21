@@ -9,7 +9,8 @@
  * _________________________________________________
  */
 
-#pragma once
+#ifndef TDSL_UTIL_DEBUG_PRINT_HPP
+#define TDSL_UTIL_DEBUG_PRINT_HPP
 
 #ifdef TDSL_DEBUG_PRINT_ENABLED
 #include <cstdio>
@@ -34,4 +35,6 @@
 #define TDSL_DEBUG_WPRINT(...)
 #define TDSL_DEBUG_WPRINTLN(...)
 #define TDSL_DEBUG_PRINT_U16_AS_MB(U16SPAN)
+#endif
+
 #endif

@@ -1,7 +1,7 @@
 /**
  * _________________________________________________
  *
- * @file   tdsl_done_token.hpp
+ * @file   tds_done_token.hpp
  * @author Mustafa Kemal GILOR <mustafagilor@gmail.com>
  * @date   23.05.2022
  *
@@ -9,7 +9,8 @@
  * _________________________________________________
  */
 
-#pragma once
+#ifndef TDSL_DETAIL_TOKEN_TDS_DONE_TOKEN_HPP
+#define TDSL_DETAIL_TOKEN_TDS_DONE_TOKEN_HPP
 
 #include <tdslite/util/tdsl_inttypes.hpp>
 
@@ -31,14 +32,16 @@ namespace tdsl {
         // * 0x20:  DONE_ATTN. The DONE message is a server acknowledgement of a client
         //          ATTENTION message.
         // * 0x100: DONE_SRVERROR. Used in place of DONE_ERROR when an error occurred on the
-        //          current SQL statement, which is severe enough to require the result set, if any, to be
-        //          discarded
-        tdsl::uint16_t status;
+        //          current SQL statement, which is severe enough to require the result set, if any,
+        //          to be discarded
+        tdsl::uint16_t status         = {0};
         // The token of the current SQL statement. The token value is provided and controlled by the
         // application layer, which utilizes TDS. The TDS layer does not evaluate the value.
-        tdsl::uint16_t curcmd;
+        tdsl::uint16_t curcmd         = {0};
         // The count of rows that were affected by the SQL statement. The value of DoneRowCount is
         // valid if the value of Status includes DONE_COUNT.
-        tdsl::uint32_t done_row_count;
+        tdsl::uint32_t done_row_count = {0};
     };
 } // namespace tdsl
+
+#endif

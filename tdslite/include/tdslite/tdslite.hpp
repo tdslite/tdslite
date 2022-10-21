@@ -12,8 +12,8 @@
  * ____________________________________________________
  */
 
-#ifndef TDSL_TDSL_HPP
-#define TDSL_TDSL_HPP
+#ifndef TDSL_TDSL_MAIN_HPP
+#define TDSL_TDSL_MAIN_HPP
 
 #include <tdslite/detail/tdsl_driver.hpp>
 #include <tdslite/detail/tdsl_lang_code_id.hpp>

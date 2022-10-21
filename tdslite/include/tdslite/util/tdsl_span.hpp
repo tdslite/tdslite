@@ -10,20 +10,18 @@
  * ____________________________________________________
  */
 
-#ifndef TDSL_DETAIL_TDS_SPAN_HPP
-#define TDSL_DETAIL_TDS_SPAN_HPP
+#ifndef TDSL_UTIL_SPAN_HPP
+#define TDSL_UTIL_SPAN_HPP
 
 #include <tdslite/util/tdsl_inttypes.hpp>
 #include <tdslite/util/tdsl_macrodef.hpp>
 #include <tdslite/util/tdsl_type_traits.hpp>
 
-#include <span>
-
 namespace tdsl {
 
     namespace detail {
         template <typename T, typename Q>
-        inline static auto exchange(T & dst, Q v) noexcept -> T {
+        inline TDSL_NODISCARD static auto exchange(T & dst, Q v) noexcept -> T {
             T prev = dst;
             dst    = v;
             return prev;
@@ -136,7 +134,7 @@ namespace tdsl {
          * @return true Spans are equal
          * @return false otherwise
          */
-        inline constexpr bool operator==(const self_type & other) const noexcept {
+        inline TDSL_NODISCARD constexpr bool operator==(const self_type & other) const noexcept {
             return data_ == other.data_ && element_count == other.element_count;
         }
 
@@ -145,7 +143,7 @@ namespace tdsl {
          *
          * @return size_type Amount of the bytes in the span
          */
-        inline constexpr auto size_bytes() const noexcept -> size_type {
+        inline TDSL_NODISCARD constexpr auto size_bytes() const noexcept -> size_type {
             return element_count * sizeof(element_type);
         }
 
@@ -154,7 +152,7 @@ namespace tdsl {
          *
          * @return size_type Amount of the element in the span
          */
-        inline constexpr auto size() const noexcept -> size_type {
+        inline TDSL_NODISCARD constexpr auto size() const noexcept -> size_type {
             return element_count;
         }
 
@@ -163,7 +161,7 @@ namespace tdsl {
          *
          * @return size_type Amount of the element in the span
          */
-        inline constexpr auto ssize() const noexcept -> ssize_type {
+        inline TDSL_NODISCARD constexpr auto ssize() const noexcept -> ssize_type {
             return element_count;
         }
 
@@ -172,7 +170,7 @@ namespace tdsl {
          *
          * @return T* Pointer to the beginning of the span
          */
-        inline constexpr auto data() const noexcept -> pointer {
+        inline TDSL_NODISCARD constexpr auto data() const noexcept -> pointer {
             return data_;
         }
 
@@ -181,7 +179,7 @@ namespace tdsl {
          *
          * @return T* Pointer to the beginning of the span
          */
-        inline constexpr auto begin() const noexcept -> iterator {
+        inline TDSL_NODISCARD constexpr auto begin() const noexcept -> iterator {
             return data_;
         }
 
@@ -190,7 +188,7 @@ namespace tdsl {
          *
          * @return T* Pointer to the one past last element of the span
          */
-        inline constexpr auto end() const noexcept -> iterator {
+        inline TDSL_NODISCARD constexpr auto end() const noexcept -> iterator {
             return (data_ + element_count);
         }
 
@@ -199,7 +197,7 @@ namespace tdsl {
          *
          * @return T* Pointer to the beginning of the span
          */
-        inline constexpr auto cbegin() const noexcept -> const_iterator {
+        inline TDSL_NODISCARD constexpr auto cbegin() const noexcept -> const_iterator {
             return data_;
         }
 
@@ -208,7 +206,7 @@ namespace tdsl {
          *
          * @return T* Pointer to the one past last element of the span
          */
-        inline constexpr auto cend() const noexcept -> const_iterator {
+        inline TDSL_NODISCARD constexpr auto cend() const noexcept -> const_iterator {
             return (data_ + element_count);
         }
 
@@ -234,7 +232,7 @@ namespace tdsl {
          * @returns true if data is not nullptr and size is greater than zero
          * @returns false otherwise
          */
-        inline operator bool() const noexcept {
+        inline TDSL_NODISCARD operator bool() const noexcept {
             return data_ && element_count;
         }
 

@@ -9,7 +9,8 @@
  * _________________________________________________
  */
 
-#pragma once
+#ifndef TDSL_DETAIL_TDS_ENVCHANGE_TYPE_HPP
+#define TDSL_DETAIL_TDS_ENVCHANGE_TYPE_HPP
 
 #include <tdslite/util/tdsl_inttypes.hpp>
 
@@ -39,3 +40,5 @@ namespace tdsl { namespace detail {
     };
 
 }} // namespace tdsl::detail
+
+#endif

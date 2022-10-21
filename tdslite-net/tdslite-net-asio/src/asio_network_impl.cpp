@@ -228,7 +228,6 @@ namespace tdsl { namespace net {
         // Destroy the socket handle
         socket_handle.reset();
         TDSL_DEBUG_PRINT("asio_network_impl::do_disconnect(...) -> exit, success\n");
-        // conn_cb_ctx.maybe_invoke(e_conection_state::disconnected);
         return e_result::success;
     }
 

@@ -31,9 +31,9 @@
 namespace tdsl { namespace net {
 
     /**
-     * Base netwo
+     * Base network type
      *
-     * @tparam ConcreteNetImpl
+     * @tparam ConcreteNetImpl Concrete network implementation type
      */
     template <typename ConcreteNetImpl>
     struct network_impl : private network_impl_contract<ConcreteNetImpl> {
@@ -236,7 +236,7 @@ namespace tdsl { namespace net {
                 // TODO: Check if we got enough space to pull the next message
 
                 if (packet_data_cb) {
-                    const auto needed_bytes = packet_data_cb.invoke(message_type, nmsg_rdr);
+                    const auto needed_bytes = packet_data_cb(message_type, nmsg_rdr);
                     TDSL_DEBUG_PRINTLN("network_impl_base::handle_tds_response(...) -> msg_cb_ctx, "
                                        "need byte(s) value:%d",
                                        needed_bytes);
@@ -311,7 +311,7 @@ namespace tdsl { namespace net {
          */
         TDSL_SYMBOL_VISIBLE void
         register_packet_data_callback(void * user_ptr, tds_packet_data_callback::function_type cb) {
-            packet_data_cb.set(user_ptr, cb);
+            packet_data_cb = {user_ptr, cb};
         }
 
     private:

@@ -9,8 +9,8 @@
  * _________________________________________________
  */
 
-#ifndef TDSL_DETAIL_TDS_INVOKE_HPP
-#define TDSL_DETAIL_TDS_INVOKE_HPP
+#ifndef TDSL_UTIL_TDS_INVOKE_HPP
+#define TDSL_UTIL_TDS_INVOKE_HPP
 
 #include <tdslite/util/tdsl_type_traits.hpp>
 #include <tdslite/util/tdsl_macrodef.hpp>
@@ -58,7 +58,8 @@ namespace tdsl {
     // SFINAE the s**t out of this:
 
     // template <class F, class... Args>
-    // constexpr std::invoke_result_t<F, Args...> invoke(F && f, Args &&... args) noexcept(std::is_nothrow_invocable_v<F, Args...>) {
+    // constexpr std::invoke_result_t<F, Args...> invoke(F && f, Args &&... args)
+    // noexcept(std::is_nothrow_invocable_v<F, Args...>) {
     //     if constexpr (std::is_member_pointer_v<std::decay_t<F>>)
     //         return detail::invoke_memptr(f, std::forward<Args>(args)...);
     //     else

@@ -9,7 +9,8 @@
  * _________________________________________________
  */
 
-#pragma once
+#ifndef TDSL_DETAIL_TDSL_FIELD_HPP
+#define TDSL_DETAIL_TDSL_FIELD_HPP
 
 #include <tdslite/util/tdsl_span.hpp>
 #include <tdslite/util/tdsl_inttypes.hpp>
@@ -107,3 +108,5 @@ namespace tdsl {
         friend struct tdsl::detail::command_context;
     };
 } // namespace tdsl
+
+#endif

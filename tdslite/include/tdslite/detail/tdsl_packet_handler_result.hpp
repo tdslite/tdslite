@@ -9,7 +9,8 @@
  * _________________________________________________
  */
 
-#pragma once
+#ifndef TDSL_DETAIL_PACKET_HANDLER_RESULT_HPP
+#define TDSL_DETAIL_PACKET_HANDLER_RESULT_HPP
 
 #include <tdslite/util/tdsl_inttypes.hpp>
 
@@ -32,3 +33,5 @@ namespace tdsl {
         tdsl::uint32_t needed_bytes = {0};
     };
 } // namespace tdsl
+
+#endif

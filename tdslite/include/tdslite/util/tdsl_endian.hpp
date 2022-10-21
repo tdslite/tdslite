@@ -10,8 +10,8 @@
  * ____________________________________________________
  */
 
-#ifndef TDSL_DETAIL_TDS_ENDIAN_HPP
-#define TDSL_DETAIL_TDS_ENDIAN_HPP
+#ifndef TDSL_UTIL_TDS_ENDIAN_HPP
+#define TDSL_UTIL_TDS_ENDIAN_HPP
 
 namespace tdsl {
 
@@ -29,7 +29,8 @@ namespace tdsl {
         little     = __ORDER_LITTLE_ENDIAN__,
         big        = __ORDER_BIG_ENDIAN__,
         native     = __BYTE_ORDER__,
-        non_native = (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__ ? __ORDER_BIG_ENDIAN__ : __ORDER_LITTLE_ENDIAN__)
+        non_native = (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__ ? __ORDER_BIG_ENDIAN__
+                                                                : __ORDER_LITTLE_ENDIAN__)
 #endif
     };
 

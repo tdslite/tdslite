@@ -9,7 +9,8 @@
  * _________________________________________________
  */
 
-#pragma once
+#ifndef TDSL_DETAIL_TDSL_ROW_HPP
+#define TDSL_DETAIL_TDSL_ROW_HPP
 
 #include <tdslite/detail/tdsl_allocator.hpp>
 #include <tdslite/detail/tdsl_field.hpp>
@@ -29,30 +30,44 @@ namespace tdsl {
             MEM_ALLOC = -1
         };
 
+        // --------------------------------------------------------------------------------
+
         inline auto begin() const noexcept -> fields_type_t::iterator {
             return fields.begin();
         }
+
+        // --------------------------------------------------------------------------------
 
         inline auto end() const noexcept -> fields_type_t::iterator {
             return fields.end();
         }
 
+        // --------------------------------------------------------------------------------
+
         inline auto cbegin() const noexcept -> fields_type_t::const_iterator {
             return fields.cbegin();
         }
 
+        // --------------------------------------------------------------------------------
+
         inline auto cend() const noexcept -> fields_type_t::const_iterator {
             return fields.cend();
         }
+
+        // --------------------------------------------------------------------------------
 
         inline auto operator[](fields_type_t::size_type index) const noexcept
             -> fields_type_t::reference {
             return fields [index];
         }
 
+        // --------------------------------------------------------------------------------
+
         inline auto size() const noexcept -> fields_type_t::size_type {
             return fields.size();
         }
+
+        // --------------------------------------------------------------------------------
 
         /**
          * Allocate space for @p n_col fields and make a row object
@@ -65,32 +80,42 @@ namespace tdsl {
         static inline tdsl::expected<tdsl_row, e_tdsl_row_make_err> make(tdsl::uint32_t n_col) {
             tdsl_field * fields = field_allocator_t::create_n(n_col);
             if (fields) {
-                return TDSL_MOVE(
-                    tdsl::expected<tdsl_row, e_tdsl_row_make_err>{tdsl_row(fields, n_col)});
+                return tdsl_row(fields, n_col);
             }
             return tdsl::unexpected<e_tdsl_row_make_err>(e_tdsl_row_make_err::MEM_ALLOC);
         }
 
-        tdsl_row(tdsl_row && other) {
-            fields       = other.fields;
-            other.fields = tdsl::span<tdsl_field>();
-        }
+        // --------------------------------------------------------------------------------
 
-        tdsl_row & operator=(tdsl_row && other) {
-            fields       = other.fields;
-            other.fields = tdsl::span<tdsl_field>();
-            return *this;
-        }
-
-        ~tdsl_row() {
-            if (fields) {
-                field_allocator_t::destroy_n(fields.data(), fields.size());
-                fields = tdsl::span<tdsl_field>();
+        tdsl_row(tdsl_row && other) noexcept {
+            if (this != &other) {
+                maybe_release_resources();
+                fields       = other.fields;
+                other.fields = {};
             }
         }
 
+        // --------------------------------------------------------------------------------
+
+        tdsl_row & operator=(tdsl_row && other) noexcept {
+            if (this != &other) {
+                maybe_release_resources();
+                fields       = other.fields;
+                other.fields = {};
+            }
+            return *this;
+        }
+
+        // --------------------------------------------------------------------------------
+
+        ~tdsl_row() noexcept {
+            maybe_release_resources();
+        }
+
     private:
-        fields_type_t fields;
+        fields_type_t fields = {};
+
+        // --------------------------------------------------------------------------------
 
         /**
          * Private c-tor
@@ -103,7 +128,18 @@ namespace tdsl {
          * @param fields Allocated fields
          * @param field_count Field count
          */
-        explicit tdsl_row(tdsl_field * fields, tdsl::uint32_t field_count) :
+        explicit tdsl_row(tdsl_field * fields, tdsl::uint32_t field_count) noexcept :
             fields(fields, field_count) {}
+
+        // --------------------------------------------------------------------------------
+
+        void maybe_release_resources() noexcept {
+            if (fields) {
+                field_allocator_t::destroy_n(fields.data(), fields.size());
+                fields = tdsl::span<tdsl_field>();
+            }
+        }
     };
 } // namespace tdsl
+
+#endif

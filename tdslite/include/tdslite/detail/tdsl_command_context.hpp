@@ -9,33 +9,50 @@
  * _________________________________________________
  */
 
-#pragma once
+#ifndef TDSL_DETAIL_COMMAND_CONTEXT_HPP
+#define TDSL_DETAIL_COMMAND_CONTEXT_HPP
 
 #include <tdslite/detail/tdsl_tds_context.hpp>
 #include <tdslite/detail/tdsl_string_writer.hpp>
 #include <tdslite/detail/tdsl_callback.hpp>
 #include <tdslite/detail/tdsl_row.hpp>
 #include <tdslite/detail/tdsl_token_handler_result.hpp>
-#include <tdslite/detail/token/tdsl_done_token.hpp>
-#include <tdslite/detail/token/tdsl_info_token.hpp>
-#include <tdslite/detail/token/tdsl_colmetadata_token.hpp>
+#include <tdslite/detail/token/tds_done_token.hpp>
+#include <tdslite/detail/token/tds_info_token.hpp>
+#include <tdslite/detail/token/tds_colmetadata_token.hpp>
 
 #include <tdslite/util/tdsl_span.hpp>
+#include <tdslite/util/tdsl_macrodef.hpp>
 #include <tdslite/util/tdsl_string_view.hpp>
-
 #include <tdslite/util/tdsl_type_traits.hpp>
 
 namespace tdsl { namespace detail {
 
+    /**
+     * Helper type to execute SQL commands
+     *
+     * @tparam NetImpl Network implementation type
+     */
     template <typename NetImpl>
     struct command_context {
-        using tds_context_type         = tds_context<NetImpl>;
+        using tds_context_type = tds_context<NetImpl>;
+
+    private:
         using self_type                = command_context<NetImpl>;
         using string_writer_type       = string_parameter_writer<tds_context_type>;
         using nonquery_result_callback = callback<tds_done_token>;
-
         using row_callback_fn_t = void (*)(void *, const tds_colmetadata_token &, const tdsl_row &);
 
+        // --------------------------------------------------------------------------------
+
+        tds_context_type & tds_ctx;
+
+        struct {
+            tdsl::uint8_t read_colnames : 1;
+            tdsl::uint8_t reserved : 7;
+        } flags = {};
+
+    public:
         // --------------------------------------------------------------------------------
 
         /**
@@ -43,17 +60,16 @@ namespace tdsl { namespace detail {
          *
          * @param [in] ctx The TDS context associated with the command
          */
-        command_context(tds_context_type & ctx) : tds_ctx(ctx) {
+        command_context(tds_context_type & ctx) noexcept : tds_ctx(ctx) {
 
-            tds_ctx.do_register_sub_token_handler(this, &token_handler);
-            tds_ctx.do_register_done_token_callback(
-                this, [](void * uptr, const tds_done_token & dt) -> tdsl::uint32_t {
-                    command_context & ctx          = *static_cast<command_context *>(uptr);
-                    ctx.qstate.affected_rows       = dt.done_row_count;
-                    ctx.qstate.flags.received_done = true;
+            tds_ctx.callbacks.sub_token_handler = {this, &token_handler};
+
+            tds_ctx.callbacks.done              = {
+                this, [](void * uptr, const tds_done_token & dt) noexcept -> void {
+                    command_context & ctx    = *static_cast<command_context *>(uptr);
+                    ctx.qstate.affected_rows = dt.done_row_count;
                     TDSL_DEBUG_PRINT("cc: done token -- affected rows(%d)\n", dt.done_row_count);
-                    return 0;
-                });
+                }};
         }
 
         // --------------------------------------------------------------------------------
@@ -67,10 +83,10 @@ namespace tdsl { namespace detail {
          * @param [in] rcb_uptr Row callback user pointer (optional)
          * @param [in] row_callback Row callback function (optional)
          *
-         * The result set returned by query @p command can be read by providing a
-         * row callback function
+         * The result set returned by query @p command can be read by providing
+         * a row callback function
          *
-         * @return Rows affected
+         * @return Number of rows affected
          */
         template <typename T, traits::enable_when::same_any_of<T, string_view, wstring_view> = true>
         inline tdsl::uint32_t execute_query(
@@ -78,33 +94,46 @@ namespace tdsl { namespace detail {
             row_callback_fn_t row_callback = +[](void *, const tds_colmetadata_token &,
                                                  const tdsl_row &) -> void {}) noexcept {
             // Reset query state object & reassign row callback
-            qstate.reset();
-            qstate.row_callback.set(rcb_uptr, row_callback);
+            qstate              = {};
+            qstate.row_callback = {rcb_uptr, row_callback};
             // Write the SQL command
             string_writer_type::write(tds_ctx, command);
             // Send the command
             tds_ctx.send_tds_pdu(e_tds_message_type::sql_batch);
             // Receive the response
             tds_ctx.receive_tds_pdu();
+            // The state will be updated upon receiving the response
             return qstate.affected_rows;
         }
 
         // --------------------------------------------------------------------------------
 
-        static token_handler_result token_handler(void * uptr, e_tds_message_token_type token_type,
-                                                  tdsl::binary_reader<tdsl::endian::little> & rr) {
+        /**
+         * Token handler for command_context.
+         *
+         * Handles COLMETADATA & ROW token types.
+         *
+         * @param [in] uptr User-ptr (command context instance)
+         * @param [in] token_type Type of the token to handle
+         * @param [in] rr Binary reader
+         *
+         * @returns token-specific handler result for COLMETADATA & ROW tokens
+         * @returns default token handler result, which is `unhandled`
+         */
+        static TDSL_NODISCARD token_handler_result
+        token_handler(void * uptr, e_tds_message_token_type token_type,
+                      tdsl::binary_reader<tdsl::endian::little> & rr) noexcept {
             TDSL_ASSERT(uptr);
             self_type & self = *static_cast<self_type *>(uptr);
-            token_handler_result result{};
             switch (token_type) {
                 case e_tds_message_token_type::colmetadata:
-                    result = self.handle_colmetadata_token(rr);
-                    break;
+                    return self.handle_colmetadata_token(rr);
                 case e_tds_message_token_type::row:
-                    result = self.handle_row_token(rr);
-                    break;
+                    return self.handle_row_token(rr);
+                default:
+                    return {};
             }
-            return result;
+            TDSL_UNREACHABLE;
         }
 
     private:
@@ -115,32 +144,19 @@ namespace tdsl { namespace detail {
             /**
              * Column metadata for current query (if applicable)
              */
-            tds_colmetadata_token colmd;
+            tds_colmetadata_token colmd                    = {};
             /**
              * Number of affected rows from current query
              */
-            tdsl::uint32_t affected_rows;
+            tdsl::uint32_t affected_rows                   = {0};
             /**
              * If the query returns a result set, this is the
              * function to be called for every row read from
              * the result set.
              */
-            callback<void, row_callback_fn_t> row_callback{};
+            callback<void, row_callback_fn_t> row_callback = {};
 
-            struct {
-                tdsl::uint8_t received_done : 1;
-                tdsl::uint8_t reserved : 7;
-            } flags;
-
-            /**
-             * Reset the query state
-             */
-            inline void reset() {
-                colmd.reset();
-                affected_rows = 0;
-                row_callback.set(/*user_ptr=*/nullptr, /*callback=*/nullptr);
-            }
-        } qstate;
+        } qstate = {};
 
         // --------------------------------------------------------------------------------
 
@@ -151,15 +167,13 @@ namespace tdsl { namespace detail {
          * callback function, if a callback function is assigned.
          *
          * @param [in] rr Reader to read from
-         * @param [out] out Variable to put parsed COLMETADATA token data
          *
          * @return tdsl::uint32_t Amount of needed bytes to read a complete COLMETADATA token, if
          * any. The return value would be non-zero only if the reader has partial token data.
          */
-        token_handler_result
-        handle_colmetadata_token(tdsl::binary_reader<tdsl::endian::little> & rr) {
-            token_handler_result result{};
-
+        TDSL_NODISCARD token_handler_result
+        handle_colmetadata_token(tdsl::binary_reader<tdsl::endian::little> & rr) noexcept {
+            token_handler_result result                   = {};
             constexpr static auto k_min_colmetadata_bytes = 8;
             if (not rr.has_bytes(k_min_colmetadata_bytes)) {
                 result.status       = token_handler_status::not_enough_bytes;
@@ -170,6 +184,7 @@ namespace tdsl { namespace detail {
                 return result;
             }
 
+            // Read colum count, try to allocate memory for N columns
             const auto column_count = rr.read<tdsl::uint16_t>();
             if (not qstate.colmd.allocate_colinfo_array(column_count)) {
                 result.status = token_handler_status::not_enough_memory;
@@ -178,6 +193,10 @@ namespace tdsl { namespace detail {
                 return result;
             }
 
+            // If the user opted in for reading the column names,
+            // allocate memory for the column name array.
+            // Note that this just allocates memory for the pointers,
+            // not the actual column names.
             if (flags.read_colnames) {
                 // Allocate column name array
                 if (not qstate.colmd.allocate_column_name_array(column_count)) {
@@ -190,8 +209,9 @@ namespace tdsl { namespace detail {
             }
 
             // Absolute minimum COLMETADATA bytes, regardless of data type
-            constexpr int k_colinfo_min_bytes = 6; // user_type + flags + type + colname len
-            auto colindex                     = 0;
+            constexpr static auto k_colinfo_min_bytes = 6; // user_type + flags + type + colname len
+
+            auto colindex                             = 0;
 
             // Main column metadata read loop
             while (colindex < column_count && rr.has_bytes(k_colinfo_min_bytes)) {
@@ -247,7 +267,6 @@ namespace tdsl { namespace detail {
 
                 // If data type has collation info:
                 if (dtype_props.flags.has_collation) {
-
                     constexpr int k_collation_info_size = 5;
                     if (not rr.has_bytes(k_collation_info_size)) {
                         result.status       = token_handler_status::not_enough_bytes;
@@ -335,12 +354,13 @@ namespace tdsl { namespace detail {
          *
          * @return token_handler_result
          */
-        token_handler_result handle_row_token(tdsl::binary_reader<tdsl::endian::little> & rr) {
-            using data_size_type = tdsl::detail::e_tds_data_size_type;
+        TDSL_NODISCARD token_handler_result
+        handle_row_token(tdsl::binary_reader<tdsl::endian::little> & rr) noexcept {
+            using data_size_type        = tdsl::detail::e_tds_data_size_type;
 
-            token_handler_result result{};
+            token_handler_result result = {};
             // Invoke handler,return
-            if (not qstate.colmd.is_valid()) {
+            if (not qstate.colmd) {
                 // encountered row info without colmetadata?
                 TDSL_DEBUG_PRINTLN(
                     "Encountered ROW token withour prior COLMETADATA token, discarding packet");
@@ -476,18 +496,13 @@ namespace tdsl { namespace detail {
             }
 
             // Invoke row callback
-            qstate.row_callback.maybe_invoke(qstate.colmd, row_data.get());
+            qstate.row_callback(qstate.colmd, row_data.get());
 
             result.status       = token_handler_status::success;
             result.needed_bytes = 0;
             return result;
         }
-
-        tds_context_type & tds_ctx;
-
-        struct {
-            tdsl::uint8_t read_colnames : 1;
-            tdsl::uint8_t reserved : 7;
-        } flags;
     };
 }} // namespace tdsl::detail
+
+#endif

@@ -10,8 +10,8 @@
  * ____________________________________________________
  */
 
-#ifndef TDSL_DETAIL_TDS_TYPE_TRAITS_HPP
-#define TDSL_DETAIL_TDS_TYPE_TRAITS_HPP
+#ifndef TDSL_UTIL_TYPE_TRAITS_HPP
+#define TDSL_UTIL_TYPE_TRAITS_HPP
 
 namespace tdsl { namespace traits {
 
@@ -85,7 +85,8 @@ namespace tdsl { namespace traits {
     struct op_or<B1, B2> : public conditional<B1::value, B1, B2>::type {};
 
     template <typename B1, typename B2, typename B3, typename... Bn>
-    struct op_or<B1, B2, B3, Bn...> : public conditional<B1::value, B1, op_or<B2, B3, Bn...>>::type {};
+    struct op_or<B1, B2, B3, Bn...>
+        : public conditional<B1::value, B1, op_or<B2, B3, Bn...>>::type {};
 
     // enable_if
     template <bool, typename T = void>
@@ -120,7 +121,8 @@ namespace tdsl { namespace traits {
     struct is_reference : public op_or<is_lvalue_reference<T>, is_rvalue_reference<T>>::type {};
 
     template <class T>
-    struct is_function : integral_constant<bool, !is_const<const T>::value && !is_reference<T>::value> {};
+    struct is_function
+        : integral_constant<bool, !is_const<const T>::value && !is_reference<T>::value> {};
 
     template <typename T>
     using enable_if_function = typename enable_if<is_function<T>::value, bool>::type;
@@ -337,13 +339,16 @@ namespace tdsl { namespace traits {
         template <typename, typename>
         auto test_pre_is_base_of(...) -> true_type;
         template <typename B, typename D>
-        auto test_pre_is_base_of(int) -> decltype(test_pre_ptr_convertible<B>(static_cast<D *>(nullptr)));
+        auto test_pre_is_base_of(int)
+            -> decltype(test_pre_ptr_convertible<B>(static_cast<D *>(nullptr)));
     } // namespace detail
 
     template <typename Base, typename Derived>
     struct is_base_of
-        : integral_constant<bool, is_class<Base>::value &&
-                                      is_class<Derived>::value && decltype(detail::test_pre_is_base_of<Base, Derived>(0))::value> {};
+        : integral_constant<bool,
+                            is_class<Base>::value &&
+                                is_class<Derived>::value && decltype(detail::test_pre_is_base_of<
+                                                                     Base, Derived>(0))::value> {};
 
     // array
 
@@ -379,7 +384,8 @@ namespace tdsl { namespace traits {
     public:
         typedef typename conditional<
             is_array<U>::value, typename remove_extent<U>::type *,
-            typename conditional<is_function<U>::value, typename add_pointer<U>::type, typename remove_cv<U>::type>::type>::type type;
+            typename conditional<is_function<U>::value, typename add_pointer<U>::type,
+                                 typename remove_cv<U>::type>::type>::type type;
     };
 
     namespace {
@@ -395,7 +401,8 @@ namespace tdsl { namespace traits {
 
     namespace enable_when {
         template <typename T, template <typename...> class U>
-        using template_instance_of = typename traits::enable_if<traits::is_template_instance_of<T, U>::value, bool>::type;
+        using template_instance_of =
+            typename traits::enable_if<traits::is_template_instance_of<T, U>::value, bool>::type;
 
         template <typename T>
         using integral = typename enable_if<is_integral<T>::value, bool>::type;

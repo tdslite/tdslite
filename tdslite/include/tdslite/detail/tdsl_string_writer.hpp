@@ -9,7 +9,8 @@
  * _________________________________________________
  */
 
-#pragma once
+#ifndef TDSL_DETAIL_STRING_PARAMETER_WRITER_HPP
+#define TDSL_DETAIL_STRING_PARAMETER_WRITER_HPP
 
 #include <tdslite/util/tdsl_inttypes.hpp>
 #include <tdslite/util/tdsl_string_view.hpp>
@@ -28,7 +29,7 @@ namespace tdsl { namespace detail {
     struct string_parameter_writer {
 
         static void write(typename TDSCTX::xmit_if & xc, const string_view & sv,
-                          void (*encoder)(tdsl::uint8_t *, tdsl::uint32_t) = nullptr) {
+                          void (*encoder)(tdsl::uint8_t *, tdsl::uint32_t) = nullptr) noexcept {
             for (auto ch : sv) {
                 char16_t c = ch;
                 if (encoder) {
@@ -40,7 +41,7 @@ namespace tdsl { namespace detail {
         }
 
         static void write(typename TDSCTX::xmit_if & xc, const wstring_view & sv,
-                          void (*encoder)(tdsl::uint8_t *, tdsl::uint32_t) = nullptr) {
+                          void (*encoder)(tdsl::uint8_t *, tdsl::uint32_t) = nullptr) noexcept {
 
             if (not encoder) {
                 xc.write(sv);
@@ -65,3 +66,5 @@ namespace tdsl { namespace detail {
         }
     };
 }} // namespace tdsl::detail
+
+#endif

@@ -9,7 +9,8 @@
  * _________________________________________________
  */
 
-#pragma once
+#ifndef TDSL_UTIL_NONCOPYABLE_HPP
+#define TDSL_UTIL_NONCOPYABLE_HPP
 
 namespace tdsl { namespace util {
 
@@ -68,3 +69,5 @@ namespace tdsl { namespace util {
         noncopyable & operator=(noncopyable &&) = default;
     }; // class noncopyable
 }}     // namespace tdsl::util
+
+#endif

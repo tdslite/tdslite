@@ -9,7 +9,8 @@
  * _________________________________________________
  */
 
-#pragma once
+#ifndef TDSL_DETAIL_TDS_FLAG_TYPES_HPP
+#define TDSL_DETAIL_TDS_FLAG_TYPES_HPP
 
 #include <tdslite/util/tdsl_inttypes.hpp>
 
@@ -51,3 +52,5 @@ namespace tdsl { namespace detail {
         tdsl::uint8_t reserved : 3;
     };
 }} // namespace tdsl::detail
+
+#endif

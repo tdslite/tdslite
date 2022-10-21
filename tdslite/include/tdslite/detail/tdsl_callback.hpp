@@ -10,7 +10,8 @@
  * _____________________________________________________
  */
 
-#pragma once
+#ifndef TDSL_DETAIL_CALLBACK_HPP
+#define TDSL_DETAIL_CALLBACK_HPP
 
 #include <tdslite/util/tdsl_inttypes.hpp>
 #include <tdslite/util/tdsl_macrodef.hpp>
@@ -29,37 +30,49 @@ namespace tdsl {
         using return_type = R;
     };
 
+    /**
+     * Generic callback type
+     *
+     * @tparam T Default arg for callback function type
+     * @tparam FNTYPE Callback function type
+     */
     template <typename T, typename FNTYPE>
     struct callback {
-        using function_type = FNTYPE;
-        using return_type   = typename function_signature<FNTYPE>::return_type;
+        using function_type    = FNTYPE;
+        using return_type      = typename function_signature<FNTYPE>::return_type;
+
+        // --------------------------------------------------------------------------------
 
         /**
          * User-supplied opaque pointer.
          * Will be passed as first argument to the callback function.
          */
-        void * user_ptr{nullptr};
-
-        /**
-         * Pointer to the  callback function
-         */
-        FNTYPE callback{nullptr};
+        void * user_ptr        = {nullptr};
 
         // --------------------------------------------------------------------------------
 
         /**
-         * Set callback context
-         *
-         * @param user_ptr User pointer
-         * @param callback Callback function
-         *
-         * The @p user_ptr will be passed as first argument to @p callback
-         * on invocation.
+         * Pointer to the  callback function
          */
-        void set(void * user_ptr, FNTYPE callback) {
-            this->user_ptr = user_ptr;
-            this->callback = callback;
-        }
+        FNTYPE callback_fn_ptr = {nullptr};
+
+        // --------------------------------------------------------------------------------
+
+        callback() noexcept    = default;
+
+        // --------------------------------------------------------------------------------
+
+        /**
+         * Construct callback
+         *
+         * @param [in] user_ptr User pointer
+         * @param [in] callback Callback function
+         *
+         * The @p user_ptr will be passed as first argument to
+         * @p callback on every invocation.
+         */
+        callback(void * user_ptr, FNTYPE callback) noexcept :
+            user_ptr(user_ptr), callback_fn_ptr(callback){};
 
         // --------------------------------------------------------------------------------
 
@@ -67,67 +80,57 @@ namespace tdsl {
          * Operator bool to make callback boolable.
          * Returns true if callback has a non-null context
          */
-        inline operator bool() const noexcept {
-            return callback != nullptr;
+        inline TDSL_NODISCARD operator bool() const noexcept {
+            return callback_fn_ptr != nullptr;
         }
 
         // --------------------------------------------------------------------------------
 
         /**
-         * Invoke the @ref callback with given @p args. The callback function
-         * will be called with @ref user_ptr followed by the @p args.
+         * Invoke the @ref callback with given @p args, if set.
+         * The callback function will be called with @ref user_ptr
+         * followed by the @p args. The call will have no effect if
+         * @ref callback is nullptr.
          *
          * @param [in] args Arguments to call the callback funtion with
          * @return The return value of callback function
          */
         template <typename R = return_type, typename... Args>
-        inline auto maybe_invoke(Args &&... args) -> typename traits::enable_if<!traits::is_same<R, void>::value, R>::type {
-            return (operator bool() ? invoke(TDSL_FORWARD(args)...) : return_type{0});
+        inline TDSL_NODISCARD auto operator()(Args &&... args) const noexcept ->
+            typename traits::enable_if<!traits::is_same<R, void>::value, R>::type {
+            return (operator bool() ? callback_fn_ptr(user_ptr, TDSL_FORWARD(args)...)
+                                    : return_type{});
         }
 
         // --------------------------------------------------------------------------------
 
         /**
-         * Invoke the @ref callback with given @p args. The callback function
-         * will be called with @ref user_ptr followed by the @p args.
+         * Invoke the @ref callback with given @p args, if set.
+         * The callback function will be called with @ref user_ptr
+         * followed by the @p args. The call will have no effect if
+         * @ref callback is nullptr.
          *
          * (void return type overload)
          *
          * @param [in] args Arguments to call the callback funtion with
          */
         template <typename R = return_type, typename... Args>
-        inline auto maybe_invoke(Args &&... args) -> typename traits::enable_if<traits::is_same<R, void>::value, void>::type {
+        inline auto operator()(Args &&... args) const noexcept ->
+            typename traits::enable_if<traits::is_same<R, void>::value, void>::type {
             if (operator bool()) {
-                invoke(TDSL_FORWARD(args)...);
+                callback_fn_ptr(user_ptr, TDSL_FORWARD(args)...);
             }
         }
-
-        // --------------------------------------------------------------------------------
-
-        /**
-         * Invoke the @ref callback with given @p args. The callback function
-         * will be called with @ref user_ptr followed by the @p args.
-         *
-         * @param [in] args Arguments to call the callback funtion with
-         * @return The return value of callback function
-         */
-        template <typename R = return_type, typename... Args>
-        inline auto invoke(Args &&... args) -> typename traits::enable_if<!traits::is_same<R, void>::value, R>::type {
-            return callback(user_ptr, TDSL_FORWARD(args)...);
-        }
-
-        // --------------------------------------------------------------------------------
-
-        template <typename R = return_type, typename... Args>
-        inline auto invoke(Args &&... args) -> typename traits::enable_if<traits::is_same<R, void>::value, void>::type {
-            callback(user_ptr, TDSL_FORWARD(args)...);
-        }
     };
+
+    // --------------------------------------------------------------------------------
 
     /**
      * Default template for callback context
      */
-    template <typename T, typename FNTYPE = tdsl::uint32_t (*)(/*user_ptr*/ void *, /*info type*/ const T &)>
+    template <typename T, typename FNTYPE = void (*)(/*user_ptr*/ void *, /*info type*/ const T &)>
     struct callback;
 
 } // namespace tdsl
+
+#endif

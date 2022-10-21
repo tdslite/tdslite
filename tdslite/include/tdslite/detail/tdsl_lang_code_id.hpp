@@ -10,7 +10,8 @@
  * _________________________________________________
  */
 
-#pragma once
+#ifndef TDSL_DETAIL_MS_LANG_CODE_ID_HPP
+#define TDSL_DETAIL_MS_LANG_CODE_ID_HPP
 
 #include <tdslite/util/tdsl_inttypes.hpp>
 
@@ -859,3 +860,5 @@ namespace tdsl { namespace detail {
         zu_za_zulu               = 0x0435,
     };
 }} // namespace tdsl::detail
+
+#endif

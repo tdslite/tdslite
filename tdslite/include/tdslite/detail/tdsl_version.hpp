@@ -9,7 +9,8 @@
  * _________________________________________________
  */
 
-#pragma once
+#ifndef TDSL_DETAIL_TDS_VERSION_HPP
+#define TDSL_DETAIL_TDS_VERSION_HPP
 
 #include <tdslite/util/tdsl_inttypes.hpp>
 
@@ -29,3 +30,5 @@ namespace tdsl { namespace detail {
         sql_server_2019     = sql_server_2012,
     };
 }} // namespace tdsl::detail
+
+#endif

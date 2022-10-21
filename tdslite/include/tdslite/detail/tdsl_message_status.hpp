@@ -9,7 +9,8 @@
  * _________________________________________________
  */
 
-#pragma once
+#ifndef TDSL_DETAIL_TDS_MESSAGE_STATUS_HPP
+#define TDSL_DETAIL_TDS_MESSAGE_STATUS_HPP
 
 #include <tdslite/util/tdsl_inttypes.hpp>
 #include <tdslite/util/tdsl_endian.hpp>
@@ -39,3 +40,5 @@ namespace tdsl { namespace detail {
 #endif
     };
 }} // namespace tdsl::detail
+
+#endif

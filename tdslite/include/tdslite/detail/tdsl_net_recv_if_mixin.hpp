@@ -9,7 +9,8 @@
  * _________________________________________________
  */
 
-#pragma once
+#ifndef TDSL_DETAIL_NET_RECV_IF_MIXIN_HPP
+#define TDSL_DETAIL_NET_RECV_IF_MIXIN_HPP
 
 #include <tdslite/util/tdsl_inttypes.hpp>
 #include <tdslite/util/tdsl_type_traits.hpp>
@@ -77,3 +78,5 @@ namespace tdsl { namespace detail {
         }
     }; // namespace tdsl
 }}     // namespace tdsl::detail
+
+#endif

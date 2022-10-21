@@ -10,7 +10,8 @@
  * _________________________________________________
  */
 
-#pragma once
+#ifndef TDSL_DETAIL_LOGIN_CONTEXT_HPP
+#define TDSL_DETAIL_LOGIN_CONTEXT_HPP
 
 #include <tdslite/detail/tdsl_lang_code_id.hpp>
 #include <tdslite/detail/tdsl_version.hpp>
@@ -83,19 +84,12 @@ namespace tdsl { namespace detail {
          * @param [in] tc The TDS context
          */
         inline login_context(tds_context_type & tc) noexcept : tds_ctx(tc) {
-
-            tds_ctx.do_register_envchange_token_callback(
-                this, +[](void *, const tds_envchange_token &) -> tdsl::uint32_t {
-                    return 0;
-                });
-
-            tds_ctx.do_register_loginack_token_callback(
-                this, +[](void * uptr, const tds_login_ack_token &) -> tdsl::uint32_t {
+            tds_ctx.callbacks.loginack = {
+                this, +[](void * uptr, const tds_login_ack_token &) noexcept -> void {
                     auto self                         = reinterpret_cast<self_type *>(uptr);
                     // Mark current context as `authenticated`
                     self->tds_ctx.flags.authenticated = {true};
-                    return 0;
-                });
+                }};
         }
 
         ~login_context() = default;
@@ -377,3 +371,5 @@ namespace tdsl { namespace detail {
         } // ... void do_login_impl(const LoginParamsType & params) noexcept {
     };
 }} // namespace tdsl::detail
+
+#endif
