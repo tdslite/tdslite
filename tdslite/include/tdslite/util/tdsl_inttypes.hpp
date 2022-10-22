@@ -69,6 +69,15 @@ namespace tdsl {
 
 } // namespace tdsl
 
+static_assert(sizeof(tdsl::int8_t) == 1, "sizeof(tdsl::int8_t) is not 1 in your platform!");
+static_assert(sizeof(tdsl::uint8_t) == 1, "sizeof(tdsl::uint8_t) is not 1 in your platform!");
+static_assert(sizeof(tdsl::int16_t) == 2, "sizeof(tdsl::int16_t) is not 2 in your platform!");
+static_assert(sizeof(tdsl::uint16_t) == 2, "sizeof(tdsl::uint16_t) is not 2 in your platform!");
+static_assert(sizeof(tdsl::int32_t) == 4, "sizeof(tdsl::int32_t) is not 4 in your platform!");
+static_assert(sizeof(tdsl::uint32_t) == 4, "sizeof(tdsl::uint32_t) is not 4 in your platform!");
+static_assert(sizeof(tdsl::int64_t) == 8, "sizeof(tdsl::int64_t) is not 8 in your platform!");
+static_assert(sizeof(tdsl::uint64_t) == 8, "sizeof(tdsl::uint64_t) is not 8 in your platform!");
+
 // user-defined literals for casting integers
 
 inline static constexpr tdsl::uint8_t operator"" _tdsu8(unsigned long long arg) noexcept {

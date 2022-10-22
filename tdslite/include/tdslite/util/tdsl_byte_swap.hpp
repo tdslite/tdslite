@@ -25,6 +25,11 @@ namespace tdsl {
     inline TDSL_NODISCARD constexpr auto byte_swap(T v) noexcept -> T;
 
     template <>
+    inline TDSL_NODISCARD constexpr auto byte_swap<bool>(bool v) noexcept -> bool {
+        return v;
+    }
+
+    template <>
     inline TDSL_NODISCARD constexpr auto byte_swap<tdsl::int8_t>(tdsl::int8_t v) noexcept
         -> tdsl::int8_t {
         return v;

@@ -30,7 +30,6 @@ namespace tdsl { namespace detail {
         using login_parameters_type  = typename login_context_type::login_parameters;
         using wlogin_parameters_type = typename login_context_type::wlogin_parameters;
         using sql_command_type       = detail::command_context<NetImpl>;
-        using row_type               = tdsl_row;
 
         struct connection_parameters : public login_parameters_type {
             tdsl::uint16_t port = {1433};
@@ -65,9 +64,9 @@ namespace tdsl { namespace detail {
          *
          *
          */
-        void
-        set_info_callback(void * user_ptr,
-                          typename tds_context_type::info_callback_type::function_type callback) {
+        void set_info_callback(
+            void * user_ptr,
+            typename tds_context_type::info_callback_type::function_type callback) noexcept {
             tds_ctx.callbacks.info = {user_ptr, callback};
         }
 
@@ -82,9 +81,9 @@ namespace tdsl { namespace detail {
         // --------------------------------------------------------------------------------
 
         template <typename T>
-        inline auto execute_query(T command, void * uptr,
-                                  void (*row_callback)(void *, const tds_colmetadata_token &,
-                                                       const tdsl_row &)) noexcept
+        inline auto
+        execute_query(T command, void * uptr,
+                      typename sql_command_type::row_callback_fn_t row_callback) noexcept
             -> tdsl::uint32_t {
             TDSL_ASSERT(tds_ctx.is_authenticated());
             return sql_command_type{tds_ctx}.execute_query(command, uptr, row_callback);

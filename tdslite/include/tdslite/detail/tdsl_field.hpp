@@ -20,6 +20,24 @@
 
 namespace tdsl {
 
+    namespace types {
+        using sql_bit      = bool;
+        using sql_tinyint  = tdsl::uint8_t;
+        using sql_smallint = tdsl::int16_t;
+        using sql_int      = tdsl::int32_t;
+        using sql_bigint   = tdsl::int64_t;
+
+        // struct sql_decimal {
+        //     inline operator tdsl::int64_t() const noexcept {
+        //         return value;
+        //     }
+
+        //     tdsl::int64_t value;
+        // };
+
+        // using sql_numeric = sql_decimal;
+    } // namespace types
+
     namespace detail {
         template <typename NetImpl>
         struct command_context;
@@ -42,6 +60,26 @@ namespace tdsl {
         inline auto as_impl(byte_view data) -> T {
             return data.rebind_cast<typename T::element_type>();
         }
+
+        // Decimal is not yet supported.
+        // /**
+        //  * Cast helper for integral types
+        //  *
+        //  * @param [in] data Data to cast
+        //  * @return T bytes of data converted to host endianness and reinterpreted as type T
+        //  */
+        // template <typename T, typename traits::enable_when::same<T, types::sql_decimal> = true>
+        // inline auto as_impl(byte_view data) -> T {
+        //     tdsl::binary_reader<tdsl::endian::little> reader{data};
+        //     const bool sign = reader.read<bool>();
+        //     // read N bytes
+        //     // precision, scale
+        //     // Can be 5, 9, 13, 17
+        //     // TDSL_ASSERT_MSG(data.size_bytes() >= sizeof(T),
+        //     //                 "Given span does not have enough bytes to read a value with type
+        //     //                 T!");
+        //     // return tdsl::binary_reader<tdsl::endian::little>{data}.read<T>();
+        // }
 
     } // namespace detail
 

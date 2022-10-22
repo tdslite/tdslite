@@ -9,7 +9,7 @@
  * _________________________________________________
  */
 
-#define TDSL_DEBUG_PRINT_ENABLED
+// #define TDSL_DEBUG_PRINT_ENABLED
 
 #include <tdslite/net/asio/asio_network_impl.hpp>
 #include <tdslite/util/tdsl_hex_dump.hpp>
@@ -283,6 +283,7 @@ namespace tdsl { namespace net {
 
         const auto bytes_written = asio::write(
             *as_socket(socket_handle), boost::asio::const_buffer(buf.data(), buf.size()), ec);
+        (void) bytes_written;
         if (not ec) {
             TDSL_DEBUG_PRINT("asio_network_impl::do_send(...) -> sent %lu byte(s), ec %d (%s)\n",
                              bytes_written, ec.value(), ec.what().c_str());

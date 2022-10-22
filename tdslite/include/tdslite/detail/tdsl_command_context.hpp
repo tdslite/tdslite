@@ -35,13 +35,17 @@ namespace tdsl { namespace detail {
      */
     template <typename NetImpl>
     struct command_context {
-        using tds_context_type = tds_context<NetImpl>;
+        using tds_context_type     = tds_context<NetImpl>;
+        // Constant reference to tds_colmetadata_token
+        using column_metadata_cref = const tdsl::tds_colmetadata_token &;
+        // Constant reference to tdsl_row
+        using row_cref             = const tdsl::tdsl_row &;
+        using row_callback_fn_t    = void (*)(void *, column_metadata_cref, row_cref);
 
     private:
         using self_type                = command_context<NetImpl>;
         using string_writer_type       = string_parameter_writer<tds_context_type>;
         using nonquery_result_callback = callback<tds_done_token>;
-        using row_callback_fn_t = void (*)(void *, const tds_colmetadata_token &, const tdsl_row &);
 
         // --------------------------------------------------------------------------------
 

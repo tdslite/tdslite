@@ -1,5 +1,6 @@
 /**
  * _________________________________________________
+ * command_context integration tests
  *
  * @file   it_tds_command.cpp
  * @author Mustafa Kemal GILOR <mustafagilor@gmail.com>
@@ -9,7 +10,7 @@
  * _________________________________________________
  */
 
-#define TDSL_DEBUG_PRINT_ENABLED
+// #define TDSL_DEBUG_PRINT_ENABLED
 
 #include <tdslite/detail/tdsl_login_context.hpp>
 #include <tdslite/detail/tdsl_command_context.hpp>
@@ -22,10 +23,18 @@
 
 #include <chrono>
 
+/**
+ * The type of the unit-under-test
+ */
+using uut_t       = tdsl::detail::command_context<tdsl::net::asio_network_impl>;
+using login_ctx_t = tdsl::detail::login_context<tdsl::net::asio_network_impl>;
+using tds_ctx_t   = uut_t::tds_context_type;
+
 // --------------------------------------------------------------------------------
 
-static void default_row_callback(void *, const tdsl::tds_colmetadata_token & colmd,
-                                 const tdsl::tdsl_row & row_data) {
+static void default_row_callback(void *, uut_t::column_metadata_cref colmd,
+                                 uut_t::row_cref row_data) {
+#ifdef TDSL_TEST_VERBOSE_OUTPUT
     std::printf("colcnt %d\n", colmd.columns.size());
     std::printf("row with %d fields\n", row_data.size());
     for (tdsl::uint32_t i = 0; i < row_data.size(); i++) {
@@ -33,14 +42,32 @@ static void default_row_callback(void *, const tdsl::tds_colmetadata_token & col
         tdsl::util::hexprint(row_data [i].data(), row_data [i].size());
     }
     std::printf("\n");
+#else
+    (void) colmd;
+    (void) row_data;
+#endif
 }
 
 /**
- * The type of the unit-under-test
+ * Credentials for internal mssql 2017
+ *
+ * @return const login_ctx_t::login_parameters&
  */
-using uut_t       = tdsl::detail::command_context<tdsl::net::asio_network_impl>;
-using login_ctx_t = tdsl::detail::login_context<tdsl::net::asio_network_impl>;
-using tds_ctx_t   = uut_t::tds_context_type;
+inline static auto mssql_2017_creds() -> const login_ctx_t::login_parameters & {
+    static login_ctx_t::login_parameters params = [] {
+        login_ctx_t::login_parameters p;
+        p.server_name  = "mssql-2017";
+        p.user_name    = "sa";
+        p.password     = "2022-tds-lite-test!";
+        p.client_name  = "tdslite integration test case";
+        p.app_name     = "tdslite integration test";
+        p.library_name = "tdslite";
+        p.db_name      = "master";
+        return p;
+    }();
+
+    return params;
+}
 
 /**
  * tds_command_context integration tests.
@@ -53,19 +80,83 @@ using tds_ctx_t   = uut_t::tds_context_type;
 struct tds_command_ctx_it_fixture : public ::testing::Test {
 
     virtual void SetUp() override {
-        login_ctx_t::login_parameters params;
         login_ctx_t login{tds_ctx};
-        params.server_name  = "mssql-2017";
-        params.user_name    = "sa";
-        params.password     = "2022-tds-lite-test!";
-        params.client_name  = "tdslite integration test case";
-        params.app_name     = "tdslite integration test";
-        params.library_name = "tdslite";
-        params.db_name      = "master";
-
-        ASSERT_EQ(tds_ctx.do_connect("mssql-2017", /*port=*/1433), 0);
+        const auto & params = mssql_2017_creds();
+        ASSERT_EQ(tds_ctx.do_connect(params.server_name, /*port=*/1433), 0);
         ASSERT_EQ(login.do_login(params), login_ctx_t::e_login_status::success);
         ASSERT_TRUE(tds_ctx.is_authenticated());
+    }
+
+    struct owning_string_view {
+        inline operator tdsl::string_view() const noexcept {
+            return tdsl::string_view{v.data(), static_cast<tdsl::uint32_t>(v.size())};
+        }
+
+        std::string v;
+    };
+
+    template <typename... Args>
+    inline static owning_string_view cq(Args... args) noexcept {
+        std::string result{"CREATE TABLE #"};
+        result +=
+            std::string(::testing::UnitTest::GetInstance()->current_test_info()->name()) + " (";
+        int unpack []{0, (result += (std::string(args) + std::string(",")), 0)...};
+        (void) unpack;
+        result.pop_back(); // remove last excess comma
+        result += ");";
+        return {result};
+    }
+
+    template <typename... Args>
+    inline static owning_string_view iq(Args... args) noexcept {
+        std::string result{"INSERT INTO #"};
+        result += std::string(::testing::UnitTest::GetInstance()->current_test_info()->name()) +
+                  " VALUES(";
+        int unpack []{0, (result += (std::string(args) + std::string(",")), 0)...};
+        (void) unpack;
+        result.pop_back(); // remove last excess comma
+        result += ");";
+        return {result};
+    }
+
+    // template <typename... Args>
+    inline static owning_string_view sq(const char * s = "*", const char * w = nullptr,
+                                        const char * o = nullptr) noexcept {
+        std::string result{"SELECT "};
+        result += s;
+        result += " FROM #" +
+                  std::string(::testing::UnitTest::GetInstance()->current_test_info()->name());
+        if (w) {
+            result += " WHERE " + std::string(w);
+        }
+        if (o) {
+            result += " ORDER BY " + std::string(o);
+        }
+        result += ";";
+        return {result};
+    }
+
+    template <tdsl::uint32_t Times = 1>
+    inline tdsl::uint64_t exec(const owning_string_view & query, void * uptr = nullptr,
+                               uut_t::row_callback_fn_t rcb = default_row_callback) noexcept {
+        tdsl::uint64_t total_rows_affected = 0;
+        for (tdsl::uint32_t i = 0; i < Times; i++) {
+            total_rows_affected +=
+                command_ctx.execute_query(static_cast<tdsl::string_view>(query), uptr, rcb);
+        }
+        return total_rows_affected;
+    }
+
+    template <tdsl::uint32_t Times = 1>
+    inline tdsl::uint64_t
+    exec_as_one(const owning_string_view & query, void * uptr = nullptr,
+                uut_t::row_callback_fn_t rcb = default_row_callback) noexcept {
+        std::string q;
+        for (tdsl::uint32_t i = 0; i < Times; i++) {
+            q += query.v;
+        }
+        return command_ctx.execute_query(
+            tdsl::string_view{q.data(), static_cast<tdsl::uint32_t>(q.size())}, uptr, rcb);
     }
 
     tds_ctx_t tds_ctx;
@@ -73,194 +164,301 @@ struct tds_command_ctx_it_fixture : public ::testing::Test {
 };
 
 TEST_F(tds_command_ctx_it_fixture, ct_int_int) {
-    command_ctx.execute_query(
-        tdsl::string_view{/*str=*/"CREATE TABLE #test_ct_int_int(q int,y int);"}); // callback
+    ASSERT_EQ(0, exec(cq("q int", "y int")));
 }
 
 TEST_F(tds_command_ctx_it_fixture, cti_int_int) {
-    command_ctx.execute_query(
-        tdsl::string_view{/*str=*/"CREATE TABLE #test_cti_int_int(q int,y int);"}); // callback
-    command_ctx.execute_query(
-        tdsl::string_view{/*str=*/"INSERT INTO #test_cti_int_int VALUES(1,1);"}); // callback
+    ASSERT_EQ(0, exec(cq("q int", "y int")));
+    ASSERT_EQ(1, exec(iq("1", "1")));
 }
 
 TEST_F(tds_command_ctx_it_fixture, ctis_int_int) {
-    // row callback
-    // done callback?
-    // should return 0 rows affected?
-    EXPECT_EQ(0, command_ctx.execute_query(tdsl::string_view{
-                     /*str=*/"CREATE TABLE #test_ctis_int_int(q int,y int);"})); // callback
-    // should return 1 rows affected
-    EXPECT_EQ(1, command_ctx.execute_query(tdsl::string_view{
-                     /*str=*/"INSERT INTO #test_ctis_int_int VALUES(1,1);"})); // callback
-    EXPECT_EQ(1, command_ctx.execute_query(tdsl::string_view{
-                     /*str=*/"INSERT INTO #test_ctis_int_int VALUES(1,1);"})); // callback
-    EXPECT_EQ(1, command_ctx.execute_query(tdsl::string_view{
-                     /*str=*/"INSERT INTO #test_ctis_int_int VALUES(1,1);"})); // callback
-
-    // should return 1 rows with 2 int fields.
-    tdsl::uint32_t rows_affected = command_ctx.execute_query(
-        tdsl::string_view{/*str=*/"SELECT q,y from #test_ctis_int_int;"}, nullptr,
-        default_row_callback); // callback
-    std::printf("rows affected %d\n", rows_affected);
+    ASSERT_EQ(0, exec(cq("q int", "y int")));
+    ASSERT_EQ(3, exec<3>(iq("1", "1")));
 }
 
+// data_fill
+
 TEST_F(tds_command_ctx_it_fixture, ctis_varcharn_real) {
-    // row callback
-    // done callback?
-
-    // should return 0 rows affected?
-    EXPECT_EQ(
-        0,
-        command_ctx.execute_query(tdsl::string_view{
-            /*str=*/"CREATE TABLE #test_ctis_varcharn_real(q varchar(255),y real);"})); // callback
-    // should return 1 rows affected
-    EXPECT_EQ(1,
-              command_ctx.execute_query(tdsl::string_view{
-                  /*str=*/"INSERT INTO #test_ctis_varcharn_real VALUES('aaaa',0.5);"})); // callback
-
-    tdsl::uint32_t rows_affected = command_ctx.execute_query(
-        tdsl::string_view{/*str=*/"SELECT q,y from #test_ctis_varcharn_real;"}, nullptr,
-        default_row_callback); // callback
-    std::printf("rows affected %d\n", rows_affected);
+    ASSERT_EQ(0, exec(cq("q varchar(255)", "y real")));
+    ASSERT_EQ(5, exec<5>(iq("'aaaa'", "0.5")));
+    ASSERT_EQ(5, exec(sq()));
 }
 
 TEST_F(tds_command_ctx_it_fixture, ctis_decimal_real) {
-    // row callback
-    // done callback?
-
-    // should return 0 rows affected?
-    EXPECT_EQ(0,
-              command_ctx.execute_query(tdsl::string_view{
-                  /*str=*/"CREATE TABLE #test_ctis_decimal_real(q decimal,y real);"})); // callback
-    // should return 1 rows affected
-    EXPECT_EQ(1, command_ctx.execute_query(tdsl::string_view{
-                     /*str=*/"INSERT INTO #test_ctis_decimal_real VALUES(1,0.5);"})); // callback
-
-    tdsl::uint32_t rows_affected = command_ctx.execute_query(
-        tdsl::string_view{/*str=*/"SELECT q,y from #test_ctis_decimal_real;"}, nullptr,
-        default_row_callback); // callback
-    std::printf("rows affected %d\n", rows_affected);
+    ASSERT_EQ(0, exec(cq("q decimal", "y real")));
+    ASSERT_EQ(3, exec<3>(iq("1", "0.5")));
+    ASSERT_EQ(3, exec(sq()));
 }
 
 TEST_F(tds_command_ctx_it_fixture, ctis_guid_varchar_int) {
-    // row callback
-    // done callback?
-
-    // should return 0 rows affected?
-    EXPECT_EQ(0, command_ctx.execute_query(tdsl::string_view{
-                     /*str=*/"CREATE TABLE #test_ctis_guid_varchar_int(q "
-                             "UNIQUEIDENTIFIER,y varchar(512),z int);"})); // callback
-    // should return 1 rows affected
-    EXPECT_EQ(1, command_ctx.execute_query(tdsl::string_view{
-                     /*str=*/"INSERT INTO #test_ctis_guid_varchar_int VALUES(0x0, "
-                             "'this is a test', 0);"})); // callback
-
-    tdsl::uint32_t rows_affected = command_ctx.execute_query(
-        tdsl::string_view{/*str=*/"SELECT q,y,z from #test_ctis_guid_varchar_int;"}, nullptr,
-        default_row_callback); // callback
-    std::printf("rows affected %d\n", rows_affected);
+    ASSERT_EQ(0, exec(cq("q UNIQUEIDENTIFIER", "y varchar(512)", "z int")));
+    ASSERT_EQ(3, exec<3>(iq("0x0", "'this is a test'", "0")));
+    ASSERT_EQ(3, exec(sq()));
 }
 
 TEST_F(tds_command_ctx_it_fixture, ctis_10k_rows_multi_packet) {
-    // row callback
-    // done callback?
-
     static int callback_invoked = 0;
 
-    // should return 0 rows affected?
-    ASSERT_EQ(0, command_ctx.execute_query(tdsl::string_view{
-                     /*str=*/"CREATE TABLE #test_ctis_10k_rows_multi_packet(q "
-                             "UNIQUEIDENTIFIER,y varchar(512),z int);"})); //
-                                                                           // callback
-
-    for (int i = 0; i < 10000; i++) {
-        ASSERT_EQ(1, command_ctx.execute_query(
-                         tdsl::string_view{/*str=*/"INSERT INTO #test_ctis_10k_rows_multi_packet "
-                                                   "VALUES(0x0, 'this is a test', 0);"})); //
-        // callback
-    }
-    // should return 1 rows affected
-
-    auto callback =
-        +[](void *, const tdsl::tds_colmetadata_token & colmd, const tdsl::tdsl_row & row_data) {
-            default_row_callback(nullptr, colmd, row_data);
-            callback_invoked++;
-        };
-
-    {
-        tdsl::uint32_t rows_affected = command_ctx.execute_query(
-            tdsl::string_view{/*str=*/"SELECT q,y,z from #test_ctis_10k_rows_multi_packet;"},
-            nullptr, callback); // callback
-        std::printf("rows affected %d\n", rows_affected);
-        EXPECT_EQ(10000, rows_affected);
-        EXPECT_EQ(10000, callback_invoked);
-    }
-    {
-        tdsl::uint32_t rows_affected = command_ctx.execute_query(
-            tdsl::string_view{
-                /*str=*/"SELECT TOP 500 q,y,z from #test_ctis_10k_rows_multi_packet ORDER BY z;"},
-            nullptr, callback); // callback
-        std::printf("rows affected %d\n", rows_affected);
-        EXPECT_EQ(500, rows_affected);
-        EXPECT_EQ(10500, callback_invoked);
-    }
+    auto callback = +[](void *, uut_t::column_metadata_cref colmd, uut_t::row_cref row_data) {
+        default_row_callback(nullptr, colmd, row_data);
+        callback_invoked++;
+    };
+    ASSERT_EQ(0, exec(cq("q UNIQUEIDENTIFIER", "y varchar(512)", "z int")));
+    ASSERT_EQ(10000, exec<10000>(iq("0x0", "'this is a test'", "0")));
+    ASSERT_EQ(10000, exec(sq(), nullptr, callback));
+    ASSERT_EQ(callback_invoked, 10000);
+    ASSERT_EQ(500, exec(sq("TOP 500 q,y,z", nullptr, "z"), nullptr, callback));
+    ASSERT_EQ(callback_invoked, 10500);
 }
 
 TEST_F(tds_command_ctx_it_fixture, ctis_guid_varchar_int_null) {
-
-    // const char q[]= "DROP TABLE #test_ctis_guid_varchar_int_null;CREATE TABLE"
-    //::testing::UnitTest::GetInstance()->current_test_case()->
-    EXPECT_EQ(0, command_ctx.execute_query(tdsl::string_view{
-                     /*str=*/"CREATE TABLE #test_ctis_guid_varchar_int_null(q "
-                             "UNIQUEIDENTIFIER,y varchar(512),z int);"})); // callback
-    // should return 1 rows affected
-    EXPECT_EQ(1, command_ctx.execute_query(
-                     tdsl::string_view{/*str=*/"INSERT INTO #test_ctis_guid_varchar_int_null "
-                                               "VALUES(NULL, NULL, NULL);"})); // callback
-
-    auto callback =
-        +[](void *, const tdsl::tds_colmetadata_token & colmd, const tdsl::tdsl_row & row_data) {
-            default_row_callback(nullptr, colmd, row_data);
-            for (tdsl::uint32_t i = 0; i < row_data.size(); i++) {
-                EXPECT_EQ(true, row_data [i].is_null());
-            }
-        };
-
-    tdsl::uint32_t rows_affected = command_ctx.execute_query(
-        tdsl::string_view{/*str=*/"SELECT q,y,z from #test_ctis_guid_varchar_int_null;"}, nullptr,
-        callback); // callback
-    std::printf("rows affected %d\n", rows_affected);
-    EXPECT_EQ(rows_affected, 1);
+    ASSERT_EQ(0, exec(cq("q UNIQUEIDENTIFIER", "y varchar(512)", "z int")));
+    ASSERT_EQ(3, exec<3>(iq("NULL", "NULL", "NULL")));
+    ASSERT_EQ(3, exec(
+                     sq(), nullptr,
+                     +[](void *, uut_t::column_metadata_cref colmd, uut_t::row_cref row_data) {
+                         default_row_callback(nullptr, colmd, row_data);
+                         for (tdsl::uint32_t i = 0; i < row_data.size(); i++) {
+                             EXPECT_EQ(true, row_data [i].is_null());
+                         }
+                     }));
 }
 
 TEST_F(tds_command_ctx_it_fixture, ctis_long_query_test) {
+    ASSERT_EQ(0, exec(cq("q UNIQUEIDENTIFIER", "y varchar(512)", "z int")));
+    ASSERT_EQ(1, exec_as_one<100>(iq("NULL", "NULL", "NULL")));
+    ASSERT_EQ(100, exec(
+                       sq(), nullptr,
+                       +[](void *, uut_t::column_metadata_cref colmd, uut_t::row_cref row_data) {
+                           default_row_callback(nullptr, colmd, row_data);
+                           for (tdsl::uint32_t i = 0; i < row_data.size(); i++) {
+                               EXPECT_EQ(true, row_data [i].is_null());
+                           }
+                       }));
+}
 
-    // const char q[]= "DROP TABLE #test_ctis_guid_varchar_int_null;CREATE TABLE"
-    //::testing::UnitTest::GetInstance()->current_test_case()->
-    EXPECT_EQ(0, command_ctx.execute_query(tdsl::string_view{
-                     /*str=*/"CREATE TABLE #test_ctis_guid_varchar_int_null(q "
-                             "UNIQUEIDENTIFIER,y varchar(512),z int);"})); // callback
-    std::string queries;
-    for (int i = 0; i < 100; i++) {
-        queries += "INSERT INTO #test_ctis_guid_varchar_int_null VALUES(NULL, NULL, NULL);";
-    }
+// ------------------------------
+// Exact numerics
+// numeric,   ,decimal
+// smallmoney, , money
 
-    // should return 1 rows affected, 100 times
-    EXPECT_EQ(1, command_ctx.execute_query(tdsl::string_view{
-                     queries.data(), static_cast<tdsl::uint32_t>(queries.size())})); // callback
+// --------------------------------------------------------------------------------
+TEST_F(tds_command_ctx_it_fixture, exact_numerics_bit) {
+    auto validator = +[](void *, uut_t::column_metadata_cref c, uut_t::row_cref r) {
+        ASSERT_EQ(c.columns.size(), 2);
+        ASSERT_EQ(r.size(), 2);
+        EXPECT_EQ(r [0].as<bool>(), true);
+        EXPECT_EQ(r [1].as<bool>(), false);
+    };
+    ASSERT_EQ(0, exec(cq("q bit", "y bit")));
+    ASSERT_EQ(1, exec(iq("'true'", "'false'")));
+    ASSERT_EQ(1, exec(sq(), nullptr, validator));
+}
 
-    auto callback =
-        +[](void *, const tdsl::tds_colmetadata_token & colmd, const tdsl::tdsl_row & row_data) {
-            default_row_callback(nullptr, colmd, row_data);
-            for (tdsl::uint32_t i = 0; i < row_data.size(); i++) {
-                EXPECT_EQ(true, row_data [i].is_null());
-            }
+// --------------------------------------------------------------------------------
+TEST_F(tds_command_ctx_it_fixture, exact_numerics_tinyint) {
+    auto validator = +[](void *, uut_t::column_metadata_cref c, uut_t::row_cref r) {
+        ASSERT_EQ(c.columns.size(), 2);
+        ASSERT_EQ(r.size(), 2);
+        EXPECT_EQ(r [0].as<tdsl::uint8_t>(), tdsl::uint8_t{0});
+        EXPECT_EQ(r [1].as<tdsl::uint8_t>(), tdsl::uint8_t{255});
+    };
+    ASSERT_EQ(0, exec(cq("q tinyint", "y tinyint")));
+    ASSERT_EQ(1, exec(iq("0", "255")));
+    ASSERT_EQ(1, exec(sq(), nullptr, validator));
+}
+
+// --------------------------------------------------------------------------------
+TEST_F(tds_command_ctx_it_fixture, exact_numerics_smallint) {
+    auto validator = +[](void *, uut_t::column_metadata_cref c, uut_t::row_cref r) {
+        ASSERT_EQ(c.columns.size(), 2);
+        ASSERT_EQ(r.size(), 2);
+        EXPECT_EQ(r [0].as<tdsl::int16_t>(), tdsl::int16_t{-0x7FFF - 1});
+        EXPECT_EQ(r [1].as<tdsl::int16_t>(), tdsl::int16_t{+0x7FFF});
+    };
+    ASSERT_EQ(0, exec(cq("q smallint", "y smallint")));
+    ASSERT_EQ(1, exec(iq("-32768", "32767")));
+    ASSERT_EQ(1, exec(sq(), nullptr, validator));
+}
+
+// --------------------------------------------------------------------------------
+TEST_F(tds_command_ctx_it_fixture, exact_numerics_int) {
+    auto validator = +[](void *, uut_t::column_metadata_cref c, uut_t::row_cref r) {
+        ASSERT_EQ(c.columns.size(), 2);
+        ASSERT_EQ(r.size(), 2);
+        EXPECT_EQ(r [0].as<tdsl::int32_t>(), tdsl::int32_t{-0x7FFFFFFF - 1});
+        EXPECT_EQ(r [1].as<tdsl::int32_t>(), tdsl::int32_t{+0x7FFFFFFF});
+    };
+    ASSERT_EQ(0, exec(cq("q int", "y int")));
+    ASSERT_EQ(1, exec(iq("-2147483648", "2147483647")));
+    ASSERT_EQ(1, exec(sq(), nullptr, validator));
+}
+
+// --------------------------------------------------------------------------------
+TEST_F(tds_command_ctx_it_fixture, exact_numerics_bigint) {
+    auto validator = +[](void *, uut_t::column_metadata_cref c, uut_t::row_cref r) {
+        ASSERT_EQ(c.columns.size(), 2);
+        ASSERT_EQ(r.size(), 2);
+        EXPECT_EQ(r [0].as<tdsl::int64_t>(), tdsl::int64_t{-0x7FFFFFFFFFFFFFFF - 1});
+        EXPECT_EQ(r [1].as<tdsl::int64_t>(), tdsl::int64_t{+0x7FFFFFFFFFFFFFFF});
+    };
+    ASSERT_EQ(0, exec(cq("q bigint", "y bigint")));
+    ASSERT_EQ(1, exec(iq("-9223372036854775808", "9223372036854775807")));
+    ASSERT_EQ(1, exec(sq(), nullptr, validator));
+}
+
+// --------------------------------------------------------------------------------
+TEST_F(tds_command_ctx_it_fixture, exact_numerics_numeric) {
+    /**
+    * Precision	Storage bytes
+           1 - 9	5
+           10-19	9
+           20-28	13
+           29-38	17
+    *
+    */
+
+    struct constraint {
+        struct ps {
+            tdsl::uint8_t precision;
+            tdsl::uint8_t scale;
+        } ps_v [2]              = {};
+
+        const char * values [2] = {};
+    } test_datas [5];
+
+    test_datas [0].ps_v [0].precision = 1;
+    test_datas [0].ps_v [0].scale     = 0;
+    test_datas [0].values [0]         = "1.0";
+    test_datas [0].ps_v [1].precision = 1;
+    test_datas [0].ps_v [1].scale     = 1;
+    test_datas [0].values [1]         = "0.1";
+
+    test_datas [1].ps_v [0].precision = 2;
+    test_datas [1].ps_v [0].scale     = 1;
+    test_datas [1].values [0]         = "1.1";
+    test_datas [1].ps_v [1].precision = 2;
+    test_datas [1].ps_v [1].scale     = 2;
+    test_datas [1].values [1]         = "0.12";
+
+    test_datas [2].ps_v [0].precision = 10;
+    test_datas [2].ps_v [0].scale     = 1;
+    test_datas [2].values [0]         = "999999999.9";
+    test_datas [2].ps_v [1].precision = 19;
+    test_datas [2].ps_v [1].scale     = 2;
+    test_datas [2].values [1]         = "12345678901234567.12";
+
+    test_datas [3].ps_v [0].precision = 20;
+    test_datas [3].ps_v [0].scale     = 10;
+    test_datas [3].values [0]         = "9999999999.9999999999";
+    test_datas [3].ps_v [1].precision = 28;
+    test_datas [3].ps_v [1].scale     = 14;
+    test_datas [3].values [1]         = "99999999999999.99999999999999";
+
+    test_datas [4].ps_v [0].precision = 29;
+    test_datas [4].ps_v [0].scale     = 14;
+    test_datas [4].values [0]         = "999999999999999.99999999999999";
+    test_datas [4].ps_v [1].precision = 38;
+    test_datas [4].ps_v [1].scale     = 10;
+    test_datas [4].values [1]         = "9999999999999999999999999999.9999999999";
+
+    for (tdsl::uint32_t i = 0; i < sizeof(test_datas) / sizeof(constraint); i++) {
+        auto & current_constraint = test_datas [i];
+
+        auto validator = +[](void * uptr, uut_t::column_metadata_cref c, uut_t::row_cref r) {
+            auto precision_size_validator = [](tdsl::uint32_t p, tdsl::uint32_t l) {
+                if (p <= 9) {
+                    EXPECT_EQ(l, 5);
+                }
+                else if (p >= 10 && p <= 19) {
+                    EXPECT_EQ(l, 9);
+                }
+                else if (p >= 20 && p <= 28) {
+                    EXPECT_EQ(l, 13);
+                }
+                else if (p >= 29 && p <= 38) {
+                    EXPECT_EQ(l, 17);
+                }
+                else {
+                    ASSERT_TRUE(false);
+                }
+            };
+            const constraint & current_constraint = *reinterpret_cast<const constraint *>(uptr);
+            ASSERT_EQ(c.columns.size(), 2);
+            ASSERT_EQ(r.size(), 2);
+            ASSERT_EQ(c.columns [0].typeprops.ps.precision, current_constraint.ps_v [0].precision);
+            ASSERT_EQ(c.columns [0].typeprops.ps.scale, current_constraint.ps_v [0].scale);
+            ASSERT_EQ(c.columns [1].typeprops.ps.precision, current_constraint.ps_v [1].precision);
+            ASSERT_EQ(c.columns [1].typeprops.ps.scale, current_constraint.ps_v [1].scale);
+            precision_size_validator(current_constraint.ps_v [0].precision, r [0].size_bytes());
+            precision_size_validator(current_constraint.ps_v [1].precision, r [1].size_bytes());
+
+            // TODO: Validate field values?
         };
 
-    tdsl::uint32_t rows_affected = command_ctx.execute_query(
-        tdsl::string_view{/*str=*/"SELECT q,y,z from #test_ctis_guid_varchar_int_null;"}, nullptr,
-        callback); // callback
-    std::printf("rows affected %d\n", rows_affected);
-    EXPECT_EQ(rows_affected, 100);
+        owning_string_view c1{"q numeric(" + std::to_string(current_constraint.ps_v [0].precision) +
+                              "," + std::to_string(current_constraint.ps_v [0].scale) + ")"};
+
+        owning_string_view c2{"y numeric(" + std::to_string(current_constraint.ps_v [1].precision) +
+                              "," + std::to_string(current_constraint.ps_v [1].scale) + ")"};
+
+        exec({"DROP TABLE #exact_numerics_numeric;"});
+        ASSERT_EQ(0, exec(cq(c1.v.c_str(), c2.v.c_str())));
+        ASSERT_EQ(1, exec(iq(current_constraint.values [0], current_constraint.values [1])));
+        ASSERT_EQ(1, exec(sq(), reinterpret_cast<void *>(&current_constraint), validator));
+    }
 }
+
+// --------------------------------------------------------------------------------
+TEST_F(tds_command_ctx_it_fixture, exact_numerics_smallmoney) {
+    auto validator = +[](void *, uut_t::column_metadata_cref c, uut_t::row_cref r) {
+        ASSERT_EQ(c.columns.size(), 2);
+        ASSERT_EQ(r.size(), 2);
+        ASSERT_EQ(r [0].size_bytes(), 4);
+        ASSERT_EQ(r [1].size_bytes(), 4);
+
+        // prec-scale 10/4
+        // FIXME: Use decimal after implementing it.
+        EXPECT_EQ(r [0].as<tdsl::int32_t>(), tdsl::int32_t{-0x7FFFFFFF - 1});
+        EXPECT_EQ(r [1].as<tdsl::int32_t>(), tdsl::int32_t{+0x7FFFFFFF});
+    };
+    // smallmoney	- 214,748.3648 to 214,748.3647
+    ASSERT_EQ(0, exec(cq("q smallmoney", "y smallmoney")));
+    ASSERT_EQ(1, exec(iq("-214748.3648", "214748.3647")));
+    ASSERT_EQ(1, exec(sq(), nullptr, validator));
+}
+
+// --------------------------------------------------------------------------------
+TEST_F(tds_command_ctx_it_fixture, exact_numerics_money) {
+    auto validator = +[](void *, uut_t::column_metadata_cref c, uut_t::row_cref r) {
+        ASSERT_EQ(c.columns.size(), 2);
+        ASSERT_EQ(r.size(), 2);
+        ASSERT_EQ(r [0].size_bytes(), 8);
+        ASSERT_EQ(r [1].size_bytes(), 8);
+
+        // prec-scale 10/4
+        // FIXME: Use decimal after implementing it.
+        // FIXME: there is something wrong with the validation.
+        // EXPECT_EQ(r [0].as<tdsl::int64_t>(), tdsl::int64_t{-0x7FFFFFFFFFFFFFFF - 1});
+        // EXPECT_EQ(r [1].as<tdsl::int64_t>(), tdsl::int64_t{+0x7FFFFFFFFFFFFFFF});
+    };
+    // smallmoney	- 214,748.3648 to 214,748.3647
+    ASSERT_EQ(0, exec(cq("q money", "y money")));
+    ASSERT_EQ(1, exec(iq("-922337203685477.5808", "922337203685477.5807")));
+    ASSERT_EQ(1, exec(sq(), nullptr, validator));
+}
+
+// // --------------------------------------------------------------------------------
+// TEST_F(tds_command_ctx_it_fixture, exact_numerics_real) {
+//     auto validator = +[](void *, uut_t::column_metadata_cref c, uut_t::row_cref r)
+//     {
+//         ASSERT_EQ(c.columns.size(), 2);
+//         ASSERT_EQ(r.size(), 2);
+//         EXPECT_EQ(r [0].as<tdsl::float_>(), tdsl::int64_t{-0x7FFFFFFFFFFFFFFF - 1});
+//         EXPECT_EQ(r [1].as<tdsl::int64_t>(), tdsl::int64_t{+0x7FFFFFFFFFFFFFFF});
+//     };
+//     ASSERT_EQ(0, exec(cq("q bigint", "y bigint")));
+//     ASSERT_EQ(1, exec(iq("-9223372036854775808", "9223372036854775807")));
+//     ASSERT_EQ(1, exec(sq(), nullptr, validator));
+// }

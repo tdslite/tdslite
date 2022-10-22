@@ -41,9 +41,9 @@ namespace tdsl {
      * can override this by supplying explicit ReadEndianness template
      * parameter.
      *
-     * @tparam ReaderEndianness Default endianness of the reader
+     * @tparam DataEndianness Endianness of the data being read
      */
-    template <tdsl::endian ReaderEndianness>
+    template <tdsl::endian DataEndianness>
     class binary_reader : private byte_view {
     public:
         using span_type = byte_view;
@@ -76,9 +76,9 @@ namespace tdsl {
          * @returns sizeof(T) bytes read from current position (byte-order swapped) if
          * ReadEndianness!=HostEndianness
          */
-        template <typename T, tdsl::endian ReadEndianness = ReaderEndianness>
+        template <typename T, tdsl::endian ReadEndianness = DataEndianness>
         inline TDSL_NODISCARD TDSL_CXX14_CONSTEXPR auto read() noexcept -> T {
-            return tdsl::swap_endianness<ReaderEndianness, tdsl::endian::native>(read_raw<T>());
+            return tdsl::swap_endianness<DataEndianness, tdsl::endian::native>(read_raw<T>());
         }
 
         /**
@@ -89,7 +89,7 @@ namespace tdsl {
          *
          * @return A new reader in [current - next(min(size, remaining_bytes))] range
          */
-        template <tdsl::endian SubreaderEndianness = ReaderEndianness>
+        template <tdsl::endian SubreaderEndianness = DataEndianness>
         inline TDSL_NODISCARD auto subreader(tdsl::uint32_t size) const noexcept
             -> binary_reader<SubreaderEndianness> {
 
