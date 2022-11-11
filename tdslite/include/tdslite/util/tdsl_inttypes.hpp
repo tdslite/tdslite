@@ -11,6 +11,7 @@
  */
 
 #include <stdint.h>
+#include <stddef.h>
 
 #ifndef TDSL_UTIL_INTTYPES_HPP
 #define TDSL_UTIL_INTTYPES_HPP
@@ -18,6 +19,8 @@
 namespace tdsl {
     // *_be_* = type alias for denoting a big-endian integer
     // *_le_* = type alias for denoting a little-endian integer
+
+    using ::size_t;
 
     using ::int16_t;
     using int16_be_t = tdsl::int16_t;

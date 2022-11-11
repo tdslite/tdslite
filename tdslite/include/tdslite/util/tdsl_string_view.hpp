@@ -51,11 +51,11 @@ namespace tdsl {
     };
 } // namespace tdsl
 
-inline tdsl::string_view operator"" _tsv(const char * val, unsigned long len) noexcept {
+inline tdsl::string_view operator"" _tsv(const char * val, tdsl::size_t len) noexcept {
     return tdsl::string_view{val, static_cast<tdsl::uint32_t>(len)};
 }
 
-inline tdsl::wstring_view operator"" _twsv(const char16_t * val, unsigned long len) noexcept {
+inline tdsl::wstring_view operator"" _twsv(const char16_t * val, tdsl::size_t len) noexcept {
     return tdsl::wstring_view{val, static_cast<tdsl::uint32_t>(len)};
 }
 

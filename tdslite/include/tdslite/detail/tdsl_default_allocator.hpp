@@ -2,7 +2,8 @@
  * _________________________________________________
  *
  * @file   tdsl_default_allocator.hpp
- * @author Mustafa Kemal GILOR <mustafagilor@gmail.com>
+ * @author Mustafa Kemal Gilor <mustafagilor@gmail.com>
+ *
  * @date   05.10.2022
  *
  * SPDX-License-Identifier:    MIT
@@ -16,7 +17,8 @@
 
 #ifndef TDSL_DISABLE_DEFAULT_ALLOCATOR
 
-#include <cstdlib> // for default malloc-free
+
+#include <stdlib.h> // for default malloc-free
 
 namespace tdsl {
 
@@ -35,7 +37,7 @@ namespace tdsl {
      * @returns nullptr on failure
      */
     inline TDSL_NODISCARD void * tdsl_default_malloc(unsigned long amount) noexcept {
-        return std::malloc(amount);
+        return ::malloc(amount);
     }
 
     // --------------------------------------------------------------------------------
@@ -51,7 +53,7 @@ namespace tdsl {
      * otherwise the behavior of this function will be undefined.
      */
     inline void tdsl_default_free(void * ptr) noexcept {
-        return std::free(ptr);
+        return ::free(ptr);
     }
 
 } // namespace tdsl

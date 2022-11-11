@@ -11,7 +11,7 @@
  */
 
 #include <tdslite/util/tdsl_type_traits.hpp>
-#include <cassert>
+#include <assert.h>
 
 #ifndef TDSL_UTIL_TDS_MACRODEF_HPP
 #define TDSL_UTIL_TDS_MACRODEF_HPP

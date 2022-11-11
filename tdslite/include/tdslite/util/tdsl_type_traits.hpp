@@ -66,11 +66,11 @@ namespace tdsl { namespace traits {
     template <class...>
     struct disjunction : false_type {};
 
-    template <class B1>
-    struct disjunction<B1> : B1 {};
+    template <class T1>
+    struct disjunction<T1> : T1 {};
 
-    template <class B1, class... Bn>
-    struct disjunction<B1, Bn...> : conditional<bool(B1::value), B1, disjunction<Bn...>>::type {};
+    template <class T1, class... Tn>
+    struct disjunction<T1, Tn...> : conditional<bool(T1::value), T1, disjunction<Tn...>>::type {};
 
     template <typename...>
     struct op_or;
@@ -78,15 +78,15 @@ namespace tdsl { namespace traits {
     template <>
     struct op_or<> : public false_type {};
 
-    template <typename B1>
-    struct op_or<B1> : public B1 {};
+    template <typename T1>
+    struct op_or<T1> : public T1 {};
 
-    template <typename B1, typename B2>
-    struct op_or<B1, B2> : public conditional<B1::value, B1, B2>::type {};
+    template <typename T1, typename T2>
+    struct op_or<T1, T2> : public conditional<T1::value, T1, T2>::type {};
 
-    template <typename B1, typename B2, typename B3, typename... Bn>
-    struct op_or<B1, B2, B3, Bn...>
-        : public conditional<B1::value, B1, op_or<B2, B3, Bn...>>::type {};
+    template <typename T1, typename T2, typename T3, typename... Tn>
+    struct op_or<T1, T2, T3, Tn...>
+        : public conditional<T1::value, T1, op_or<T2, T3, Tn...>>::type {};
 
     // enable_if
     template <bool, typename T = void>
