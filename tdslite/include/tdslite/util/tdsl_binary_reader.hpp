@@ -1,8 +1,7 @@
 /**
  * ____________________________________________________
- * binary_reader<> template class implementation
+ * binary_reader<> utility class implementation
  *
- * @file   tds_binary_reader.hpp
  * @author Mustafa Kemal GILOR <mustafagilor@gmail.com>
  * @date   12.04.2022
  *
@@ -17,8 +16,8 @@
 #include <tdslite/util/tdsl_inttypes.hpp>
 #include <tdslite/util/tdsl_endian.hpp>
 #include <tdslite/util/tdsl_span.hpp>
-#include <tdslite/util/tdsl_type_traits.hpp>
 #include <tdslite/util/tdsl_macrodef.hpp>
+#include <tdslite/util/tdsl_binary_rw_base.hpp>
 
 #include <string.h>
 
@@ -44,7 +43,8 @@ namespace tdsl {
      * @tparam DataEndianness Endianness of the data being read
      */
     template <tdsl::endian DataEndianness>
-    class binary_reader : private byte_view {
+    class binary_reader : private byte_view,
+                          public binary_reader_writer_base<binary_reader<DataEndianness>> {
     public:
         using span_type = byte_view;
         // Expose span constructors
@@ -78,7 +78,7 @@ namespace tdsl {
          */
         template <typename T, tdsl::endian ReadEndianness = DataEndianness>
         inline TDSL_NODISCARD TDSL_CXX14_CONSTEXPR auto read() noexcept -> T {
-            return tdsl::swap_endianness<DataEndianness, tdsl::endian::native>(read_raw<T>());
+            return tdsl::swap_endianness<ReadEndianness, tdsl::endian::native>(read_raw<T>());
         }
 
         /**
@@ -93,10 +93,10 @@ namespace tdsl {
         inline TDSL_NODISCARD auto subreader(tdsl::uint32_t size) const noexcept
             -> binary_reader<SubreaderEndianness> {
 
-            if (!has_bytes(size)) {
+            if (!this->has_bytes(size)) {
                 return binary_reader<SubreaderEndianness>{nullptr, static_cast<tdsl::uint32_t>(0)};
             }
-            return binary_reader<SubreaderEndianness>(current(), size);
+            return binary_reader<SubreaderEndianness>(this->current(), size);
         }
 
         /**
@@ -109,9 +109,9 @@ namespace tdsl {
         inline TDSL_NODISCARD TDSL_CXX14_CONSTEXPR auto
         read(tdsl::uint32_t number_of_elements) noexcept -> span_type {
 
-            if (number_of_elements > 0 && has_bytes(number_of_elements)) {
-                span_type result{current(), (current() + number_of_elements)};
-                do_advance(number_of_elements);
+            if (number_of_elements > 0 && this->has_bytes(number_of_elements)) {
+                span_type result{this->current(), (this->current() + number_of_elements)};
+                this->do_advance(number_of_elements);
                 return result;
             }
             return span_type(/*begin=*/nullptr, /*end=*/nullptr);
@@ -126,7 +126,7 @@ namespace tdsl {
          */
         template <typename T>
         inline TDSL_NODISCARD TDSL_CXX14_CONSTEXPR auto read_raw() noexcept -> T {
-            if (not has_bytes(sizeof(T))) {
+            if (not this->has_bytes(sizeof(T))) {
                 TDSL_ASSERT(false);
                 TDSL_UNREACHABLE;
             }
@@ -134,122 +134,10 @@ namespace tdsl {
             // This is for complying the strict aliasing rules
             // for type T. The compiler should optimize this
             // call away.
-            memcpy(&result, current(), sizeof(T));
-            do_advance(sizeof(T));
+            memcpy(&result, this->current(), sizeof(T));
+            this->do_advance(sizeof(T));
             return result;
         }
-
-        /**
-         * Get pointer to the current read position
-         *
-         * @return const tdsl::uint8_t* Pointer to the current read position
-         */
-        inline TDSL_NODISCARD TDSL_CXX14_CONSTEXPR auto current() const noexcept
-            -> const tdsl::uint8_t * {
-            TDSL_ASSERT(offset_ <= size_bytes());
-            return data() + offset_;
-        }
-
-        /**
-         * Current read offset
-         * (a.k.a. amount of bytes read until now)
-         *
-         * @return tdsl::uint32_t Current read offset
-         */
-        inline TDSL_NODISCARD TDSL_CXX14_CONSTEXPR auto offset() const noexcept -> tdsl::uint32_t {
-            TDSL_ASSERT(offset_ <= size_bytes());
-            return offset_;
-        }
-
-        /**
-         * Set reader's offset to a specific position
-         *
-         * @param [in] pos New offset value
-         * @return true @p pos is in binary_reader's bounds and @ref offset_ is set to @p pos
-         * @return false otherwise
-         *
-         * @note @ref offset_ is guaranteed to be not modified when the
-         * result is false
-         */
-        inline TDSL_CXX14_CONSTEXPR auto seek(tdsl::uint32_t pos) noexcept -> bool {
-            // Check boundaries
-            if (pos >= size_bytes()) {
-                return false;
-            }
-            offset_ = pos;
-            TDSL_ASSERT(offset_ <= size_bytes());
-            return true;
-        }
-
-        /**
-         * Reset read offset to zero
-         */
-        inline TDSL_CXX14_CONSTEXPR auto reset() noexcept -> void {
-            offset_ = {0};
-        }
-
-        /**
-         * Advance current reader offset by @p amount_of_bytes bytes
-         *
-         * @param [in] amount_of_bytes Amount to advance (can be negative)
-         * @returns true if @p amount_of_bytes + current offset is in binary_reader's bounds
-         *          and offset is advanced by @p amount_of_bytes bytes
-         * @returns false otherwise
-         *
-         * @note @ref offset_ is guaranteed to be not modified when the
-         * result is false
-         */
-        inline TDSL_CXX14_CONSTEXPR auto advance(tdsl::int32_t amount_of_bytes) noexcept -> bool {
-            // Check boundaries
-            if ((static_cast<tdsl::int64_t>(offset_) +
-                 static_cast<tdsl::int64_t>(amount_of_bytes)) > size_bytes() ||
-                (static_cast<tdsl::int64_t>(offset_) + amount_of_bytes) < 0) {
-                return false;
-            }
-            do_advance(amount_of_bytes);
-            TDSL_ASSERT(offset_ <= size_bytes());
-            return true;
-        }
-
-        /**
-         * Check whether reader has @p amount_of_bytes bytes remaining
-         *
-         * @param [in] amount_of_bytes Amount of bytes for check
-         * @return true if reader has at least v bytes
-         * @return false otherwise
-         */
-        inline TDSL_NODISCARD TDSL_CXX14_CONSTEXPR auto
-        has_bytes(tdsl::uint32_t amount_of_bytes) const noexcept -> bool {
-            // Promote offset and v to next greater signed integer type
-            // since the result of the sum may overflow
-            return (tdsl::int64_t{offset_} + tdsl::int64_t{amount_of_bytes}) <=
-                   tdsl::int64_t{size_bytes()};
-        }
-
-        /**
-         * @brief Remaining bytes to read, relative to @ref `size`
-         *
-         * @return std::int64_t Amount of bytes remaining
-         */
-
-        inline TDSL_NODISCARD constexpr auto remaining_bytes() const noexcept -> tdsl::int64_t {
-            return tdsl::int64_t{size_bytes()} - tdsl::int64_t{offset()};
-        }
-
-    private:
-        /**
-         * Advance @ref offset_ by @p amount_of_bytes bytes without any boundary checking.
-         *
-         * @param [in] amount_of_bytes Amount to advance
-         */
-        inline TDSL_CXX14_CONSTEXPR void do_advance(tdsl::int32_t amount_of_bytes) noexcept {
-
-            TDSL_ASSERT(((tdsl::int64_t{offset()} + amount_of_bytes) >= 0) &&
-                        ((tdsl::int64_t{offset()} + amount_of_bytes) <= size_bytes()));
-            offset_ += amount_of_bytes;
-        }
-
-        tdsl::uint32_t offset_{}; /**<! Current read offset */
 
     }; // class binary_reader <>
 

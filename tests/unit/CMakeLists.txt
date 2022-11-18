@@ -19,6 +19,10 @@ make_component(
             SOURCES ut_binary_reader.cpp
 
     TARGET  TYPE UNIT_TEST
+            SUFFIX .binary_writer
+            SOURCES ut_binary_writer.cpp
+
+    TARGET  TYPE UNIT_TEST
             SUFFIX .byte_swap
             SOURCES ut_byte_swap.cpp
 
