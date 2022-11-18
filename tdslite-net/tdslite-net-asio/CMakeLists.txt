@@ -9,9 +9,13 @@
 # _______________________________________________________
 
 make_component(
-    tdslite.net.asio
+    tdslite.net
     TARGET TYPE SHARED
+           SUFFIX .asio 
            LINK PUBLIC  tdslite.net.base
                 PRIVATE tdslite 
                         Boost::Boost 
+    TARGET TYPE INTERFACE
+           SUFFIX .ethernet
+           LINK INTERFACE tdslite.net.base
 )

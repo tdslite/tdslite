@@ -13,6 +13,7 @@
 #include <tdslite/util/tdsl_span.hpp>
 #include <tdslite/util/tdsl_macrodef.hpp>
 #include <gtest/gtest.h>
+#include <gmock/gmock.h>
 
 TEST(span, default_construct) {
     tdsl::byte_span buf_span{};
@@ -132,4 +133,35 @@ TEST(span, char_view_assign) {
     tdsl::char_view buf_span{};
     EXPECT_NO_THROW({ buf_span = "test"; });
     EXPECT_EQ(buf_span.size(), 5);
+}
+
+TEST(span, shift_left_1) {
+    tdsl::uint8_t buf []            = {0x01, 0x02, 0x03, 0x04, 0x05};
+    tdsl::uint8_t expected_buf_1 [] = {0x03, 0x04, 0x05, 0x00, 0x00};
+    tdsl::uint8_t expected_buf_2 [] = {0x00, 0x00, 0x00, 0x00, 0x00};
+    tdsl::byte_span buf_span{buf};
+    EXPECT_EQ(3, buf_span.shift_left(/*count=*/2));
+    ASSERT_THAT(buf, testing::ElementsAreArray(expected_buf_1));
+
+    EXPECT_EQ(2, buf_span.shift_left(/*count=*/3));
+    ASSERT_THAT(buf, testing::ElementsAreArray(expected_buf_2));
+    EXPECT_EQ(0, buf_span.shift_left(/*count=*/5));
+}
+
+TEST(span, shift_left_2) {
+    tdsl::uint8_t buf [] = {0x01, 0x02, 0x03, 0x04, 0x05};
+    tdsl::byte_span buf_span{buf};
+    for (tdsl::uint32_t i = 0; i < sizeof(buf); i++) {
+        EXPECT_EQ(sizeof(buf) - i, buf_span.shift_left(i));
+    }
+    tdsl::byte_view bv{buf};
+}
+
+TEST(span, shift_left_3) {
+    std::vector<tdsl::uint8_t> buf;
+    buf.resize(8192);
+    tdsl::byte_span buf_span{buf.data(), static_cast<tdsl::uint32_t>(buf.size())};
+    for (tdsl::uint32_t i = 0; i < buf.size(); i++) {
+        EXPECT_EQ(buf.size() - i, buf_span.shift_left(i));
+    }
 }

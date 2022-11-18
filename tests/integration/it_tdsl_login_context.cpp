@@ -12,7 +12,7 @@
 
 #include <tdslite/detail/tdsl_login_context.hpp>
 #include <tdslite/detail/tdsl_command_context.hpp>
-#include <tdslite/net/asio/asio_network_impl.hpp>
+#include <tdslite/net/asio/tdsl_netimpl_asio.hpp>
 #include <tdslite/util/tdsl_hex_dump.hpp>
 
 #include <gtest/gtest.h>
@@ -26,7 +26,7 @@
 /**
  * The type of the unit-under-test
  */
-using uut_t     = tdsl::detail::login_context<tdsl::net::asio_network_impl>;
+using uut_t     = tdsl::detail::login_context<tdsl::net::tdsl_netimpl_asio>;
 
 using tds_ctx_t = uut_t::tds_context_type;
 

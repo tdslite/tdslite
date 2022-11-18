@@ -20,5 +20,6 @@
 // acts as a top-level header.
 
 #include <tdslite/tdslite.hpp>
+#include <tdslite/net/base/network_impl.hpp>
 
 #endif

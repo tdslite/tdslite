@@ -16,9 +16,10 @@
 #ifndef TDSL_UTIL_INTTYPES_HPP
 #define TDSL_UTIL_INTTYPES_HPP
 
+// *_be_* = type alias for denoting a big-endian integer
+// *_le_* = type alias for denoting a little-endian integer
+
 namespace tdsl {
-    // *_be_* = type alias for denoting a big-endian integer
-    // *_le_* = type alias for denoting a little-endian integer
 
     using ::size_t;
 

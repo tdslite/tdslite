@@ -26,13 +26,97 @@ namespace tdsl {
             dst    = v;
             return prev;
         }
+
+        /**
+         * shift_left mixin impl.
+         */
+        template <typename Derived>
+        struct span_mixin_shift_left {
+            /**
+             * Shift elements to left
+             *
+             * @param [in] count
+             *
+             * @return Shifted element count
+             */
+            template <typename U = Derived>
+            inline auto shift_left(decltype(traits::declval<U>().size_bytes()) count) noexcept
+                -> decltype(traits::declval<U>().size_bytes()) {
+
+                // This function signature looks like witchcraft, because C++11
+                // does not have decltype(auto) so we cannot just say decltype(auto)
+                // and get away with it... and we cannot use traits::declval<Derived>
+                // either since Derived derives from span_mixin_shift_left and Derived
+                // is an incomplete type at this class context. But if we make it a
+                // template parameter instead, type resolution is delayed until
+                // function invocation where Derived is a complete type.
+
+                const auto sb = static_cast<const Derived &>(*this).size_bytes();
+                using SizeT   = typename traits::remove_cv<decltype(sb)>::type;
+                if (count >= sb)
+                    return 0;
+
+                // How many elements we need to shift left?
+                const auto rem = sb - count;
+
+                for (SizeT i = 0; i < rem; i++) {
+                    TDSL_ASSERT((i + count) < sb);
+                    static_cast<Derived &>(*this) [i] = static_cast<Derived &>(*this) [i + count];
+                    static_cast<Derived &>(*this) [i + count] = {0};
+                }
+
+                // If we're out of elements to move in place of
+                // shifted ones (i.e., count > rem), we'll put
+                // zeros to remaining space instead.
+                const auto fill = count - rem;
+                if (fill > 0) {
+                    for (SizeT i = SizeT{fill}; i < sb; i++) {
+                        TDSL_ASSERT(i < sb);
+                        static_cast<Derived &>(*this) [i] = {0};
+                    }
+                }
+                return rem;
+            }
+        };
+
+        /**
+         * Element mutability dependent span interface
+         */
+        template <typename Derived, bool ElemTHasConstQualifier>
+        struct span_element_mutability_dependent_interface;
+
+        /**
+         * Additional interface for mutable spans
+         */
+        template <typename Derived>
+        struct span_element_mutability_dependent_interface<Derived, false>
+            : public span_mixin_shift_left<Derived> {};
+
+        /**
+         * Additional interface for immutable spans
+         */
+        template <typename Derived>
+        struct span_element_mutability_dependent_interface<Derived, true> {};
+
+        /**
+         * Enables additional interfaces to span depending on
+         * pre-conditions (e.g. const element type)
+         *
+         * @tparam Derived Span type
+         * @tparam T Element type
+         */
+        template <typename Derived, typename T>
+        struct span_conditional_interface
+            : public span_element_mutability_dependent_interface<Derived,
+                                                                 traits::is_const<T>::value> {};
+
     } // namespace detail
 
     /**
      * Span of T
      */
     template <typename T = const tdsl::uint8_t>
-    struct span {
+    struct span : public detail::span_conditional_interface<span<T>, T> {
 
         // select size type depending on pointer size?
         // there is no point of having a size variable with 4 bytes

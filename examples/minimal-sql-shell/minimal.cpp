@@ -13,7 +13,7 @@
 
 #define TDSL_DEBUG_PRINT_ENABLED
 
-#include <tdslite/net/asio/asio_network_impl.hpp> // network implementation to use
+#include <tdslite/net/asio/tdsl_netimpl_asio.hpp> // network implementation to use
 #include <tdslite/tdslite.hpp>                    // main tdslite header
 #include <fort/fort.hpp>
 #include <string>
@@ -174,7 +174,7 @@ void handle_command(const std::string & cmd) {
 }
 
 int main(void) {
-    tdsl::driver<tdsl::net::asio_network_impl> driver{};
+    tdsl::driver<tdsl::net::tdsl_netimpl_asio> driver{};
     // Use info_callback function for printing user info
     driver.set_info_callback(/*user_ptr=*/nullptr, info_callback);
 

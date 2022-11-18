@@ -1,7 +1,7 @@
 /**
  * _________________________________________________
  *
- * @file   asio_network_impl.hpp
+ * @file   tdsl_netimpl_ethernet.hpp
  * @author Mustafa Kemal GILOR <mustafagilor@gmail.com>
  * @date   20.04.2022
  *
@@ -17,31 +17,28 @@
 #include <tdslite/util/tdsl_macrodef.hpp>
 #include <tdslite/util/tdsl_expected.hpp>
 
-#include <iterator>
-#include <vector>
-#include <memory>
-#include <atomic>
+#include <Ethernet.h>
 
 namespace tdsl { namespace net {
 
     /**
      * Synchronous ASIO networking code for tdslite
      */
-    struct asio_network_impl : public network_impl<asio_network_impl> {
+    struct tdsl_netimpl_ethernet : public network_impl<tdsl_netimpl_ethernet> {
 
         // --------------------------------------------------------------------------------
 
         /**
          * Default c-tor
          */
-        TDSL_SYMBOL_VISIBLE asio_network_impl();
+        TDSL_SYMBOL_VISIBLE tdsl_netimpl_ethernet();
 
         // --------------------------------------------------------------------------------
 
         /**
          * D-tor
          */
-        TDSL_SYMBOL_VISIBLE ~asio_network_impl();
+        TDSL_SYMBOL_VISIBLE ~tdsl_netimpl_ethernet();
 
         // --------------------------------------------------------------------------------
 

@@ -61,6 +61,12 @@ namespace tdsl { namespace traits {
     template <class T>
     struct is_const<const T> : true_type {};
 
+    template <class T>
+    struct is_volatile : false_type {};
+
+    template <class T>
+    struct is_volatile<volatile T> : true_type {};
+
     // Disjunction
 
     template <class...>
@@ -314,6 +320,17 @@ namespace tdsl { namespace traits {
         using type = typename remove_reference<T>::type *;
     };
 
+    template <typename T>
+    struct add_const {
+        using type = const T;
+    };
+
+    /// add_volatile
+    template <typename T>
+    struct add_volatile {
+        using type = volatile T;
+    };
+
     namespace detail {
 
         // FIXME: This check should include integral_constant<bool, !is_union>
@@ -410,6 +427,9 @@ namespace tdsl { namespace traits {
         template <typename T, typename Q>
         using same = typename enable_if<is_same<T, Q>::value, bool>::type;
 
+        template <typename T>
+        using not_const = typename enable_if<!is_const<T>::value, bool>::type;
+
         /**
          * Enable if the given type T is same with any of the types listed in type list Q
          *
@@ -429,6 +449,119 @@ namespace tdsl { namespace traits {
         using non_class_type = typename enable_if<!is_class<T>::value, bool>::type;
 
     } // namespace enable_when
+
+    namespace detail {
+        template <typename T>
+        struct make_signed_helper; // undefined for all types by default
+
+        template <>
+        struct make_signed_helper<signed char> {
+            using type = signed char;
+        };
+
+        template <>
+        struct make_signed_helper<signed short> {
+            using type = signed short;
+        };
+
+        template <>
+        struct make_signed_helper<signed int> {
+            using type = signed int;
+        };
+
+        template <>
+        struct make_signed_helper<signed long> {
+            using type = signed long;
+        };
+
+        template <>
+        struct make_signed_helper<signed long long> {
+            using type = signed long long;
+        };
+
+        template <>
+        struct make_signed_helper<char> {
+            using type = signed char;
+        };
+
+        template <>
+        struct make_signed_helper<unsigned char> {
+            using type = signed char;
+        };
+
+        template <>
+        struct make_signed_helper<unsigned short> {
+            using type = signed short;
+        };
+
+        template <>
+        struct make_signed_helper<unsigned int> {
+            using type = signed int;
+        };
+
+        template <>
+        struct make_signed_helper<unsigned long> {
+            using type = signed long;
+        };
+
+        template <>
+        struct make_signed_helper<unsigned long long> {
+            using type = signed long long;
+        };
+
+    } // namespace detail
+
+    template <typename SRC, typename DST>
+    struct copy_qualifiers {
+        using type = DST;
+    };
+
+    template <typename SRC, typename DST>
+    struct copy_qualifiers<const SRC, DST> {
+        using type = typename add_const<DST>::type;
+    };
+
+    template <typename SRC, typename DST>
+    struct copy_qualifiers<volatile SRC, DST> {
+        using type = typename add_volatile<DST>::type;
+    };
+
+    template <typename SRC, typename DST>
+    struct copy_qualifiers<const volatile SRC, DST> {
+        using type = typename add_volatile<typename add_const<DST>::type>::type;
+    };
+
+    static_assert(is_same<copy_qualifiers<int, char>::type, char>::value, "");
+    static_assert(is_same<copy_qualifiers<const int, char>::type, const char>::value, "");
+    static_assert(is_same<copy_qualifiers<volatile int, char>::type, volatile char>::value, "");
+    static_assert(
+        is_same<copy_qualifiers<const volatile int, char>::type, const volatile char>::value, "");
+
+    template <typename T>
+    struct make_signed {
+    private:
+        using naked_t        = typename remove_cv<T>::type;
+        using naked_signed_t = typename detail::make_signed_helper<naked_t>::type;
+
+    public:
+        using type = typename copy_qualifiers<T, naked_signed_t>::type;
+    };
+
+    static_assert(is_same<make_signed<char>::type, signed char>::value, "");
+    static_assert(is_same<make_signed<signed char>::type, signed char>::value, "");
+    static_assert(is_same<make_signed<unsigned char>::type, signed char>::value, "");
+
+    static_assert(is_same<make_signed<int>::type, signed int>::value, "");
+    static_assert(is_same<make_signed<signed int>::type, signed int>::value, "");
+    static_assert(is_same<make_signed<unsigned int>::type, signed int>::value, "");
+
+    static_assert(is_same<make_signed<long>::type, signed long>::value, "");
+    static_assert(is_same<make_signed<signed long>::type, signed long>::value, "");
+    static_assert(is_same<make_signed<unsigned long>::type, signed long>::value, "");
+
+    static_assert(is_same<make_signed<long long>::type, signed long long>::value, "");
+    static_assert(is_same<make_signed<signed long long>::type, signed long long>::value, "");
+    static_assert(is_same<make_signed<unsigned long long>::type, signed long long>::value, "");
 
 }} // namespace tdsl::traits
 
