@@ -15,6 +15,7 @@
 #include <tdslite/util/tdsl_binary_reader.hpp>
 #include <tdslite/util/tdsl_binary_writer.hpp>
 #include <tdslite/util/tdsl_macrodef.hpp>
+#include <tdslite/util/tdsl_debug_print.hpp>
 
 namespace tdsl {
     /**
@@ -52,13 +53,18 @@ namespace tdsl {
             }
 
             inline ~progressive_binary_reader() noexcept {
-                // discard read amount
                 writer.shift_left(reader.offset());
                 in_use_flag = {false};
+                TDSL_DEBUG_PRINTLN("~progressive_binary_reader: consumed %d bytes, writer free %ld",
+                                   reader.offset(), writer.remaining_bytes());
             }
 
             inline binary_reader_type * operator->() noexcept {
                 return &reader;
+            }
+
+            inline binary_reader_type & operator*() noexcept {
+                return reader;
             }
 
         private:

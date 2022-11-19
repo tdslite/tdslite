@@ -23,12 +23,15 @@ namespace tdsl { namespace detail {
      * The string parameters are handled depending on source string type
      * (i.e. single-char string, wide (utf-16) string)).
      *
+     * ASCII strings are expanded into UTF-16 (wide) strings while
+     * writing.
+     *
      * @tparam TDSCTX TDS context type
      */
     template <typename TDSCTX>
     struct string_parameter_writer {
 
-        static void write(typename TDSCTX::xmit_if & xc, const string_view & sv,
+        static void write(typename TDSCTX::tx_mixin & xc, const string_view & sv,
                           void (*encoder)(tdsl::uint8_t *, tdsl::uint32_t) = nullptr) noexcept {
             for (auto ch : sv) {
                 char16_t c = ch;
@@ -40,7 +43,7 @@ namespace tdsl { namespace detail {
             }
         }
 
-        static void write(typename TDSCTX::xmit_if & xc, const wstring_view & sv,
+        static void write(typename TDSCTX::rx_mixin & xc, const wstring_view & sv,
                           void (*encoder)(tdsl::uint8_t *, tdsl::uint32_t) = nullptr) noexcept {
 
             if (not encoder) {

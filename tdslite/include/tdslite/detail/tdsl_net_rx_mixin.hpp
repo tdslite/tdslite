@@ -1,7 +1,7 @@
 /**
  * _________________________________________________
  *
- * @file   tdsl_net_recv_if_mixin.hpp
+ * @file   tdsl_net_rx_mixin.hpp
  * @author Mustafa Kemal GILOR <mustafagilor@gmail.com>
  * @date   04.10.2022
  *
@@ -52,8 +52,8 @@ namespace tdsl { namespace detail {
      * @tparam Derived Derived type (CRTP)
      */
     template <typename Derived>
-    struct net_recv_if_mixin {
-        net_recv_if_mixin() {
+    struct net_rx_mixin {
+        net_rx_mixin() {
             // If you are hitting these static assertions, it means either your NetImpl does not
             // have the following functions, or the functions does not have the expected function
             // signature. These functions are provided by the `network_impl_base` type, which MUST

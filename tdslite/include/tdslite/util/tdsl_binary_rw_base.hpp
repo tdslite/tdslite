@@ -14,6 +14,7 @@
 #include <tdslite/util/tdsl_macrodef.hpp>
 #include <tdslite/util/tdsl_inttypes.hpp>
 #include <tdslite/util/tdsl_type_traits.hpp>
+#include <tdslite/util/tdsl_span.hpp>
 
 namespace tdsl {
     template <typename Derived>
@@ -116,6 +117,74 @@ namespace tdsl {
             // since the result of the sum may overflow
             return (tdsl::int64_t{offset_} + tdsl::int64_t{amount_of_bytes}) <=
                    tdsl::int64_t{static_cast<const Derived &>(*this).size_bytes()};
+        }
+
+        /**
+         * Check whether Derived has @p amount_of_bytes empty space remaining
+         *
+         * @param [in] amount_of_bytes Amount of bytes for check
+         * @param [in] offset Override value for offset
+         * @return true if Derived has at least v bytes
+         * @return false otherwise
+         */
+        inline TDSL_NODISCARD TDSL_CXX14_CONSTEXPR auto
+        has_bytes(tdsl::uint32_t amount_of_bytes, tdsl::uint32_t offset) const noexcept -> bool {
+            // Promote offset and v to next greater signed integer type
+            // since the result of the sum may overflow
+            return (tdsl::int64_t{offset} + tdsl::int64_t{amount_of_bytes}) <=
+                   tdsl::int64_t{static_cast<const Derived &>(*this).size_bytes()};
+        }
+
+        /**
+         * Beginning of the occupied (non-free) region
+         */
+        inline auto inuse_begin() const noexcept -> const tdsl::uint8_t * {
+            return static_cast<const Derived &>(*this).begin();
+        }
+
+        /**
+         * End of the occupied (non-free) region
+         */
+        inline auto inuse_end() const noexcept -> const tdsl::uint8_t * {
+            TDSL_ASSERT((inuse_begin() + this->offset_) <=
+                        static_cast<const Derived &>(*this).end());
+            return inuse_begin() + this->offset();
+        }
+
+        /**
+         * View to written data
+         *
+         * @return tdsl::byte_view
+         */
+        inline auto inuse_span() const noexcept -> tdsl::byte_view {
+            return tdsl::byte_view{inuse_begin(), inuse_end()};
+        }
+
+        /**
+         * Beginning of the free space
+         *
+         * @return tdsl::uint8_t*
+         */
+        inline auto free_begin() const noexcept -> tdsl::uint8_t * {
+            return static_cast<const Derived &>(*this).begin() + this->offset();
+        }
+
+        /**
+         * End of the free space
+         *
+         * @return tdsl::uint8_t*
+         */
+        inline auto free_end() const noexcept -> tdsl::uint8_t * {
+            return static_cast<const Derived &>(*this).end();
+        }
+
+        /**
+         * Span to free space
+         *
+         * @return tdsl::byte_span
+         */
+        inline auto free_span() const noexcept -> tdsl::byte_span {
+            return tdsl::byte_span{free_begin(), free_end()};
         }
 
     protected:

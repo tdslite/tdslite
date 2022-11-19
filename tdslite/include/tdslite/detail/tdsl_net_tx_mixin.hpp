@@ -1,7 +1,7 @@
 /**
  * _________________________________________________
  *
- * @file   tdsl_net_send_if_mixin.hpp
+ * @file   tdsl_net_tx_mixin.hpp
  * @author Mustafa Kemal GILOR <mustafagilor@gmail.com>
  * @date   04.10.2022
  *
@@ -20,7 +20,7 @@
 #include <tdslite/util/tdsl_byte_swap.hpp>
 
 namespace tdsl { namespace detail {
-    
+
     // --------------------------------------------------------------------------------
 
     /**
@@ -29,7 +29,7 @@ namespace tdsl { namespace detail {
      * @tparam Derived Derived type (CRTP)
      */
     template <typename Derived>
-    struct net_send_if_mixin {
+    struct net_tx_mixin {
 
         template <typename T, traits::enable_when::integral<T> = true>
         inline auto write(T v) noexcept -> void {

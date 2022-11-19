@@ -73,30 +73,32 @@ namespace tdsl { namespace net {
         inline constexpr network_impl_contract() noexcept {
             // If you are hitting these static assertions, it means either your ConcreteNetImpl
             // does not have do_recv function, or it does not have the expected function signature.
-            static_assert(
-                traits::dependent_bool<has_consume_recv_buf<ConcreteNetImpl>::value>::value,
-                "The type ConcreteNetImpl must implement void "
-                "do_consume_recv_buf(tdsl::uint32_t, tdsl::uint32_t) function!");
+            // static_assert(
+            //     traits::dependent_bool<has_consume_recv_buf<ConcreteNetImpl>::value>::value,
+            //     "The type ConcreteNetImpl must implement void "
+            //     "do_consume_recv_buf(tdsl::uint32_t, tdsl::uint32_t) function!");
 
-            static_assert(
-                traits::dependent_bool<has_consume_send_buf<ConcreteNetImpl>::value>::value,
-                "The type ConcreteNetImpl must implement void "
-                "do_consume_send_buf(tdsl::uint32_t, tdsl::uint32_t) function!");
+            // static_assert(
+            //     traits::dependent_bool<has_consume_send_buf<ConcreteNetImpl>::value>::value,
+            //     "The type ConcreteNetImpl must implement void "
+            //     "do_consume_send_buf(tdsl::uint32_t, tdsl::uint32_t) function!");
 
             static_assert(traits::dependent_bool<has_recv_member_fn<ConcreteNetImpl>::value>::value,
                           "The type ConcreteNetImpl must implement void "
-                          "do_recv(tdsl::uint32_t) function!");
+                          "do_recv(tdsl::uint32_t, read_at_least) function!");
 
             static_assert(traits::dependent_bool<has_do_connect_fn<ConcreteNetImpl>::value>::value,
                           "The type ConcreteNetImpl must implement void "
                           "do_connect(tdsl::char_view, "
                           "tdsl::uint16_t) function!");
 
-            static_assert(traits::dependent_bool<has_rbuf_reader_fn<ConcreteNetImpl>::value>::value,
-                          "The type ConcreteNetImpl must implement void rbuf_reader() function!");
+            // static_assert(traits::dependent_bool<has_rbuf_reader_fn<ConcreteNetImpl>::value>::value,
+            //               "The type ConcreteNetImpl must implement void rbuf_reader()
+            //               function!");
 
-            static_assert(traits::dependent_bool<has_sbuf_reader_fn<ConcreteNetImpl>::value>::value,
-                          "The type ConcreteNetImpl must implement void sbuf_reader() function!");
+            // static_assert(traits::dependent_bool<has_sbuf_reader_fn<ConcreteNetImpl>::value>::value,
+            //               "The type ConcreteNetImpl must implement void sbuf_reader()
+            //               function!");
         }
     };
 }} // namespace tdsl::net

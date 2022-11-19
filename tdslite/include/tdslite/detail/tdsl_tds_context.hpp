@@ -18,8 +18,8 @@
 #include <tdslite/detail/tdsl_callback.hpp>
 #include <tdslite/detail/tdsl_data_type.hpp>
 #include <tdslite/detail/tdsl_token_handler_result.hpp>
-#include <tdslite/detail/tdsl_net_recv_if_mixin.hpp>
-#include <tdslite/detail/tdsl_net_send_if_mixin.hpp>
+#include <tdslite/detail/tdsl_net_rx_mixin.hpp>
+#include <tdslite/detail/tdsl_net_tx_mixin.hpp>
 #include <tdslite/detail/tdsl_tds_header.hpp>
 #include <tdslite/detail/token/tds_envchange_token.hpp>
 #include <tdslite/detail/token/tds_info_token.hpp>
@@ -65,8 +65,8 @@ namespace tdsl { namespace detail {
      */
     template <typename ConcreteNetImpl>
     struct tds_context : public ConcreteNetImpl,
-                         public detail::net_recv_if_mixin<tds_context<ConcreteNetImpl>>,
-                         public detail::net_send_if_mixin<tds_context<ConcreteNetImpl>> {
+                         public detail::net_rx_mixin<tds_context<ConcreteNetImpl>>,
+                         public detail::net_tx_mixin<tds_context<ConcreteNetImpl>> {
         using tds_context_type       = tds_context<ConcreteNetImpl>;
         using sub_token_handler_fn_t = token_handler_result (*)(
             void *, e_tds_message_token_type, tdsl::binary_reader<tdsl::endian::little> &);
@@ -75,8 +75,8 @@ namespace tdsl { namespace detail {
         using loginack_callback_type         = callback<tds_login_ack_token>;
         using done_callback_type             = callback<tds_done_token>;
         using subtoken_handler_callback_type = callback<void, sub_token_handler_fn_t>;
-        using xmit_if                        = detail::net_send_if_mixin<tds_context_type>;
-        using recv_if                        = detail::net_recv_if_mixin<tds_context_type>;
+        using tx_mixin                       = detail::net_tx_mixin<tds_context_type>;
+        using rx_mixin                       = detail::net_rx_mixin<tds_context_type>;
 
         // --------------------------------------------------------------------------------
 
@@ -291,7 +291,6 @@ namespace tdsl { namespace detail {
                     case e_token_type::done:
                     case e_token_type::doneproc:   // FIXME: Distinguish
                     case e_token_type::doneinproc: // FIXME: Distinguish
-
                     {
                         subhandler_nb = handle_done_token(token_reader);
                     } break;
@@ -535,8 +534,8 @@ namespace tdsl { namespace detail {
             return 0;
         }
 
-        friend struct detail::net_recv_if_mixin<tds_context<ConcreteNetImpl>>;
-        friend struct detail::net_send_if_mixin<tds_context<ConcreteNetImpl>>;
+        friend struct detail::net_rx_mixin<tds_context<ConcreteNetImpl>>;
+        friend struct detail::net_tx_mixin<tds_context<ConcreteNetImpl>>;
         friend struct tdsl::detail::tdsl_driver<ConcreteNetImpl>;
         friend struct tdsl::detail::login_context<ConcreteNetImpl>;
         friend struct tdsl::detail::command_context<ConcreteNetImpl>;

@@ -50,7 +50,9 @@ namespace tdsl {
         // Expose span constructors
         using span_type::span;
         using span_type::operator bool;
+        using span_type::begin;
         using span_type::data;
+        using span_type::end;
         using span_type::size_bytes;
 
         /**

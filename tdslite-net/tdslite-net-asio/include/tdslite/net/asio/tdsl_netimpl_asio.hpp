@@ -16,6 +16,7 @@
 #include <tdslite/util/tdsl_span.hpp>
 #include <tdslite/util/tdsl_macrodef.hpp>
 #include <tdslite/util/tdsl_expected.hpp>
+#include <tdslite/util/tdsl_buffer_object.hpp>
 
 #include <iterator>
 #include <vector>
@@ -45,23 +46,6 @@ namespace tdsl { namespace net {
 
         // --------------------------------------------------------------------------------
 
-        inline net_rbuf_reader rbuf_reader() noexcept {
-            return net_rbuf_reader{
-                *this, byte_view{recv_buffer.data(), recv_buffer_consumable_bytes}
-            };
-        }
-
-        // --------------------------------------------------------------------------------
-
-        inline net_sbuf_reader sbuf_reader() noexcept {
-            return net_sbuf_reader{
-                *this,
-                byte_view{send_buffer.data(), static_cast<tdsl::uint32_t>(send_buffer.size())}
-            };
-        }
-
-        // --------------------------------------------------------------------------------
-
         /**
          * Connect to the target endpoint @p target : @p port
          *
@@ -86,38 +70,6 @@ namespace tdsl { namespace net {
          * @returns -1 if socket is not alive
          */
         TDSL_SYMBOL_VISIBLE int do_disconnect() noexcept;
-
-        // --------------------------------------------------------------------------------
-
-        /**
-         * Append @p data to send buffer
-         *
-         * @param [in] data Data to append
-         */
-        template <typename T>
-        inline void do_write(tdsl::span<T> data) noexcept {
-            send_buffer.insert(send_buffer.end(), data.begin(), data.end());
-        }
-
-        // --------------------------------------------------------------------------------
-
-        /**
-         * Append @p data to send buffer, starting from send buffer offset @p offset
-         *
-         * @param [in] offset Offset to start from
-         * @param [in] data Data to append
-         */
-        template <typename T>
-        inline void do_write(tdsl::uint32_t offset, tdsl::span<T> data) noexcept {
-
-            auto beg = std::next(send_buffer.begin(), offset);
-            auto end = std::next(beg, data.size_bytes());
-            if (beg >= send_buffer.end() || end > send_buffer.end()) {
-                return;
-            }
-
-            std::copy(data.begin(), data.end(), beg);
-        }
 
         // --------------------------------------------------------------------------------
 
@@ -182,42 +134,10 @@ namespace tdsl { namespace net {
          */
         TDSL_SYMBOL_VISIBLE void do_recv(tdsl::uint32_t exact_amount, read_exactly) noexcept;
 
-        // --------------------------------------------------------------------------------
-
-        /**
-         * Remove @p amount bytes, starting from the @p offset, then move remaining bytes
-         * to the start of the buffer.
-         *
-         * @param [in] amount Amount to remove
-         * @param [in] offset Offset, from start
-         * @return true if successful, false if recv buf does not have @p amount bytes starting from
-         * @p offset
-         */
-        TDSL_SYMBOL_VISIBLE bool do_consume_recv_buf(tdsl::uint32_t amount,
-                                                     tdsl::uint32_t offset = 0);
-
-        // --------------------------------------------------------------------------------
-
-        /**
-         * Remove @p amount bytes, starting from the @p offset, then move remaining bytes
-         * to the start of the buffer.
-         *
-         * @param [in] amount Amount to remove
-         * @param [in] offset Offset, from start
-         * @return true if successful, false if send buf does not have @p amount bytes starting from
-         * @p offset
-         */
-        TDSL_SYMBOL_VISIBLE bool do_consume_send_buf(tdsl::uint32_t amount,
-                                                     tdsl::uint32_t offset = 0);
-
     private:
-        // The send buffer
-        std::vector<tdsl::uint8_t> send_buffer{};
-        // The receive buffer
-        std::vector<tdsl::uint8_t> recv_buffer{std::vector<tdsl::uint8_t>(8192)};
-        // Amount of bytes consumable in receive buffer
-        tdsl::uint32_t recv_buffer_consumable_bytes{0};
-
+        // Underlying buffer
+        constexpr static tdsl::uint32_t k_buffer_size = {16384};
+        std::vector<tdsl::uint8_t> underlying_buffer{std::vector<tdsl::uint8_t>(k_buffer_size)};
         // Type-erased smart pointers to asio-specific stuff
         std::shared_ptr<void> io_context{nullptr};
         std::shared_ptr<void> io_context_work_guard{nullptr};

@@ -27,6 +27,7 @@
 #include <tdslite/util/tdsl_debug_print.hpp>
 #include <tdslite/util/tdsl_type_traits.hpp>
 #include <tdslite/util/tdsl_expected.hpp>
+#include <tdslite/util/tdsl_buffer_object.hpp>
 
 namespace tdsl { namespace net {
 
@@ -41,29 +42,6 @@ namespace tdsl { namespace net {
 
         struct read_at_least {};
 
-        struct net_rbuf_reader : public binary_reader<tdsl::endian::little> {
-            net_rbuf_reader(ConcreteNetImpl & n, byte_view buf) :
-                binary_reader<tdsl::endian::little>{buf.data(), buf.size()}, nimplb(n) {}
-
-            ~net_rbuf_reader() {
-                nimplb.do_consume_recv_buf(offset(), 0);
-            }
-
-        private:
-            ConcreteNetImpl & nimplb;
-        }; // give rbuf_reader object
-
-        struct net_sbuf_reader : public binary_reader<tdsl::endian::little> {
-            net_sbuf_reader(ConcreteNetImpl & n, byte_view buf) :
-                binary_reader<tdsl::endian::little>{buf.data(), buf.size()}, nimplb(n) {}
-
-            ~net_sbuf_reader() {
-                nimplb.do_consume_send_buf(offset(), 0);
-            }
-
-        private:
-            ConcreteNetImpl & nimplb;
-        }; // give rbuf_reader object
     private:
         inline void call_recv(tdsl::uint32_t min_amount, read_at_least) {
             static_cast<ConcreteNetImpl &>(*this).do_recv(min_amount, read_at_least{});
@@ -83,14 +61,6 @@ namespace tdsl { namespace net {
 
         inline expected<tdsl::uint32_t, tdsl::int32_t> call_read(byte_span dst_buf, read_exactly) {
             return static_cast<ConcreteNetImpl &>(*this).do_read(dst_buf, read_exactly{});
-        }
-
-        inline auto call_rbuf_reader() -> net_rbuf_reader {
-            return static_cast<ConcreteNetImpl &>(*this).rbuf_reader();
-        }
-
-        inline auto call_sbuf_reader() -> net_sbuf_reader {
-            return static_cast<ConcreteNetImpl &>(*this).sbuf_reader();
         }
 
     public:
@@ -139,6 +109,9 @@ namespace tdsl { namespace net {
          * Receive one, complete TDS PDU.
          */
         tdsl::uint32_t do_receive_tds_pdu() noexcept {
+            TDSL_ASSERT_MSG(
+                not(network_buffer.get_underlying_view().data() == nullptr),
+                "The network implementation MUST initialize network_buffer prior any network I/O!");
 
             /**
              * TDS packet data can span multiple TDS messages.
@@ -222,10 +195,10 @@ namespace tdsl { namespace net {
                 // to underlying buffer on object destruction
                 // e.g. nmsg_rdr.read(2) will cause 2 bytes from
                 // the start of the underlying buffer to be removed
-                auto nmsg_rdr = call_rbuf_reader();
+                auto nmsg_rdr = network_buffer.get_reader();
 
                 // pass current buffer down
-                if (not nmsg_rdr.has_bytes(packet_data_size)) {
+                if (not nmsg_rdr->has_bytes(packet_data_size)) {
                     // this should not happen
                     TDSL_ASSERT_MSG(0, "The receive buffer does not contain expected amount of "
                                        "bytes, something is wrong!");
@@ -236,7 +209,7 @@ namespace tdsl { namespace net {
                 // TODO: Check if we got enough space to pull the next message
 
                 if (packet_data_cb) {
-                    const auto needed_bytes = packet_data_cb(message_type, nmsg_rdr);
+                    const auto needed_bytes = packet_data_cb(message_type, *nmsg_rdr);
                     TDSL_DEBUG_PRINTLN("network_impl_base::handle_tds_response(...) -> msg_cb_ctx, "
                                        "need byte(s) value:%d",
                                        needed_bytes);
@@ -252,19 +225,18 @@ namespace tdsl { namespace net {
             // affects the consequent responses' parsing. In such case
             // it is for better to flush the receive buffer.
             {
-                auto rbuf_reader = call_rbuf_reader();
-                if (rbuf_reader.remaining_bytes()) {
+                auto rbuf_reader = network_buffer.get_reader();
+                if (rbuf_reader->remaining_bytes()) {
                     TDSL_DEBUG_PRINTLN(
                         "Although the EOM is received, receive buffer still contains %ld bytes of "
                         "data which means packet handler failed to handle all the data in the "
                         "message. Discarding the data.",
-                        rbuf_reader.remaining_bytes());
+                        rbuf_reader->remaining_bytes());
                     // Consume the remaining data
-                    rbuf_reader.advance(rbuf_reader.remaining_bytes());
+                    rbuf_reader->advance(
+                        static_cast<tdsl::int32_t>(rbuf_reader->remaining_bytes()));
                 }
             }
-
-            // FIXME: Discard send buffer here too
             return processed_tds_message_count;
         }
 
@@ -272,17 +244,21 @@ namespace tdsl { namespace net {
          * Send contents of the message buffer in one or more TDS PDU's,
          * depending on negotiated packet size.
          *
-         * @param [in] mtype Message type
+         * @param [in] mtype The type of the message currently in
+         *                   the network buffer
          */
         void do_send_tds_pdu(tdsl::detail::e_tds_message_type mtype) noexcept {
+            TDSL_ASSERT_MSG(
+                not(network_buffer.get_underlying_view().data() == nullptr),
+                "The network implementation MUST initialize network_buffer prior any network I/O!");
             const int k_message_segmentation_size = (tds_packet_size - 8);
-            auto sbuf_reader                      = call_sbuf_reader();
-            auto fragment_count = (sbuf_reader.remaining_bytes() / k_message_segmentation_size);
+            auto buf_rdr                          = network_buffer.get_reader();
+            auto fragment_count = (buf_rdr->remaining_bytes() / k_message_segmentation_size);
             do {
-                auto segment_size = sbuf_reader.has_bytes(k_message_segmentation_size)
-                                        ? k_message_segmentation_size
-                                        : sbuf_reader.remaining_bytes();
-                auto segment      = sbuf_reader.read(segment_size);
+                auto segment_size                = buf_rdr->has_bytes(k_message_segmentation_size)
+                                                       ? k_message_segmentation_size
+                                                       : buf_rdr->remaining_bytes();
+                auto segment                     = buf_rdr->read(segment_size);
                 const tdsl::uint16_t segsize_nbo = host_to_network(
                     static_cast<tdsl::uint16_t>(segment.size_bytes() + sizeof(detail::tds_header)));
                 const tdsl::uint8_t(&segsize_nbo_b) [2] =
@@ -300,8 +276,37 @@ namespace tdsl { namespace net {
                 call_send(byte_view{tds_hbuf}, segment);
             } while (fragment_count--);
 
-            TDSL_ASSERT_MSG(not sbuf_reader.has_bytes(1), "Send buffer must be empty after!");
+            TDSL_ASSERT_MSG(not buf_rdr->has_bytes(1), "Send buffer must be empty after!");
         }
+
+        // --------------------------------------------------------------------------------
+
+        /**
+         * Append @p data to network buffer
+         *
+         * @param [in] data Data to append
+         */
+        template <typename T>
+        inline void do_write(tdsl::span<T> data) noexcept {
+            // FIXME: This should be no longer necessary
+            TDSL_ASSERT(network_buffer.get_writer()->write(data));
+        }
+
+        // --------------------------------------------------------------------------------
+
+        /**
+         * Append @p data to network buffer,
+         * starting from @p offset
+         *
+         * @param [in] offset Offset to start from
+         * @param [in] data Data to append
+         */
+        template <typename T>
+        inline void do_write(tdsl::uint32_t offset, tdsl::span<T> data) noexcept {
+            TDSL_ASSERT(network_buffer.get_writer()->write(offset, data));
+        }
+
+        // --------------------------------------------------------------------------------
 
         /**
          * Set TDS packet data callback
@@ -315,8 +320,29 @@ namespace tdsl { namespace net {
         }
 
     private:
+        // The callback to be invoked for each TDS packet.
+        // The callback is invoked in streaming fashion to
+        // free occupied space as soon as possible, which
+        // enables network driver to process TDS messages
+        // where message_len > network_buffer.
         tds_packet_data_callback packet_data_cb{};
+
         // Negotiated TDS packet size
+        // The capacity of @p network_buffer MUST
+        // be equal to this value (may be greater).
+        // Otherwise, the client may not be able to
+        // receive the data from the server.
         tdsl::uint16_t tds_packet_size = {4096};
+
+    protected:
+        // The network I/O buffer.
+        //
+        // Network implementation share a single buffer
+        // for sending/receiving network packets since
+        // TDS protocol is a request/response based
+        // protocol.
+        //
+        // MUST be initialized by deriving class
+        tdsl_buffer_object network_buffer = {};
     };
 }} // namespace tdsl::net

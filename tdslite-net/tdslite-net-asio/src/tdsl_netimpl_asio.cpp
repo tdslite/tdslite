@@ -87,7 +87,9 @@ namespace tdsl { namespace net {
 
     tdsl_netimpl_asio::tdsl_netimpl_asio() {
         TDSL_DEBUG_PRINT("tdsl_netimpl_asio::tdsl_netimpl_asio() -> constructor call\n");
-        io_context = std::make_shared<io_context_t>(1);
+        network_buffer = tdsl_buffer_object{underlying_buffer.data(),
+                                            static_cast<tdsl::uint32_t>(underlying_buffer.size())};
+        io_context     = std::make_shared<io_context_t>(1);
         io_context_work_guard =
             std::make_shared<work_guard_t>(boost::asio::make_work_guard(*as_ctx(io_context)));
         TDSL_DEBUG_PRINT("tdsl_netimpl_asio::tdsl_netimpl_asio() -> constructor return\n");
@@ -173,8 +175,9 @@ namespace tdsl { namespace net {
         TDSL_ASSERT(socket_handle);
         boost::system::error_code ec;
 
-        const tdsl::int64_t rem_space = static_cast<tdsl::int64_t>(recv_buffer.size()) -
-                                        tdsl::int64_t{recv_buffer_consumable_bytes};
+        auto writer                   = network_buffer.get_writer();
+
+        const tdsl::int64_t rem_space = writer->remaining_bytes();
 
         if (transfer_exactly > rem_space) {
             TDSL_DEBUG_PRINTLN("tdsl_netimpl_asio::dispatch_receive(...) -> error, not enough "
@@ -184,17 +187,22 @@ namespace tdsl { namespace net {
             return;
         }
 
+        // Retrieve the free space
+        auto free_space_span = writer->free_span();
+
         // Re-invoke receive
         const auto read_bytes =
             asio::read(*as_socket(socket_handle),
-                       asio::buffer(recv_buffer.data() + recv_buffer_consumable_bytes,
-                                    recv_buffer.size() - recv_buffer_consumable_bytes),
+                       asio::buffer(free_space_span.data(), free_space_span.size_bytes()),
                        asio::transfer_exactly(transfer_exactly), ec);
 
-        recv_buffer_consumable_bytes += read_bytes;
+        // asio::read will write `read_bytes` into `free_space_span`.
+        // Advance writer's offset to reflect the changes.
+        writer->advance(static_cast<tdsl::int32_t>(read_bytes));
+
         TDSL_DEBUG_PRINTLN(
             "tdsl_netimpl_asio::do_recv(...) -> read bytes(%ld), consumable bytes (%u)", read_bytes,
-            recv_buffer_consumable_bytes);
+            writer->inuse_span().size_bytes());
         if (ec) {
             // There is an error, we should handle it appropriately
             TDSL_DEBUG_PRINT("tdsl_netimpl_asio::dispatch_receive(...) -> error, %d (%s) aborting "
@@ -241,10 +249,12 @@ namespace tdsl { namespace net {
             disconnected = -2,
         };
 
+        auto writer = network_buffer.get_writer();
+        auto in_use = writer->inuse_span();
+
         boost::system::error_code ec;
-        const auto bytes_written =
-            asio::write(*as_socket(socket_handle),
-                        boost::asio::const_buffer(send_buffer.data(), send_buffer.size()), ec);
+        const auto bytes_written = asio::write(
+            *as_socket(socket_handle), boost::asio::const_buffer(in_use.data(), in_use.size()), ec);
         (void) bytes_written;
         if (not ec) {
             TDSL_DEBUG_PRINT("tdsl_netimpl_asio::do_send(...) -> sent %ld byte(s), ec %d (%s)\n",
@@ -262,8 +272,9 @@ namespace tdsl { namespace net {
                 return e_result::disconnected;
             } break;
         }
-
-        send_buffer.clear();
+        writer->reset();
+        TDSL_ASSERT(writer->remaining_bytes() ==
+                    static_cast<tdsl::int64_t>(underlying_buffer.size()));
         TDSL_DEBUG_PRINTLN("tdsl_netimpl_asio::do_send(...) -> exit, bytes written %ld",
                            bytes_written);
         return e_result::success;
@@ -317,7 +328,6 @@ namespace tdsl { namespace net {
             disconnected = -2,
         };
 
-        tdsl::uint32_t bytes_written{0};
         boost::system::error_code ec;
 
         const std::array<boost::asio::const_buffer, 2> bufs{
@@ -325,7 +335,7 @@ namespace tdsl { namespace net {
             boost::asio::const_buffer{message.data(), message.size()},
         };
 
-        bytes_written += asio::write(*as_socket(socket_handle), bufs, ec);
+        const auto bytes_written = asio::write(*as_socket(socket_handle), bufs, ec);
         if (not ec) {
             TDSL_DEBUG_PRINT("tdsl_netimpl_asio::do_send(...) -> sent %u byte(s), ec %d (%s)\n",
                              bytes_written, ec.value(), ec.what().c_str());
@@ -345,22 +355,8 @@ namespace tdsl { namespace net {
 
         TDSL_DEBUG_PRINTLN("tdsl_netimpl_asio::do_send(...) -> exit, bytes written %u",
                            bytes_written);
+        (void) bytes_written;
         return e_result::success;
-    }
-
-    // --------------------------------------------------------------------------------
-
-    bool tdsl_netimpl_asio::do_consume_recv_buf(tdsl::uint32_t amount, tdsl::uint32_t offset) {
-        bool r = consume_buffer(recv_buffer, recv_buffer_consumable_bytes, amount, offset);
-        recv_buffer.resize(8192);
-        return r;
-    }
-
-    // --------------------------------------------------------------------------------
-
-    bool tdsl_netimpl_asio::do_consume_send_buf(tdsl::uint32_t amount, tdsl::uint32_t offset) {
-        tdsl::uint32_t send_buffer_consumable_bytes = send_buffer.size();
-        return consume_buffer(send_buffer, send_buffer_consumable_bytes, amount, offset);
     }
 
     // --------------------------------------------------------------------------------

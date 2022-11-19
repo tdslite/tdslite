@@ -155,6 +155,9 @@ struct tds_command_ctx_it_fixture : public ::testing::Test {
         for (tdsl::uint32_t i = 0; i < Times; i++) {
             q += query.v;
         }
+
+        TDSL_DEBUG_PRINTLN("exec_as_one--query length %lu", q.length());
+
         return command_ctx.execute_query(
             tdsl::string_view{q.data(), static_cast<tdsl::uint32_t>(q.size())}, uptr, rcb);
     }

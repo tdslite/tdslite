@@ -46,7 +46,9 @@ namespace tdsl {
         // Expose span constructors
         using span_type::span_type;
         using span_type::operator bool;
+        using span_type::begin;
         using span_type::data;
+        using span_type::end;
         using span_type::size_bytes;
 
         /**
@@ -117,6 +119,37 @@ namespace tdsl {
         }
 
         /**
+         * Write @p data as-is
+         *
+         * @param [in] data Data to write
+         * @return true if writer has enough space for @p data and bytes are
+         * written
+         * @return false if writer does not have enough space. The underlying
+         * span will be unmodified in this case.
+         */
+        inline TDSL_NODISCARD TDSL_CXX14_CONSTEXPR auto write(size_type start_offset,
+                                                              tdsl::byte_view data) noexcept
+            -> bool {
+
+            // if (start_offset > this->offset()) {
+            //     //TDSL_ASSERT_MSG(false, "write() with offset only supports rewriting existing
+            //     data!");
+            // }
+
+            if (not this->has_bytes(data.size_bytes(), start_offset)) {
+                return false;
+            }
+
+            memcpy(this->data() + start_offset, data.data(), data.size_bytes());
+            if (start_offset + data.size_bytes() > this->offset()) {
+                const auto advance_amount = (start_offset + data.size_bytes());
+                this->do_advance(advance_amount);
+            }
+
+            return true;
+        }
+
+        /**
          * Write a value with type T to current position.
          * The write value will be in WriteEndianness byte order.
          *
@@ -168,21 +201,6 @@ namespace tdsl {
             memcpy(&value, this->current(), sizeof(T));
             this->do_advance(sizeof(T));
             return true;
-        }
-
-        /**
-         * Beginning of the written data
-         */
-        inline auto dw_begin() const noexcept -> const tdsl::uint8_t * {
-            return begin();
-        }
-
-        /**
-         * End of the written data
-         */
-        inline auto dw_end() const noexcept -> const tdsl::uint8_t * {
-            TDSL_ASSERT((dw_begin() + this->offset_) <= end());
-            return dw_begin() + this->offset();
         }
     };
 
