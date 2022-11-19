@@ -92,7 +92,6 @@ namespace tdsl {
         template <tdsl::endian SubreaderEndianness = DataEndianness>
         inline TDSL_NODISCARD auto subreader(tdsl::uint32_t size) const noexcept
             -> binary_reader<SubreaderEndianness> {
-
             if (!this->has_bytes(size)) {
                 return binary_reader<SubreaderEndianness>{nullptr, static_cast<tdsl::uint32_t>(0)};
             }
@@ -108,7 +107,6 @@ namespace tdsl {
          */
         inline TDSL_NODISCARD TDSL_CXX14_CONSTEXPR auto
         read(tdsl::uint32_t number_of_elements) noexcept -> span_type {
-
             if (number_of_elements > 0 && this->has_bytes(number_of_elements)) {
                 span_type result{this->current(), (this->current() + number_of_elements)};
                 this->do_advance(number_of_elements);
@@ -127,8 +125,8 @@ namespace tdsl {
         template <typename T>
         inline TDSL_NODISCARD TDSL_CXX14_CONSTEXPR auto read_raw() noexcept -> T {
             if (not this->has_bytes(sizeof(T))) {
-                TDSL_ASSERT(false);
-                TDSL_UNREACHABLE;
+                TDSL_ASSERT_MSG(false, "Unchecked read, check size before reading!");
+                TDSL_TRAP;
             }
             T result{};
             // This is for complying the strict aliasing rules

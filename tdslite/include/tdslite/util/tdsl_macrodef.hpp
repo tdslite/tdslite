@@ -10,18 +10,26 @@
  * _________________________________________________
  */
 
-#include <tdslite/util/tdsl_type_traits.hpp>
-#include <assert.h>
-
 #ifndef TDSL_UTIL_TDS_MACRODEF_HPP
 #define TDSL_UTIL_TDS_MACRODEF_HPP
+
+#include <tdslite/util/tdsl_type_traits.hpp>
+#include <assert.h>
 
 /**
  * Mark a line of code as unreachable. If code flow reaches
  * a line marked with TDSL_UNREACHABLE, the program will
  * be terminated.
  */
-#define TDSL_UNREACHABLE __builtin_unreachable();
+#define TDSL_UNREACHABLE __builtin_unreachable()
+
+/**
+ * Cause the program to exit abnormally
+ *
+ * Raising a trap is useful when program enters a corrupt
+ * state and execution is no longer feasible or possible.
+ */
+#define TDSL_TRAP __builtin_trap()
 
 /**
  * @brief [intrinsics.gcc] Specify minimum alignment for given type. This causes target type to

@@ -61,6 +61,42 @@ namespace tdsl {
             span_type(TDSL_MOVE(other)) {}
 
         /**
+         * Shift all written bytes by @p amount and
+         * advance back by amount of shifted elements.
+         *
+         * @param [in] amount Left shift count.
+         * @return tdsl::uint32_t
+         */
+        inline void shift_left(tdsl::uint32_t amount) noexcept {
+            span_type::shift_left(amount, this->offset());
+            this->advance(static_cast<tdsl::int32_t>(-amount));
+        }
+
+        /**
+         * Get a view to underlying data
+         *
+         * @return byte_view
+         */
+        inline auto underlying_view() const noexcept -> tdsl::byte_view {
+            return span_type::template rebind_cast<const tdsl::uint8_t>();
+        }
+
+        /**
+         * Write @p data as-is
+         *
+         * @param [in] data Data to write
+         * @return true if writer has enough space for @p data and bytes are
+         * written
+         * @return false if writer does not have enough space. The underlying
+         * span will be unmodified in this case.
+         */
+        template <typename T, tdsl::uint32_t N>
+        inline TDSL_NODISCARD TDSL_CXX14_CONSTEXPR auto write(const T (&data) [N]) noexcept
+            -> bool {
+            return write(tdsl::byte_view{data});
+        }
+
+        /**
          * Write @p data as-is
          *
          * @param [in] data Data to write
@@ -78,7 +114,7 @@ namespace tdsl {
             memcpy(this->current(), data.data(), data.size_bytes());
             this->do_advance(data.size_bytes());
             return true;
-        };
+        }
 
         /**
          * Write a value with type T to current position.

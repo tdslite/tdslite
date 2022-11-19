@@ -151,7 +151,7 @@ TEST(span, shift_left_1) {
 TEST(span, shift_left_2) {
     tdsl::uint8_t buf [] = {0x01, 0x02, 0x03, 0x04, 0x05};
     tdsl::byte_span buf_span{buf};
-    for (tdsl::uint32_t i = 0; i < sizeof(buf); i++) {
+    for (tdsl::uint32_t i = 1; i <= sizeof(buf); i++) {
         EXPECT_EQ(sizeof(buf) - i, buf_span.shift_left(i));
     }
     tdsl::byte_view bv{buf};
@@ -164,4 +164,14 @@ TEST(span, shift_left_3) {
     for (tdsl::uint32_t i = 0; i < buf.size(); i++) {
         EXPECT_EQ(buf.size() - i, buf_span.shift_left(i));
     }
+}
+
+TEST(span, shift_left_oversize) {
+    tdsl::uint8_t expected_buf [8192] = {};
+    std::vector<tdsl::uint8_t> buf{};
+    buf.resize(8192);
+    std::fill(buf.begin(), buf.end(), 0xFF);
+    tdsl::byte_span buf_span{buf.data(), static_cast<tdsl::uint32_t>(buf.size())};
+    EXPECT_EQ(buf_span.shift_left(buf.size() + 1), 0);
+    ASSERT_THAT(buf, testing::ElementsAreArray(expected_buf));
 }

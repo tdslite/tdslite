@@ -46,6 +46,10 @@ make_component(
             SUFFIX .tdsl_field
             SOURCES ut_tdsl_field.cpp
 
+    TARGET  TYPE UNIT_TEST
+            SUFFIX .buffer_object
+            SOURCES ut_buffer_object.cpp
+
     ALL_NO_AUTO_COMPILATION_UNIT
     ALL_WITH_COVERAGE
     ALL_COVERAGE_TARGETS tdslite

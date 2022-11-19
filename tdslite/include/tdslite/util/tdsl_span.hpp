@@ -32,6 +32,7 @@ namespace tdsl {
          */
         template <typename Derived>
         struct span_mixin_shift_left {
+
             /**
              * Shift elements to left
              *
@@ -42,6 +43,21 @@ namespace tdsl {
             template <typename U = Derived>
             inline auto shift_left(decltype(traits::declval<U>().size_bytes()) count) noexcept
                 -> decltype(traits::declval<U>().size_bytes()) {
+                return shift_left(count, static_cast<const Derived &>(*this).size_bytes());
+            }
+
+            /**
+             * Shift elements to left
+             *
+             * @param [in] count Amount of left shifts to perform
+             * @param [in] bound Last element in span to shift
+             *
+             * @return Shifted element count
+             */
+            template <typename U = Derived>
+            inline auto shift_left(decltype(traits::declval<U>().size_bytes()) count,
+                                   decltype(traits::declval<U>().size_bytes()) bound) noexcept
+                -> decltype(traits::declval<U>().size_bytes()) {
 
                 // This function signature looks like witchcraft, because C++11
                 // does not have decltype(auto) so we cannot just say decltype(auto)
@@ -51,15 +67,20 @@ namespace tdsl {
                 // template parameter instead, type resolution is delayed until
                 // function invocation where Derived is a complete type.
 
-                const auto sb = static_cast<const Derived &>(*this).size_bytes();
+                if (bound > static_cast<const Derived &>(*this).size_bytes()) {
+                    bound = static_cast<const Derived &>(*this).size_bytes();
+                }
+
+                const auto sb = bound;
                 using SizeT   = typename traits::remove_cv<decltype(sb)>::type;
-                if (count >= sb)
-                    return 0;
+                if (count > sb) {
+                    count = sb;
+                }
 
                 // How many elements we need to shift left?
-                const auto rem = sb - count;
+                const auto n_elements_to_shift = sb - count;
 
-                for (SizeT i = 0; i < rem; i++) {
+                for (SizeT i = 0; i < n_elements_to_shift; i++) {
                     TDSL_ASSERT((i + count) < sb);
                     static_cast<Derived &>(*this) [i] = static_cast<Derived &>(*this) [i + count];
                     static_cast<Derived &>(*this) [i + count] = {0};
@@ -68,14 +89,13 @@ namespace tdsl {
                 // If we're out of elements to move in place of
                 // shifted ones (i.e., count > rem), we'll put
                 // zeros to remaining space instead.
-                const auto fill = count - rem;
-                if (fill > 0) {
-                    for (SizeT i = SizeT{fill}; i < sb; i++) {
-                        TDSL_ASSERT(i < sb);
-                        static_cast<Derived &>(*this) [i] = {0};
-                    }
+
+                for (SizeT i = SizeT{n_elements_to_shift}; i < sb; i++) {
+                    TDSL_ASSERT(i < sb);
+                    static_cast<Derived &>(*this) [i] = {0};
                 }
-                return rem;
+
+                return n_elements_to_shift;
             }
         };
 
