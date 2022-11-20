@@ -9,17 +9,16 @@
  * _________________________________________________
  */
 
+// May be enabled for diagnostics:
 // #define TDSL_DEBUG_PRINT_ENABLED
+// #define BOOST_ASIO_ENABLE_HANDLER_TRACKING 1
 
 #include <tdslite/net/asio/tdsl_netimpl_asio.hpp>
 #include <tdslite/util/tdsl_hex_dump.hpp>
 #include <tdslite/util/tdsl_debug_print.hpp>
 
-// #define BOOST_ASIO_ENABLE_HANDLER_TRACKING 1
 #include <boost/asio.hpp>
 #include <boost/asio/read.hpp>
-
-#include <algorithm>
 
 namespace asio       = boost::asio;
 using io_context_t   = asio::io_context;
@@ -49,41 +48,12 @@ namespace {
         return reinterpret_cast<tcp_resolver_t *>(v.get());
     }
 
-    // --------------------------------------------------------------------------------
-
-    template <typename Container>
-    inline bool consume_buffer(Container & c, tdsl::uint32_t & consumable_bytes,
-                               tdsl::uint32_t amount, tdsl::uint32_t offset = 0) {
-        if (consumable_bytes < amount + offset) {
-            return false;
-        }
-
-        const auto beg  = std::next(c.begin(), offset);
-        const auto end  = std::next(beg, amount);
-        const auto cend = std::next(c.begin(), consumable_bytes);
-
-        TDSL_ASSERT(beg < c.end());
-        TDSL_ASSERT(end <= c.end());
-        TDSL_ASSERT(cend <= c.end());
-
-        TDSL_DEBUG_PRINTLN("consume(...) -> consumed %ld, remaining %ld", std::distance(beg, end),
-                           std::distance(end, cend));
-
-        if (std::distance(beg, end) > 0) {
-            TDSL_DEBUG_PRINTLN("remainder:");
-            TDSL_DEBUG_HEXDUMP(end.base(), std::distance(end, cend));
-        }
-
-        c                = {end, cend};
-        consumable_bytes = c.size();
-        return true;
-    }
-
 } // namespace
 
 namespace tdsl { namespace net {
 
     // --------------------------------------------------------------------------------
+    // C-tor
 
     tdsl_netimpl_asio::tdsl_netimpl_asio() {
         TDSL_DEBUG_PRINT("tdsl_netimpl_asio::tdsl_netimpl_asio() -> constructor call\n");
@@ -96,6 +66,7 @@ namespace tdsl { namespace net {
     }
 
     // --------------------------------------------------------------------------------
+    // D-tor
 
     tdsl_netimpl_asio::~tdsl_netimpl_asio() {
         TDSL_DEBUG_PRINT("tdsl_netimpl_asio::~tdsl_netimpl_asio() -> destructor call\n");
@@ -107,9 +78,10 @@ namespace tdsl { namespace net {
 
     // --------------------------------------------------------------------------------
 
-    int tdsl_netimpl_asio::do_connect(tdsl::span<const char> target, tdsl::uint16_t port) {
+    tdsl::int32_t tdsl_netimpl_asio::do_connect(tdsl::span<const char> target,
+                                                tdsl::uint16_t port) {
 
-        enum e_result : std::int32_t
+        enum e_result : tdsl::int32_t
         {
             connected            = 0,
             socket_already_alive = -1,
@@ -171,62 +143,119 @@ namespace tdsl { namespace net {
 
     // --------------------------------------------------------------------------------
 
-    void tdsl_netimpl_asio::do_recv(std::uint32_t transfer_exactly, read_exactly) noexcept {
+    tdsl::int32_t tdsl_netimpl_asio::do_send(byte_view header, byte_view message) noexcept {
+
+        enum e_result : tdsl::int32_t
+        {
+            success      = 0,
+            cancelled    = -1,
+            disconnected = -2,
+        };
+
+        boost::system::error_code ec                        = {};
+
+        const std::array<boost::asio::const_buffer, 2> bufs = {
+            boost::asio::const_buffer{header.data(),  header.size() },
+            boost::asio::const_buffer{message.data(), message.size()},
+        };
+
+        const auto bytes_written = asio::write(*as_socket(socket_handle), bufs, ec);
+        if (not ec) {
+            TDSL_DEBUG_PRINT(
+                "tdsl_netimpl_asio::do_send(byte_view, byte_view) -> sent %u byte(s), ec %d (%s)\n",
+                bytes_written, ec.value(), ec.what().c_str());
+        }
+
+        switch (ec.value()) {
+            case 0: // success
+            case boost::asio::error::in_progress:
+                break;
+            case boost::asio::error::operation_aborted:
+                return e_result::cancelled;
+            default: {
+                do_disconnect();
+                return e_result::disconnected;
+            } break;
+        }
+
+        TDSL_DEBUG_PRINTLN(
+            "tdsl_netimpl_asio::do_send(byte_view, byte_view) -> exit, bytes written %u",
+            bytes_written);
+        (void) bytes_written;
+        return e_result::success;
+    }
+
+    // --------------------------------------------------------------------------------
+
+    expected<tdsl::uint32_t, tdsl::int32_t>
+    tdsl_netimpl_asio::do_recv(tdsl::uint32_t transfer_exactly) noexcept {
         TDSL_ASSERT(socket_handle);
-        boost::system::error_code ec;
 
         auto writer                   = network_buffer.get_writer();
 
         const tdsl::int64_t rem_space = writer->remaining_bytes();
 
         if (transfer_exactly > rem_space) {
-            TDSL_DEBUG_PRINTLN("tdsl_netimpl_asio::dispatch_receive(...) -> error, not enough "
+            TDSL_DEBUG_PRINTLN("tdsl_netimpl_asio::do_recv(tdsl::uint32_t) -> error, not enough "
                                "space in recv buffer (%u vs %ld)",
                                transfer_exactly, rem_space);
             TDSL_ASSERT(0);
-            return;
+            return unexpected<tdsl::int32_t>{-2}; // error case;
         }
 
         // Retrieve the free space
         auto free_space_span = writer->free_span();
+        auto result          = do_recv(transfer_exactly, free_space_span);
 
-        // Re-invoke receive
-        const auto read_bytes =
-            asio::read(*as_socket(socket_handle),
-                       asio::buffer(free_space_span.data(), free_space_span.size_bytes()),
-                       asio::transfer_exactly(transfer_exactly), ec);
-
-        // asio::read will write `read_bytes` into `free_space_span`.
-        // Advance writer's offset to reflect the changes.
-        writer->advance(static_cast<tdsl::int32_t>(read_bytes));
-
-        TDSL_DEBUG_PRINTLN(
-            "tdsl_netimpl_asio::do_recv(...) -> read bytes(%ld), consumable bytes (%u)", read_bytes,
-            writer->inuse_span().size_bytes());
-        if (ec) {
-            // There is an error, we should handle it appropriately
-            TDSL_DEBUG_PRINT("tdsl_netimpl_asio::dispatch_receive(...) -> error, %d (%s) aborting "
-                             "and disconnecting\n",
-                             ec.value(), ec.what().c_str());
-
-            do_disconnect();
+        if (result) {
+            // asio::read will write `read_bytes` into `free_space_span`.
+            // Advance writer's offset to reflect the changes.
+            writer->advance(static_cast<tdsl::int32_t>(*result));
+            TDSL_DEBUG_PRINTLN(
+                "tdsl_netimpl_asio::do_recv(...) -> read bytes(%ld), consumable bytes (%u)",
+                *result, writer->inuse_span().size_bytes());
+            TDSL_ASSERT(*result == transfer_exactly);
         }
-        else {
-            TDSL_ASSERT(read_bytes == transfer_exactly);
-        }
+
+        return result;
     }
 
     // --------------------------------------------------------------------------------
 
-    int tdsl_netimpl_asio::do_disconnect() noexcept {
-        enum e_result : std::int32_t
+    expected<tdsl::uint32_t, tdsl::int32_t>
+    tdsl_netimpl_asio::do_recv(tdsl::uint32_t transfer_amount, byte_span dst_buf) {
+        TDSL_ASSERT(socket_handle);
+        boost::system::error_code ec;
+
+        const auto read_bytes = asio::read(*as_socket(socket_handle),
+                                           asio::buffer(dst_buf.data(), dst_buf.size_bytes()),
+                                           asio::transfer_exactly(transfer_amount), ec);
+
+        if (not ec) {
+            return read_bytes;
+        }
+
+        // There is an error, we should handle it appropriately
+        TDSL_DEBUG_PRINT(
+            "tdsl_netimpl_asio::do_recv(byte_span, tdsl::uint32_t) -> error, %d (%s) aborting and "
+            "disconnecting\n",
+            ec.value(), ec.what().c_str());
+
+        do_disconnect();
+        return unexpected<tdsl::int32_t>{-1}; // error case
+    }
+
+    // --------------------------------------------------------------------------------
+
+    tdsl::int32_t tdsl_netimpl_asio::do_disconnect() noexcept {
+        enum e_result : tdsl::int32_t
         {
             success          = 0,
             socket_not_alive = -1,
         };
 
         if (not socket_handle) {
-            TDSL_DEBUG_PRINT("tdsl_netimpl_asio::do_disconnect(...) -> exit, socket not alive\n");
+            TDSL_DEBUG_PRINT("tdsl_netimpl_asio::do_disconnect() -> exit, socket not alive\n");
             return e_result::socket_not_alive;
         }
 
@@ -235,156 +264,8 @@ namespace tdsl { namespace net {
         as_socket(socket_handle)->close(ec);
         // Destroy the socket handle
         socket_handle.reset();
-        TDSL_DEBUG_PRINT("tdsl_netimpl_asio::do_disconnect(...) -> exit, success\n");
+        TDSL_DEBUG_PRINT("tdsl_netimpl_asio::do_disconnect() -> exit, success\n");
         return e_result::success;
     }
 
-    // --------------------------------------------------------------------------------
-
-    int tdsl_netimpl_asio::do_send(void) noexcept {
-        enum e_result : std::int32_t
-        {
-            success      = 0,
-            cancelled    = -1,
-            disconnected = -2,
-        };
-
-        auto writer = network_buffer.get_writer();
-        auto in_use = writer->inuse_span();
-
-        boost::system::error_code ec;
-        const auto bytes_written = asio::write(
-            *as_socket(socket_handle), boost::asio::const_buffer(in_use.data(), in_use.size()), ec);
-        (void) bytes_written;
-        if (not ec) {
-            TDSL_DEBUG_PRINT("tdsl_netimpl_asio::do_send(...) -> sent %ld byte(s), ec %d (%s)\n",
-                             bytes_written, ec.value(), ec.what().c_str());
-        }
-
-        switch (ec.value()) {
-            case 0: // success
-            case boost::asio::error::in_progress:
-                break;
-            case boost::asio::error::operation_aborted:
-                return e_result::cancelled;
-            default: {
-                do_disconnect();
-                return e_result::disconnected;
-            } break;
-        }
-        writer->reset();
-        TDSL_ASSERT(writer->remaining_bytes() ==
-                    static_cast<tdsl::int64_t>(underlying_buffer.size()));
-        TDSL_DEBUG_PRINTLN("tdsl_netimpl_asio::do_send(...) -> exit, bytes written %ld",
-                           bytes_written);
-        return e_result::success;
-    }
-
-    // --------------------------------------------------------------------------------
-
-    int tdsl_netimpl_asio::do_send(byte_view buf) noexcept {
-        enum e_result : std::int32_t
-        {
-            success      = 0,
-            cancelled    = -1,
-            disconnected = -2,
-        };
-
-        boost::system::error_code ec;
-
-        const auto bytes_written = asio::write(
-            *as_socket(socket_handle), boost::asio::const_buffer(buf.data(), buf.size()), ec);
-        (void) bytes_written;
-        if (not ec) {
-            TDSL_DEBUG_PRINT("tdsl_netimpl_asio::do_send(...) -> sent %lu byte(s), ec %d (%s)\n",
-                             bytes_written, ec.value(), ec.what().c_str());
-        }
-
-        switch (ec.value()) {
-            case 0: // success
-            case boost::asio::error::in_progress:
-                break;
-            case boost::asio::error::operation_aborted:
-                return e_result::cancelled;
-            default: {
-                do_disconnect();
-                return e_result::disconnected;
-            } break;
-        }
-
-        TDSL_DEBUG_PRINTLN("tdsl_netimpl_asio::do_send(...) -> exit, bytes written %lu",
-                           bytes_written);
-        return e_result::success;
-    }
-
-    // --------------------------------------------------------------------------------
-
-    int tdsl_netimpl_asio::do_send(byte_view header, byte_view message) noexcept {
-
-        enum e_result : std::int32_t
-        {
-            success      = 0,
-            cancelled    = -1,
-            disconnected = -2,
-        };
-
-        boost::system::error_code ec;
-
-        const std::array<boost::asio::const_buffer, 2> bufs{
-            boost::asio::const_buffer{header.data(),  header.size() },
-            boost::asio::const_buffer{message.data(), message.size()},
-        };
-
-        const auto bytes_written = asio::write(*as_socket(socket_handle), bufs, ec);
-        if (not ec) {
-            TDSL_DEBUG_PRINT("tdsl_netimpl_asio::do_send(...) -> sent %u byte(s), ec %d (%s)\n",
-                             bytes_written, ec.value(), ec.what().c_str());
-        }
-
-        switch (ec.value()) {
-            case 0: // success
-            case boost::asio::error::in_progress:
-                break;
-            case boost::asio::error::operation_aborted:
-                return e_result::cancelled;
-            default: {
-                do_disconnect();
-                return e_result::disconnected;
-            } break;
-        }
-
-        TDSL_DEBUG_PRINTLN("tdsl_netimpl_asio::do_send(...) -> exit, bytes written %u",
-                           bytes_written);
-        (void) bytes_written;
-        return e_result::success;
-    }
-
-    // --------------------------------------------------------------------------------
-
-    expected<tdsl::uint32_t, tdsl::int32_t> tdsl_netimpl_asio::do_read(byte_span dst_buf,
-                                                                       read_exactly) {
-        TDSL_ASSERT(socket_handle);
-        boost::system::error_code ec;
-
-        const auto read_bytes = asio::read(*as_socket(socket_handle),
-                                           asio::buffer(dst_buf.data(), dst_buf.size_bytes()),
-                                           asio::transfer_exactly(dst_buf.size_bytes()), ec);
-
-        if (not ec) {
-            return read_bytes;
-        }
-
-        // There is an error, we should handle it appropriately
-        TDSL_DEBUG_PRINT("tdsl_netimpl_asio::dispatch_receive(...) -> error, %d (%s) aborting and "
-                         "disconnecting\n",
-                         ec.value(), ec.what().c_str());
-
-        do_disconnect();
-        return unexpected<tdsl::int32_t>{-1}; // error case
-    }
-
-    // void tdsl_netimpl_asio::do_read(byte_span dst_buf) {}
-
-    // void tdsl_netimpl_asio::do_read(byte_span dst_buf, tdsl::uint32_t at_least)
-    // {}
 }} // namespace tdsl::net

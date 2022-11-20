@@ -61,13 +61,13 @@ namespace tdsl { namespace detail {
     /**
      * Base type for all TDS message contexts
      *
-     * @tparam ConcreteNetImpl Network-layer Implementation
+     * @tparam NetworkImplementation Network-layer Implementation
      */
-    template <typename ConcreteNetImpl>
-    struct tds_context : public ConcreteNetImpl,
-                         public detail::net_rx_mixin<tds_context<ConcreteNetImpl>>,
-                         public detail::net_tx_mixin<tds_context<ConcreteNetImpl>> {
-        using tds_context_type       = tds_context<ConcreteNetImpl>;
+    template <typename NetworkImplementation>
+    struct tds_context : public NetworkImplementation,
+                         public detail::net_rx_mixin<tds_context<NetworkImplementation>>,
+                         public detail::net_tx_mixin<tds_context<NetworkImplementation>> {
+        using tds_context_type       = tds_context<NetworkImplementation>;
         using sub_token_handler_fn_t = token_handler_result (*)(
             void *, e_tds_message_token_type, tdsl::binary_reader<tdsl::endian::little> &);
         using info_callback_type             = callback<tds_info_token>;
@@ -117,7 +117,8 @@ namespace tdsl { namespace detail {
         /**
          * Default constructor for tds_context
          */
-        tds_context() noexcept {
+        template <typename... Args>
+        tds_context(Args &&... args) noexcept : NetworkImplementation(TDSL_FORWARD(args)...) {
             // Register tds_context message handler to network implementation
             this->register_packet_data_callback(this, &handle_packet_data);
         }
@@ -534,11 +535,11 @@ namespace tdsl { namespace detail {
             return 0;
         }
 
-        friend struct detail::net_rx_mixin<tds_context<ConcreteNetImpl>>;
-        friend struct detail::net_tx_mixin<tds_context<ConcreteNetImpl>>;
-        friend struct tdsl::detail::tdsl_driver<ConcreteNetImpl>;
-        friend struct tdsl::detail::login_context<ConcreteNetImpl>;
-        friend struct tdsl::detail::command_context<ConcreteNetImpl>;
+        friend struct detail::net_rx_mixin<tds_context<NetworkImplementation>>;
+        friend struct detail::net_tx_mixin<tds_context<NetworkImplementation>>;
+        friend struct tdsl::detail::tdsl_driver<NetworkImplementation>;
+        friend struct tdsl::detail::login_context<NetworkImplementation>;
+        friend struct tdsl::detail::command_context<NetworkImplementation>;
     };
 }} // namespace tdsl::detail
 

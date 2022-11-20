@@ -1,5 +1,6 @@
 /**
  * _________________________________________________
+ * Network implementation for tdslite using boost::asio.
  *
  * @file   tdsl_netimpl_asio.hpp
  * @author Mustafa Kemal GILOR <mustafagilor@gmail.com>
@@ -9,26 +10,25 @@
  * _________________________________________________
  */
 
-#pragma once
+#ifndef TDSL_NET_NETIMPL_ASIO_HPP
+#define TDSL_NET_NETIMPL_ASIO_HPP
 
-#include <tdslite/net/base/network_impl.hpp>
+#include <tdslite/net/base/network_io_base.hpp>
 
 #include <tdslite/util/tdsl_span.hpp>
 #include <tdslite/util/tdsl_macrodef.hpp>
 #include <tdslite/util/tdsl_expected.hpp>
 #include <tdslite/util/tdsl_buffer_object.hpp>
 
-#include <iterator>
 #include <vector>
 #include <memory>
-#include <atomic>
 
 namespace tdsl { namespace net {
 
     /**
      * Synchronous ASIO networking code for tdslite
      */
-    struct tdsl_netimpl_asio : public network_impl<tdsl_netimpl_asio> {
+    struct tdsl_netimpl_asio : public network_io_base<tdsl_netimpl_asio> {
 
         // --------------------------------------------------------------------------------
 
@@ -58,7 +58,7 @@ namespace tdsl { namespace net {
          * @returns -2 when asynchronous resolve operation of previous @ref do_connect call is still
          * in progress
          */
-        TDSL_SYMBOL_VISIBLE int do_connect(tdsl::char_view target, tdsl::uint16_t port);
+        TDSL_SYMBOL_VISIBLE tdsl::int32_t do_connect(tdsl::char_view target, tdsl::uint16_t port);
 
         // --------------------------------------------------------------------------------
 
@@ -69,29 +69,7 @@ namespace tdsl { namespace net {
          * @returns 0 if socket is disconnected and the class is ready for re-use
          * @returns -1 if socket is not alive
          */
-        TDSL_SYMBOL_VISIBLE int do_disconnect() noexcept;
-
-        // --------------------------------------------------------------------------------
-
-        /**
-         * Send the data in @ref send_buffer to the connected endpoint
-         *
-         * @returns 0 when asynchronous send is in progress
-         * @returns -1 when asynchronous send is not called due to  another
-         *           asynchronous send is already in progress
-         */
-        TDSL_SYMBOL_VISIBLE int do_send(void) noexcept;
-
-        // --------------------------------------------------------------------------------
-
-        /**
-         * Send the data in @p buf to the connected endpoint
-         *
-         * @returns 0 when asynchronous send is in progress
-         * @returns -1 when asynchronous send is not called due to  another
-         *           asynchronous send is already in progress
-         */
-        TDSL_SYMBOL_VISIBLE int do_send(byte_view buf) noexcept;
+        TDSL_SYMBOL_VISIBLE tdsl::int32_t do_disconnect() noexcept;
 
         // --------------------------------------------------------------------------------
 
@@ -104,35 +82,30 @@ namespace tdsl { namespace net {
          * @returns -1 when asynchronous send is not called due to  another
          *           asynchronous send is already in progress
          */
-        TDSL_SYMBOL_VISIBLE int do_send(byte_view header, byte_view message) noexcept;
+        TDSL_SYMBOL_VISIBLE tdsl::int32_t do_send(byte_view header, byte_view message) noexcept;
 
         // --------------------------------------------------------------------------------
 
         /**
-         * Read exactly @p dst_buf.size() bytes from socket
+         * Read exactly @p exact_amount bytes from socket
+         * into network buffer.
+         *
+         * @param [in] transfer_amount Exact amount of bytes to read
+         */
+        TDSL_SYMBOL_VISIBLE expected<tdsl::uint32_t, tdsl::int32_t>
+        do_recv(tdsl::uint32_t transfer_amount) noexcept;
+
+        // --------------------------------------------------------------------------------
+
+        /**
+         * Read exactly @p exact_amount bytes from socket
+         * into @p dst_buf
          *
          * @param [in] dst_buf Destination
+         * @param [in] transfer_amount Exact amount of bytes to read
          */
-        TDSL_SYMBOL_VISIBLE expected<tdsl::uint32_t, tdsl::int32_t> do_read(byte_span dst_buf,
-                                                                            read_exactly);
-
-        // --------------------------------------------------------------------------------
-
-        /**
-         * Dispatch receive on socket
-         *
-         * @param [in] minimum_amount Minimum amount of bytes to read from the socket
-         */
-        TDSL_SYMBOL_VISIBLE void do_recv(tdsl::uint32_t minimum_amount, read_at_least) noexcept;
-
-        // --------------------------------------------------------------------------------
-
-        /**
-         * Dispatch receive on socket
-         *
-         * @param [in] exact_amount Exact amount of bytes to read from the socket
-         */
-        TDSL_SYMBOL_VISIBLE void do_recv(tdsl::uint32_t exact_amount, read_exactly) noexcept;
+        TDSL_SYMBOL_VISIBLE expected<tdsl::uint32_t, tdsl::int32_t>
+        do_recv(tdsl::uint32_t exact_amount, byte_span dst_buf);
 
     private:
         // Underlying buffer
@@ -146,3 +119,5 @@ namespace tdsl { namespace net {
     };
 
 }} // namespace tdsl::net
+
+#endif

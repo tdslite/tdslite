@@ -35,27 +35,23 @@ namespace tdsl { namespace detail {
             tdsl::uint16_t port = {1433};
         };
 
-        // TODO: Implement this
-        inline auto connect(tdsl::string_view connection_string) -> int;
-        // TODO: Implement this?
-        void logout();
+        /**
+         * Construct a new tdsl driver object
+         *
+         * @param [in] network_io_buffer Network I/O buffer
+         */
+        template <typename... Args>
+        inline tdsl_driver(Args &&... args) noexcept : tds_ctx(TDSL_FORWARD(args)...) {}
 
         // --------------------------------------------------------------------------------
 
-        // connect & login here
-        inline auto connect(const connection_parameters & p) -> int {
+        inline auto connect(const connection_parameters & p) noexcept -> int {
             auto result = tds_ctx.connect(p.server_name, p.port);
             if (not(result == 0)) {
                 return result;
             }
             login_context_type{tds_ctx}.do_login(p);
             return result;
-        }
-
-        // --------------------------------------------------------------------------------
-
-        void login(const wlogin_parameters_type & p) {
-            login_context_type{tds_ctx}.do_login(p);
         }
 
         // --------------------------------------------------------------------------------

@@ -3,8 +3,34 @@
 #include <tdslite.h>
 #include <Ethernet.h>
 
+// #define PSTR(X) \
+//   []() -> decltype(X) { \
+//     static const char __[] PROGMEM = X; \
+//     intermediate buf?
+//     return __; \
+//   }()
+
+#define PSTR(X) X
+
 // The network buffer
 tdsl::uint8_t net_buf [4096] = {};
+
+static int freeRam() {
+#ifdef __arm__
+    // should use uinstd.h to define sbrk but Due causes a conflict
+    extern "C" char * sbrk(int incr);
+#else  // __ARM__
+    extern char * __brkval;
+#endif // __arm__
+    char top;
+#ifdef __arm__
+    return &top - reinterpret_cast<char *>(sbrk(0));
+#elif defined(CORE_TEENSY) || (ARDUINO > 103 && ARDUINO != 151)
+    return &top - __brkval;
+#else  // __arm__
+    return __brkval ? &top - __brkval : &top - __malloc_heap_start;
+#endif // __arm__
+}
 
 namespace tdsl { namespace net {
 
@@ -28,15 +54,15 @@ namespace tdsl { namespace net {
 
             // Retry up to MAX_CONNECT_ATTEMPTS times.
             while (retries--) {
-                Serial.println("...trying...");
+                Serial.println(PSTR("...trying..."));
                 cr = client.connect(target.data(), port);
 
                 if (cr == 1) {
-                    Serial.println("...connected ...");
+                    Serial.println(PSTR("...connected ..."));
                     Serial.print(client.localPort());
-                    Serial.print(" --> ");
+                    Serial.print(PSTR(" --> "));
                     Serial.print(client.remoteIP());
-                    Serial.print(":");
+                    Serial.print(PSTR(":"));
                     Serial.println(client.remotePort());
                     break;
                 }
@@ -92,13 +118,15 @@ namespace tdsl { namespace net {
                 // Transfer `exactly` @p transfer_exactly bytes
                 client.read(dst_buf.data(), dst_buf.size_bytes());
                 // Serial.println("exit");
+                Serial.print("avail: ");
+                Serial.println(client.available());
                 return dst_buf.size_bytes();
             }
 
             // There is an error, we should handle it appropriately
             TDSL_DEBUG_PRINT(
-                "tdsl_netimpl_asio::dispatch_receive(...) -> error, %d (%s) aborting and "
-                "disconnecting\n",
+                PSTR("tdsl_netimpl_asio::dispatch_receive(...) -> error, %d (%s) aborting and "
+                     "disconnecting\n"),
                 ec.value(), ec.what().c_str());
 
             // do_disconnect();
@@ -111,19 +139,14 @@ namespace tdsl { namespace net {
         }
 
         TDSL_SYMBOL_VISIBLE void do_recv(tdsl::uint32_t transfer_exactly, read_exactly) noexcept {
-            //    Serial.println("do_recv ");
-            // Serial.println(transfer_exactly);
-            // Serial.flush();
             auto writer                   = network_buffer.get_writer();
             const tdsl::int64_t rem_space = writer->remaining_bytes();
 
             if (transfer_exactly > rem_space) {
-                TDSL_DEBUG_PRINTLN("tdsl_netimpl_ethernet::do_recv(...) -> error, not enough "
-                                   "space in recv buffer (%u vs %ld)",
+                TDSL_DEBUG_PRINTLN(PSTR("tdsl_netimpl_ethernet::do_recv(...) -> error, not enough "
+                                        "space in recv buffer (%u vs %ld)"),
                                    transfer_exactly, rem_space);
                 TDSL_ASSERT(0);
-                //  Serial.println("assert exit ");
-                //  Serial.flush();
                 return;
             }
 
@@ -133,33 +156,29 @@ namespace tdsl { namespace net {
 
                 // Transfer `exactly` @p transfer_exactly bytes
                 client.read(free_space_span.data(), transfer_exactly);
-                // Serial.println("exit");
-
                 // asio::read will write `read_bytes` into `free_space_span`.
                 // Advance writer's offset to reflect the changes.
                 writer->advance(static_cast<tdsl::int32_t>(transfer_exactly));
             }
-            //  Serial.println("after recv");
-            //  Serial.flush();
         }
 
     private:
         bool init() {
             byte mac [] = {0x00, 0xAA, 0xBB, 0xCC, 0xDE, 0x03};
-            Serial.println("Initialize Ethernet with DHCP:");
+            Serial.print(PSTR("Initialize Ethernet with DHCP:"));
 
             if (Ethernet.begin(mac) == 0) {
 
-                Serial.println("Failed to configure Ethernet using DHCP");
+                Serial.print(PSTR("Failed to configure Ethernet using DHCP"));
 
                 if (Ethernet.hardwareStatus() == EthernetNoHardware) {
 
-                    Serial.println(
-                        "Ethernet shield was not found.  Sorry, can't run without hardware. :(");
+                    Serial.print(PSTR("Failed: Ethernet shield was not found.  Sorry, can't run "
+                                      "without hardware. :("));
                 }
                 else if (Ethernet.linkStatus() == LinkOFF) {
 
-                    Serial.println("Ethernet cable is not connected.");
+                    Serial.print(PSTR("Failed: Ethernet cable is not connected."));
                 }
 
                 // no point in carrying on, so do nothing forevermore:
@@ -172,7 +191,7 @@ namespace tdsl { namespace net {
 
             // print your local IP address:
 
-            Serial.print("My IP address: ");
+            Serial.print(PSTR("Success! My IP address: "));
 
             Serial.println(Ethernet.localIP());
         }
@@ -181,8 +200,6 @@ namespace tdsl { namespace net {
         tdsl::uint16_t wait_millis  = {3000};
 
         int wait_for_bytes(int bytes_need) {
-            // Serial.print("wait bytes ");
-            //   Serial.println(bytes_need);
             const long wait_till = millis() + delay_millis;
             int num              = 0;
             long now             = 0;
@@ -198,8 +215,6 @@ namespace tdsl { namespace net {
 
             if (num == 0 && now >= wait_till)
                 client.stop();
-            // Serial.print("wait bytes end ");
-            //  Serial.println(num);
             return num;
         }
 
@@ -224,19 +239,19 @@ inline void initEthernetShield() {}
  */
 static void info_callback(void *, const tdsl::tds_info_token & token) noexcept {
     Serial.print(token.is_info() ? 'I' : 'E');
-    Serial.print(": [");
+    Serial.print(PSTR(": ["));
     Serial.print(token.number);
-    Serial.print("/");
+    Serial.print(PSTR("/"));
     Serial.print(token.state);
-    Serial.print("/");
+    Serial.print(PSTR("/"));
     Serial.print(token.class_);
-    Serial.print(" @");
+    Serial.print(PSTR(" @"));
     Serial.print(token.line_number);
-    Serial.print("] --> ");
+    Serial.print(PSTR("] --> "));
     for (unsigned int i = 0; i < token.msgtext.size(); i++) {
         Serial.print((*reinterpret_cast<const char *>(token.msgtext.data() + i)));
     }
-    Serial.print("\n");
+    Serial.print(PSTR("\n"));
 }
 
 /**
@@ -249,7 +264,7 @@ static void info_callback(void *, const tdsl::tds_info_token & token) noexcept {
 static void row_callback(void * u, const tdsl::tds_colmetadata_token & colmd,
                          const tdsl::tdsl_row & row) {
 
-    Serial.println("ROWS:");
+    Serial.println(PSTR("ROWS:"));
     for (const auto & field : row) {
         Serial.print(field.as<tdsl::uint32_t>());
         Serial.print("\t");
@@ -265,34 +280,36 @@ void setup() {
     initSerialPort();
     tdslite_driver_t::connection_parameters params = [] {
         tdslite_driver_t::connection_parameters p;
-        p.server_name  = "192.168.1.45";
-        p.user_name    = "sa";
-        p.password     = "2022-tds-lite-test!";
-        p.client_name  = "arduino mega";
-        p.app_name     = "sketch";
-        p.library_name = "tdslite";
-        p.db_name      = "master";
+        p.server_name  = PSTR("192.168.1.45");
+        p.user_name    = PSTR("sa");
+        p.password     = PSTR("2022-tds-lite-test!");
+        p.client_name  = PSTR("arduino mega");
+        p.app_name     = PSTR("sketch");
+        p.library_name = PSTR("tdslite");
+        p.db_name      = PSTR("master");
+        p.packet_size  = {2048};
         p.port         = 14333;
         return p;
     }();
-    Serial.println("setup");
+    Serial.println(PSTR("setup"));
     driver.set_info_callback(nullptr, &info_callback);
     driver.connect(params);
-    Serial.println("after connect");
-    driver.execute_query(tdsl::string_view{"CREATE TABLE #hello_world(a int, b int);"});
-
-    Serial.println("after query");
+    Serial.println(PSTR("after connect"));
+    driver.execute_query(tdsl::string_view{PSTR("CREATE TABLE #hello_world(a int, b int);")});
+    Serial.println(PSTR("after create table"));
 }
 
 int i = 0;
 
 void loop() {
     // put your main code here, to run repeatedly:
-    driver.execute_query(tdsl::string_view{"INSERT INTO #hello_world VALUES(1,2);"});
-    // if (i++ % 10 == 0) {
-    //   driver.execute_query(tdsl::string_view{ "SELECT * FROM #hello_world;" }, nullptr,
-    //   row_callback);
-    // }
+    driver.execute_query(tdsl::string_view{PSTR("INSERT INTO #hello_world VALUES(1,2);")});
+    if (i++ % 10 == 0) {
+        Serial.print(PSTR("REPORT: rows count --> "));
+        Serial.print(driver.execute_query(tdsl::string_view{PSTR("SELECT * FROM #hello_world;")}));
+        Serial.print(PSTR(", free ram: "));
+        Serial.println(freeRam());
+    }
     Ethernet.maintain();
-    delay(1000);
+    delay(100);
 }
