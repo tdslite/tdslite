@@ -16,6 +16,9 @@
 #include <tdslite/detail/tdsl_login_context.hpp>
 #include <tdslite/detail/tdsl_command_context.hpp>
 
+// fwdecl
+class EthernetClient;
+
 namespace tdsl { namespace detail {
 
     /**
@@ -57,8 +60,10 @@ namespace tdsl { namespace detail {
         // --------------------------------------------------------------------------------
 
         /**
+         * Set callback function for INFO/ERROR messages.
          *
-         *
+         * This callback function will be called when server sends
+         * INFO/ERROR tokens. Useful for diagnostics.
          */
         void set_info_callback(
             void * user_ptr,
@@ -69,25 +74,31 @@ namespace tdsl { namespace detail {
         // --------------------------------------------------------------------------------
 
         template <typename T>
-        inline auto execute_query(T command) noexcept -> tdsl::uint32_t {
-            TDSL_ASSERT(tds_ctx.is_authenticated());
-            return sql_command_type{tds_ctx}.execute_query(command);
-        }
-
-        // --------------------------------------------------------------------------------
-
-        template <typename T>
-        inline auto
-        execute_query(T command, void * uptr,
-                      typename sql_command_type::row_callback_fn_t row_callback) noexcept
+        inline auto execute_query(
+            T command, void * uptr = nullptr,
+            typename sql_command_type::row_callback_fn_t row_callback =
+                +[](void *, const tds_colmetadata_token &, const tdsl_row &) -> void {}) noexcept
             -> tdsl::uint32_t {
             TDSL_ASSERT(tds_ctx.is_authenticated());
             return sql_command_type{tds_ctx}.execute_query(command, uptr, row_callback);
         }
 
+        // --------------------------------------------------------------------------------
+
+        template <tdsl::uint32_t N>
+        inline auto execute_query(
+            const char (&command) [N], void * uptr = nullptr,
+            typename sql_command_type::row_callback_fn_t row_callback =
+                +[](void *, const tds_colmetadata_token &, const tdsl_row &) -> void {}) noexcept
+            -> tdsl::uint32_t {
+            TDSL_ASSERT(tds_ctx.is_authenticated());
+            return execute_query(tdsl::string_view{command}, uptr, row_callback);
+        }
+
     private:
         tds_context_type tds_ctx;
     };
+
 }} // namespace tdsl::detail
 
 #endif

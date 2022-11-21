@@ -20,6 +20,7 @@ cp $SCRIPT_ROOT/contents/library.properties .
 cp $SCRIPT_ROOT/contents/tdslite.h src/
 cp -r $PROJECT_ROOT/tdslite/include/* src/
 cp -r $PROJECT_ROOT/tdslite-net/tdslite-net-base/include/* src/
+cp -r $PROJECT_ROOT/tdslite-net/tdslite-net-arduino/include/* src/
 cd $ARDUINO_LIBPACK_ROOT
 rm tdslite.zip || true
 zip -r tdslite.zip tdslite/

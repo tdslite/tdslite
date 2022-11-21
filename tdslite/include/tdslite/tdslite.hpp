@@ -23,9 +23,6 @@ namespace tdsl {
     template <typename NetImpl>
     using driver    = detail::tdsl_driver<NetImpl>;
 
-    // template<typename T>
-    // using login_parameters = driver<T>;
-
     using lang_code = detail::e_ms_lang_code_id;
 
     using data_type = detail::e_tds_data_type;

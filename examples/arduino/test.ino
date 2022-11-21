@@ -1,5 +1,3 @@
-#include <SPI.h>
-#include <Ethernet.h>
 #include <tdslite.h>
 #include <Ethernet.h>
 
@@ -12,225 +10,43 @@
 
 #define PSTR(X) X
 
-// The network buffer
-tdsl::uint8_t net_buf [4096] = {};
-
-static int freeRam() {
-#ifdef __arm__
-    // should use uinstd.h to define sbrk but Due causes a conflict
-    extern "C" char * sbrk(int incr);
-#else  // __ARM__
-    extern char * __brkval;
-#endif // __arm__
-    char top;
-#ifdef __arm__
-    return &top - reinterpret_cast<char *>(sbrk(0));
-#elif defined(CORE_TEENSY) || (ARDUINO > 103 && ARDUINO != 151)
-    return &top - __brkval;
-#else  // __arm__
-    return __brkval ? &top - __brkval : &top - __malloc_heap_start;
-#endif // __arm__
-}
-
-namespace tdsl { namespace net {
-
-    /**
-     * Synchronous ASIO networking code for tdslite
-     */
-    struct tdsl_netimpl_ethernet : public network_impl<tdsl_netimpl_ethernet> {
-
-        tdsl_netimpl_ethernet() {
-            network_buffer = tdsl::tdsl_buffer_object{net_buf};
-        }
-
-        TDSL_SYMBOL_VISIBLE int do_connect(tdsl::char_view target, tdsl::uint16_t port) {
-            client = {};
-
-            init();
-            client.stop();
-
-            int cr      = 0;
-            int retries = 3;
-
-            // Retry up to MAX_CONNECT_ATTEMPTS times.
-            while (retries--) {
-                Serial.println(PSTR("...trying..."));
-                cr = client.connect(target.data(), port);
-
-                if (cr == 1) {
-                    Serial.println(PSTR("...connected ..."));
-                    Serial.print(client.localPort());
-                    Serial.print(PSTR(" --> "));
-                    Serial.print(client.remoteIP());
-                    Serial.print(PSTR(":"));
-                    Serial.println(client.remotePort());
-                    break;
-                }
-
-                Serial.print("...got: ");
-                Serial.print(cr);
-                Serial.println(" retrying...");
-
-                delay(1000);
-            }
-
-            if (cr == 1) {
-                return 0;
-            }
-            return cr;
-        }
-
-        inline int do_send(void) noexcept {
-            auto writer = network_buffer.get_writer();
-            auto in_use = writer->inuse_span();
-            client.write(in_use.data(), in_use.size_bytes());
-            writer->reset();
-            client.flush();
-        }
-
-        /**
-         * Send byte_views @p header and @p bufs sequentially to the connected endpoint
-         *
-         * (scatter-gather I/O)
-         *
-         * @returns 0 when asynchronous send is in progress
-         * @returns -1 when asynchronous send is not called due to  another
-         *           asynchronous send is already in progress
-         */
-        TDSL_SYMBOL_VISIBLE int do_send(byte_view header, byte_view message) noexcept {
-            client.write(header.data(), header.size_bytes());
-            client.write(message.data(), message.size_bytes());
-            client.flush();
-        }
-
-        /**
-         * Read exactly @p dst_buf.size() bytes from socket
-         *
-         * @param [in] dst_buf Destination
-         */
-        TDSL_SYMBOL_VISIBLE expected<tdsl::uint32_t, tdsl::int32_t> do_read(byte_span dst_buf,
-                                                                            read_exactly) {
-
-            // Serial.print("do_read ");
-            // Serial.println(dst_buf.size_bytes());
-
-            if (wait_for_bytes(dst_buf.size_bytes()) >= dst_buf.size_bytes()) {
-                // Transfer `exactly` @p transfer_exactly bytes
-                client.read(dst_buf.data(), dst_buf.size_bytes());
-                // Serial.println("exit");
-                Serial.print("avail: ");
-                Serial.println(client.available());
-                return dst_buf.size_bytes();
-            }
-
-            // There is an error, we should handle it appropriately
-            TDSL_DEBUG_PRINT(
-                PSTR("tdsl_netimpl_asio::dispatch_receive(...) -> error, %d (%s) aborting and "
-                     "disconnecting\n"),
-                ec.value(), ec.what().c_str());
-
-            // do_disconnect();
-            return unexpected<tdsl::int32_t>{-1}; // error case
-        }
-
-        // IGNORE THIS
-        TDSL_SYMBOL_VISIBLE void do_recv(tdsl::uint32_t transfer_exactly, read_at_least) noexcept {
-            // IGNORE THIS
-        }
-
-        TDSL_SYMBOL_VISIBLE void do_recv(tdsl::uint32_t transfer_exactly, read_exactly) noexcept {
-            auto writer                   = network_buffer.get_writer();
-            const tdsl::int64_t rem_space = writer->remaining_bytes();
-
-            if (transfer_exactly > rem_space) {
-                TDSL_DEBUG_PRINTLN(PSTR("tdsl_netimpl_ethernet::do_recv(...) -> error, not enough "
-                                        "space in recv buffer (%u vs %ld)"),
-                                   transfer_exactly, rem_space);
-                TDSL_ASSERT(0);
-                return;
-            }
-
-            if (wait_for_bytes(transfer_exactly) >= transfer_exactly) {
-                // Retrieve the free space
-                auto free_space_span = writer->free_span();
-
-                // Transfer `exactly` @p transfer_exactly bytes
-                client.read(free_space_span.data(), transfer_exactly);
-                // asio::read will write `read_bytes` into `free_space_span`.
-                // Advance writer's offset to reflect the changes.
-                writer->advance(static_cast<tdsl::int32_t>(transfer_exactly));
-            }
-        }
-
-    private:
-        bool init() {
-            byte mac [] = {0x00, 0xAA, 0xBB, 0xCC, 0xDE, 0x03};
-            Serial.print(PSTR("Initialize Ethernet with DHCP:"));
-
-            if (Ethernet.begin(mac) == 0) {
-
-                Serial.print(PSTR("Failed to configure Ethernet using DHCP"));
-
-                if (Ethernet.hardwareStatus() == EthernetNoHardware) {
-
-                    Serial.print(PSTR("Failed: Ethernet shield was not found.  Sorry, can't run "
-                                      "without hardware. :("));
-                }
-                else if (Ethernet.linkStatus() == LinkOFF) {
-
-                    Serial.print(PSTR("Failed: Ethernet cable is not connected."));
-                }
-
-                // no point in carrying on, so do nothing forevermore:
-
-                while (true) {
-
-                    delay(1);
-                }
-            }
-
-            // print your local IP address:
-
-            Serial.print(PSTR("Success! My IP address: "));
-
-            Serial.println(Ethernet.localIP());
-        }
-
-        tdsl::uint16_t delay_millis = {300};
-        tdsl::uint16_t wait_millis  = {3000};
-
-        int wait_for_bytes(int bytes_need) {
-            const long wait_till = millis() + delay_millis;
-            int num              = 0;
-            long now             = 0;
-
-            do {
-                now = millis();
-                num = client.available();
-                if (num < bytes_need)
-                    delay(wait_millis);
-                else
-                    break;
-            } while (now < wait_till);
-
-            if (num == 0 && now >= wait_till)
-                client.stop();
-            return num;
-        }
-
-        EthernetClient client = {};
-    };
-}} // namespace tdsl::net
-
-// 192.168.1.45:14333
-
+/**
+ * Initialize serial port for logging
+ */
 inline void initSerialPort() {
     Serial.begin(112500);
     while (!Serial)
         ;
 }
 
-inline void initEthernetShield() {}
+/**
+ * Initialize the ethernet shield with DHCP
+ *
+ * MUST be done before initializing tdslite.
+ */
+inline void initEthernetShield() {
+    Serial.println("... init eth ...");
+    byte mac [] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED};
+    if (Ethernet.begin(mac) == 0) {
+        Serial.println("Failed to configure Ethernet using DHCP");
+        // Check for Ethernet hardware present
+        if (Ethernet.hardwareStatus() == EthernetNoHardware) {
+            Serial.println("Ethernet shield was not found.  Sorry, can't run without hardware. :(");
+            while (true) {
+                delay(1); // do nothing, no point running without Ethernet hardware
+            }
+        }
+        if (Ethernet.linkStatus() == LinkOFF) {
+            Serial.println("Ethernet cable is not connected.");
+        }
+        // try to congifure using IP address instead of DHCP:
+        // Ethernet.begin(mac, ip, myDns);
+    }
+    else {
+        Serial.print("  DHCP assigned IP ");
+        Serial.println(Ethernet.localIP());
+    }
+}
 
 /**
  * Prints INFO/ERROR messages from SQL server to stdout.
@@ -264,7 +80,7 @@ static void info_callback(void *, const tdsl::tds_info_token & token) noexcept {
 static void row_callback(void * u, const tdsl::tds_colmetadata_token & colmd,
                          const tdsl::tdsl_row & row) {
 
-    Serial.println(PSTR("ROWS:"));
+    Serial.print(PSTR("row: "));
     for (const auto & field : row) {
         Serial.print(field.as<tdsl::uint32_t>());
         Serial.print("\t");
@@ -273,42 +89,58 @@ static void row_callback(void * u, const tdsl::tds_colmetadata_token & colmd,
     Serial.flush();
 }
 
-using tdslite_driver_t = tdsl::driver<tdsl::net::tdsl_netimpl_ethernet>;
-tdslite_driver_t driver{};
+// The network buffer
+tdsl::uint8_t net_buf [4096] = {};
+tdsl::driver_ethc driver{net_buf};
+
+void initTdsliteDriver() {
+    Serial.println("... init tdslite ...");
+    decltype(driver)::connection_parameters params;
+    // Server's hostname or IP address.
+    params.server_name = PSTR("192.168.1.22");
+    // SQL server port number
+    params.port        = 14333;
+    // Login user
+    params.user_name   = PSTR("sa");
+    // Login user password
+    params.password    = PSTR("2022-tds-lite-test!");
+    // Client name(optional)
+    params.client_name = PSTR("arduino mega");
+    // App name(optional)
+    params.app_name    = PSTR("sketch");
+    // Database name(optional)
+    params.db_name     = PSTR("master");
+    // TDS packet size
+    // Recommendation: Half of the network buffer.
+    params.packet_size = {sizeof(net_buf) / 2};
+    driver.set_info_callback(nullptr, &info_callback);
+    driver.connect(params);
+    Serial.println("... init tdslite end...");
+}
+
+void initDatabase() {
+    Serial.println("... init database ...");
+    driver.execute_query("CREATE TABLE #hello_world(a int, b int);");
+    Serial.println("... init database end...");
+}
 
 void setup() {
     initSerialPort();
-    tdslite_driver_t::connection_parameters params = [] {
-        tdslite_driver_t::connection_parameters p;
-        p.server_name  = PSTR("192.168.1.45");
-        p.user_name    = PSTR("sa");
-        p.password     = PSTR("2022-tds-lite-test!");
-        p.client_name  = PSTR("arduino mega");
-        p.app_name     = PSTR("sketch");
-        p.library_name = PSTR("tdslite");
-        p.db_name      = PSTR("master");
-        p.packet_size  = {2048};
-        p.port         = 14333;
-        return p;
-    }();
-    Serial.println(PSTR("setup"));
-    driver.set_info_callback(nullptr, &info_callback);
-    driver.connect(params);
-    Serial.println(PSTR("after connect"));
-    driver.execute_query(tdsl::string_view{PSTR("CREATE TABLE #hello_world(a int, b int);")});
-    Serial.println(PSTR("after create table"));
+    initEthernetShield();
+    initTdsliteDriver();
+    initDatabase();
+    Serial.println("... setup complete ...");
 }
 
 int i = 0;
 
 void loop() {
     // put your main code here, to run repeatedly:
-    driver.execute_query(tdsl::string_view{PSTR("INSERT INTO #hello_world VALUES(1,2);")});
+    driver.execute_query("INSERT INTO #hello_world VALUES(1,2);");
     if (i++ % 10 == 0) {
+        auto row_count = driver.execute_query("SELECT * FROM #hello_world;", nullptr, row_callback);
         Serial.print(PSTR("REPORT: rows count --> "));
-        Serial.print(driver.execute_query(tdsl::string_view{PSTR("SELECT * FROM #hello_world;")}));
-        Serial.print(PSTR(", free ram: "));
-        Serial.println(freeRam());
+        Serial.println(row_count);
     }
     Ethernet.maintain();
     delay(100);

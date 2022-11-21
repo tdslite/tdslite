@@ -21,5 +21,17 @@
 
 #include <tdslite/tdslite.hpp>
 #include <tdslite/net/base/network_io_base.hpp>
+#include <tdslite/net/arduino/ethernet/tdsl_netimpl_ethernet.hpp>
+
+namespace tdsl {
+    /**
+     * alias type for tdslite driver with arduino ethernet
+     * client implementation for networking.
+     *
+     * The ethernet MUST be initialized with Ethernet.begin()
+     * before interacting with instances of this type.
+     */
+    using driver_ethc = driver<net::tdsl_netimpl_ethernet<class EthernetClient>>;
+} // namespace tdsl
 
 #endif
