@@ -31,6 +31,8 @@ services:
       # Use host's time zone info
       - "/etc/timezone:/etc/timezone:ro"
       - "/etc/localtime:/etc/localtime:ro"
+      - "/run/udev:/run/udev:ro"
+      - "/dev:/dev"
     # Required for PTRACE based debuggers (such as C++ debuggers)
     cap_add:
       - SYS_PTRACE
@@ -42,6 +44,11 @@ services:
     command: /bin/sh -c "while sleep 1000; do :; done"
     networks:
       - tds-devenv-network
+    # cgroup rules to forward ttyUSB/ttyACM devices to 
+    # container so we can access them.
+    device_cgroup_rules:
+      - 'c 188:* rmw'
+      - 'c 166:* rmw'
 
 networks:
   tds-devenv-network:

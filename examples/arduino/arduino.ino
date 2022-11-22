@@ -1,3 +1,6 @@
+#define TDSL_DEBUG_PRINT(A, ...)   Serial.print(A)
+#define TDSL_DEBUG_PRINTLN(A, ...) Serial.println(A)
+
 #include <tdslite.h>
 #include <Ethernet.h>
 

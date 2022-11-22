@@ -107,6 +107,8 @@
         // Crumbs (PCAP viewer)
         "lukaschneider.crumbs",
         // MSSQL
-        "ms-mssql.mssql"
+        "ms-mssql.mssql",
+        // Arduino
+        "vsciot-vscode.vscode-arduino"
     ]
 }

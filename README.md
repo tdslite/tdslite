@@ -21,3 +21,7 @@ tdslite is a standalone library with no external dependencies, and it does not r
 - Write use cases and example applications
 - Write example code for target platforms (arduino, espressif, raspberry etc.)
 - Implement networking code for popular network hardware (Ethernet, WiFi) 
+
+## Notes
+
+- In order to serial port passthrough to work in vscode dev container, you will need to add your user to the dialout group, e.g. `sudo usermod -a -G dialout <your-user-name>`. Requires re-login to take effect.

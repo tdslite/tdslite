@@ -28,13 +28,28 @@
         putchar(*reinterpret_cast<const char *>(U16SPAN.data() + i));                              \
     }
 #else
+
+#ifndef TDSL_DEBUG_PRINT
 #define TDSL_DEBUG_PRINT(...)
+#endif
+#ifndef TDSL_DEBUG_PRINTLN
 #define TDSL_DEBUG_PRINTLN(...)
+#endif
+#ifndef TDSL_DEBUG_HEXDUMP
 #define TDSL_DEBUG_HEXDUMP(...)
+#endif
+#ifndef TDSL_DEBUG_HEXPRINT
 #define TDSL_DEBUG_HEXPRINT(ARR, SIZE)
+#endif
+#ifndef TDSL_DEBUG_WPRINT
 #define TDSL_DEBUG_WPRINT(...)
+#endif
+#ifndef TDSL_DEBUG_WPRINTLN
 #define TDSL_DEBUG_WPRINTLN(...)
+#endif
+#ifndef TDSL_DEBUG_PRINT_U16_AS_MB
 #define TDSL_DEBUG_PRINT_U16_AS_MB(U16SPAN)
+#endif
 #endif
 
 #endif

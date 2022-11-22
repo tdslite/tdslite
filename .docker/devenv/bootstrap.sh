@@ -39,7 +39,7 @@ readonly apt_package_list=(
     # Editors
     nano vim
     # Shell & locale
-    zsh locales less
+    zsh locales less zip
     # Verify ssh, git, git-lfs process tools, lsb-release (useful for CLI installs) installed
     ssh git git-extras git-lfs iproute2 procps lsb-release
     # Install GCC Toolchain, version 11
@@ -188,6 +188,27 @@ function install_zsh_and_oh_my_zsh {
     return $?
 }
 
+function install_arduino_cli {
+    echo "Installing Arduino CLI..."
+    sudo su ${1} -c "mkdir -p /home/${1}/arduino/libraries"
+    sudo su ${1} -c "curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | BINDIR=/home/${1}/arduino bash"
+    sudo ln -sf /home/${1}/arduino/arduino-cli /usr/bin/arduino-cli
+    sudo su ${1} -c "arduino-cli config init"
+    sudo su ${1} -c "arduino-cli config set directories.user /home/${1}/arduino"
+    # Set additional board urls
+    sudo su ${1} -c "arduino-cli config set board_manager.additional_urls https://arduino.esp8266.com/stable/package_esp8266com_index.json https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json"
+    # Install boards
+    sudo su ${1} -c "arduino-cli core update-index"
+    sudo su ${1} -c "arduino-cli core install arduino:avr"
+    sudo su ${1} -c "arduino-cli core install esp8266:esp8266"
+    sudo su ${1} -c "arduino-cli core install esp32:esp32"
+    # Install libraries
+    sudo su ${1} -c "arduino-cli lib install ethernet@2.0.1"
+    sudo su ${1} -c "ln -sf /workspace/build/arduino-libpack-root/tdslite /home/${1}/arduino/libraries/tdslite"
+    # Add non-superuser to dialout so it can access dev/tty*
+    sudo usermod -a -G dialout dev
+}
+
 function put_gdbinit_file {
     sudo su ${1} -c "cp ${SCRIPT_ROOT}/.gdbinit /home/${1}/.gdbinit"
 }
@@ -326,6 +347,8 @@ EOF
     conan_init $USERNAME \
     &&
     install_zsh_and_oh_my_zsh $USERNAME \
+    &&
+    install_arduino_cli $USERNAME \
     &&
     put_gdbinit_file $USERNAME \
     &&
