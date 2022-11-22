@@ -20,7 +20,8 @@ tdslite is a standalone library with no external dependencies, and it does not r
 - Add as many board simulators as possible & run tests on them (if possible)
 - Write use cases and example applications
 - Write example code for target platforms (arduino, espressif, raspberry etc.)
-- Implement networking code for popular network hardware (Ethernet, WiFi) 
+- Implement networking code for popular network hardware (Ethernet, WiFi)
+- Network implementation MUST read negotiated packet size and send packets accordingly
 
 ## Notes
 

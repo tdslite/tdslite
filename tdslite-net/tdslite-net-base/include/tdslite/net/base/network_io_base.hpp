@@ -170,7 +170,7 @@ namespace tdsl { namespace net {
 
                 // Length field includes the header length too, so subtract it
                 const auto packet_data_size = length - sizeof(detail::tds_header);
-                impl().do_recv(packet_data_size); // may throw?
+                impl().do_recv(packet_data_size); // FIXME: Check for errors
 
                 // This is a netbuf_reader instance.
                 // Read operations on this will be committed
@@ -296,9 +296,29 @@ namespace tdsl { namespace net {
          * @param [in] user_ptr uptr
          * @param [in] cb New callback
          */
-        TDSL_SYMBOL_VISIBLE void
-        register_packet_data_callback(void * user_ptr, tds_packet_data_callback::function_type cb) {
+        TDSL_SYMBOL_VISIBLE inline void
+        register_packet_data_callback(void * user_ptr,
+                                      tds_packet_data_callback::function_type cb) noexcept {
             packet_data_cb = {user_ptr, cb};
+        }
+
+        /**
+         * Update negotiated packet size
+         *
+         * @param [in] value New packet size
+         */
+        TDSL_SYMBOL_VISIBLE inline void set_tds_packet_size(tdsl::uint16_t value) noexcept {
+            if (value > network_buffer.get_underlying_view().size_bytes()) {
+                TDSL_ASSERT_MSG(
+                    false,
+                    "Negotiated packet size cannot be larger than the network buffer itself!");
+                TDSL_TRAP;
+            }
+
+            TDSL_DEBUG_PRINTLN("network_io_base::set_tds_packet_size(...) -> old [%u], new [%u]",
+                               tds_packet_size, value);
+
+            tds_packet_size = value;
         }
 
     private:

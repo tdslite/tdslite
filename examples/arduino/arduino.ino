@@ -1,3 +1,19 @@
+// arduino-specific debug printers.
+
+// #define TDSL_DEBUG_PRINT(...)                                                                      \
+//     [&]() {                                                                                        \
+//         char buf [512] = {};                                                                       \
+//         snprintf(buf, 512, __VA_ARGS__);                                                           \
+//         Serial.println(buf);                                                                       \
+//     }()
+
+// #define TDSL_DEBUG_PRINTLN(...)                                                                    \
+//     [&]() {                                                                                        \
+//         char buf [512] = {};                                                                       \
+//         snprintf(buf, 512, __VA_ARGS__);                                                           \
+//         Serial.println(buf);                                                                       \
+//     }()
+
 #define TDSL_DEBUG_PRINT(A, ...)   Serial.print(A)
 #define TDSL_DEBUG_PRINTLN(A, ...) Serial.println(A)
 
@@ -12,6 +28,25 @@
 //   }()
 
 #define PSTR(X) X
+
+int freeMemory() {
+
+#ifdef __arm__
+    // should use uinstd.h to define sbrk but Due causes a conflict
+    extern "C" char * sbrk(int incr);
+#else  // __ARM__
+    extern char * __brkval;
+#endif // __arm__
+
+    char top;
+#ifdef __arm__
+    return &top - reinterpret_cast<char *>(sbrk(0));
+#elif defined(CORE_TEENSY) || (ARDUINO > 103 && ARDUINO != 151)
+    return &top - __brkval;
+#else  // __arm__
+    return __brkval ? &top - __brkval : &top - __malloc_heap_start;
+#endif // __arm__
+}
 
 /**
  * Initialize serial port for logging
@@ -30,6 +65,12 @@ inline void initSerialPort() {
 inline void initEthernetShield() {
     Serial.println("... init eth ...");
     byte mac [] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED};
+    // byte ip []     = {192, 168, 1, 235};
+    // byte dns []    = {192, 168, 1, 1};
+    // byte subnet [] = {255, 255, 255, 0};
+    // Ethernet.begin(mac, ip, dns, dns, subnet);
+    // return;
+
     if (Ethernet.begin(mac) == 0) {
         Serial.println("Failed to configure Ethernet using DHCP");
         // Check for Ethernet hardware present
@@ -100,8 +141,9 @@ void initTdsliteDriver() {
     Serial.println("... init tdslite ...");
     decltype(driver)::connection_parameters params;
     // Server's hostname or IP address.
-    params.server_name = PSTR("192.168.1.22");
-    // SQL server port number
+    params.server_name = PSTR("192.168.1.22"); // WL
+    // params.server_name = PSTR("192.168.1.45"); // WS
+    //  SQL server port number
     params.port        = 14333;
     // Login user
     params.user_name   = PSTR("sa");
@@ -123,7 +165,7 @@ void initTdsliteDriver() {
 
 void initDatabase() {
     Serial.println("... init database ...");
-    driver.execute_query("CREATE TABLE #hello_world(a int, b int);");
+    driver.execute_query("CREATE TABLE #hello_world(a int, b int, c varchar(255));");
     Serial.println("... init database end...");
 }
 
@@ -139,11 +181,15 @@ int i = 0;
 
 void loop() {
     // put your main code here, to run repeatedly:
-    driver.execute_query("INSERT INTO #hello_world VALUES(1,2);");
+    driver.execute_query(
+        "INSERT INTO #hello_world VALUES(1,2, "
+        "'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa');");
     if (i++ % 10 == 0) {
         auto row_count = driver.execute_query("SELECT * FROM #hello_world;", nullptr, row_callback);
         Serial.print(PSTR("REPORT: rows count --> "));
-        Serial.println(row_count);
+        Serial.print(row_count);
+        Serial.print(", free RAM: ");
+        Serial.println(freeMemory());
     }
     Ethernet.maintain();
     delay(100);

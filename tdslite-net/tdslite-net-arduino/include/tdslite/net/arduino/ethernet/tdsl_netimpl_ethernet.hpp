@@ -119,10 +119,8 @@ namespace tdsl { namespace net {
             }
 
             // There is an error, we should handle it appropriately
-            TDSL_DEBUG_PRINT(
-                PSTR("tdsl_netimpl_asio::dispatch_receive(...) -> error, %d (%s) aborting and "
-                     "disconnecting\n"),
-                ec.value(), ec.what().c_str());
+            TDSL_DEBUG_PRINT(PSTR("tdsl_netimpl_asio::dispatch_receive(...) -> error, aborting and "
+                                  "disconnecting\n"));
 
             // do_disconnect();
             return unexpected<tdsl::int32_t>{-1}; // error case

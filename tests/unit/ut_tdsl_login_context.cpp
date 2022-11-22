@@ -48,6 +48,8 @@ namespace {
 
         inline void do_send_tds_pdu(tdsl::detail::e_tds_message_type) {}
 
+        inline void set_tds_packet_size(tdsl::uint16_t) {}
+
         void register_packet_data_callback(
             void *, tdsl::uint32_t (*)(void *, tdsl::detail::e_tds_message_type,
                                        tdsl::binary_reader<tdsl::endian::little> &)) {}
