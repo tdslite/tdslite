@@ -21,8 +21,14 @@ tdslite is a standalone library with no external dependencies, and it does not r
 - Write use cases and example applications
 - Write example code for target platforms (arduino, espressif, raspberry etc.)
 - Implement networking code for popular network hardware (Ethernet, WiFi)
-- Network implementation MUST read negotiated packet size and send packets accordingly
+- Network implementation MUST read negotiated packet size and send packets accordingly -- [DONE]
+- Use platform-specific size_t & ssize_t instead of using int64_t's for space
+- Implement an arduino program memory string view type
 
 ## Notes
 
 - In order to serial port passthrough to work in vscode dev container, you will need to add your user to the dialout group, e.g. `sudo usermod -a -G dialout <your-user-name>`. Requires re-login to take effect.
+- Helpful commands to diagnose global memory:
+  - `size /workspace/build/arduino-build/arduino.ino.elf`
+  - `readelf --demangle -a --wide /workspace/build/arduino-build/arduino.ino.elf`
+  

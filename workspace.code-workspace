@@ -1,0 +1,49 @@
+{
+    "folders": [
+        {
+            "uri": "vscode-remote://dev-container+2f776f726b73706163652f6769746875622f7464736c697465/workspace"
+        }
+    ],
+    "remoteAuthority": "dev-container+2f776f726b73706163652f6769746875622f7464736c697465",
+    "settings": {
+        "C_Cpp.codeFolding": "Enabled",
+        "C_Cpp.autoAddFileAssociations": false,
+        "C_Cpp.enhancedColorization": "Enabled",
+        "C_Cpp.workspaceSymbols": "All",
+        "breadcrumbs.enabled": true,
+        "doxdocgen.file.customTag": [
+            "_________________________________________________"
+        ],
+        "doxdocgen.file.fileTemplate": "@file   {name}",
+        "doxdocgen.file.copyrightTag": [
+            "SPDX-License-Identifier:    MIT"
+        ],
+        "doxdocgen.generic.authorTag": "@author {author} <{email}>",
+        "doxdocgen.file.fileOrder": [
+            "custom",
+            "empty",
+            "file",
+            "author",
+            "date",
+            "empty",
+            "copyright",
+            "custom"
+        ],
+        "doxdocgen.generic.dateFormat": "DD.MM.YYYY",
+        "doxdocgen.generic.dateTemplate": "@date   {date}",
+        "clangd.arguments": [
+            "-log=verbose",
+            "-pretty",
+            "--background-index",
+            "--compile-commands-dir=/workspace",
+            "-header-insertion=never"
+        ],
+        "clangd.serverCompletionRanking": true,
+        "arduino.path": "/home/dev/arduino",
+        "arduino.commandPath": "arduino-cli",
+        "arduino.useArduinoCli": true,
+        "arduino.enableUSBDetection": true,
+        "arduino.clearOutputOnBuild": true,
+        "arduino.defaultBaudRate": 115200
+    }
+}

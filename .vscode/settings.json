@@ -9,7 +9,8 @@
     "C_Cpp.codeFolding": "Enabled",
     "C_Cpp.default.compileCommands": "/workspace/compile_commands.json",
     "C_Cpp.default.includePath": [
-        "/workspace"
+        "/workspace",
+        "/home/dev/arduino/libraries/**"
     ],
     "C_Cpp.autoAddFileAssociations": false,
     "C_Cpp.enhancedColorization": "Enabled",
@@ -18,9 +19,10 @@
     "breadcrumbs.enabled": true,
     "files.exclude": {
         ".hadouken": true,
-        ".devcontainer": true,
-        ".vscode": true,
         "hadouken": true,
+        ".cache": true,
+        "build": true,
+        ".vscode": true
     },
     "cmake.configureArgs": [
         "-Wno-dev"
@@ -74,4 +76,10 @@
     // the values you've explicitly set, above.
     "editor.detectIndentation": false,
     "testExplorer.useNativeTesting": true,
+    "arduino.path": "/home/dev/arduino",
+    "arduino.commandPath": "arduino-cli",
+    "arduino.useArduinoCli": true,
+    "arduino.enableUSBDetection": true,
+    "arduino.clearOutputOnBuild": true,
+    "arduino.defaultBaudRate": 115200
 }

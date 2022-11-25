@@ -1,33 +1,146 @@
 // arduino-specific debug printers.
 
-// #define TDSL_DEBUG_PRINT(...)                                                                      \
-//     [&]() {                                                                                        \
-//         char buf [512] = {};                                                                       \
-//         snprintf(buf, 512, __VA_ARGS__);                                                           \
-//         Serial.println(buf);                                                                       \
-//     }()
+#define SKETCH_TDSL_DEBUG_LOG
+#define SKETCH_SERIAL_OUTPUT
+// #define SKETCH_USE_DHCP
+// #define SKETCH_NO_TDSLITE
+#define SKETCH_TDSL_NETBUF_SIZE 512 * 8
+#define SKETCH_TDSL_PACKET_SIZE SKETCH_TDSL_NETBUF_SIZE / 2
 
-// #define TDSL_DEBUG_PRINTLN(...)                                                                    \
-//     [&]() {                                                                                        \
-//         char buf [512] = {};                                                                       \
-//         snprintf(buf, 512, __VA_ARGS__);                                                           \
-//         Serial.println(buf);                                                                       \
-//     }()
+#if defined SKETCH_SERIAL_OUTPUT
 
-#define TDSL_DEBUG_PRINT(A, ...)   Serial.print(A)
-#define TDSL_DEBUG_PRINTLN(A, ...) Serial.println(A)
+/**
+ * Print a formatted string to serial output.
+ *
+ * @param [in] FMTSTR Format string
+ * @param [in] ...    Format arguments
+ *
+ * The format string will be stored in program memory in order
+ * to save space.
+ */
+#define SERIAL_PRINTF(FMTSTR, ...)                                                                 \
+    [&]() {                                                                                        \
+        static_assert(sizeof(FMTSTR) <= 255, "Format string cannot be greater than 255");          \
+        /* Save format string into program */                                                      \
+        /* memory to save flash space */                                                           \
+        static const char __fmtpm [] PROGMEM = FMTSTR;                                             \
+        char buf [128]                       = {};                                                 \
+        snprintf_P(buf, sizeof(buf), __fmtpm, ##__VA_ARGS__);                                      \
+        Serial.print(buf);                                                                         \
+    }()
 
-#include <tdslite.h>
+#define SERIAL_PRINTLNF(FMTSTR, ...)                                                               \
+    SERIAL_PRINTF(FMTSTR, ##__VA_ARGS__);                                                          \
+    Serial.println("")
+
+#define SERIAL_PRINT_U16_AS_MB(U16SPAN)                                                            \
+    [](tdsl::u16char_view v) {                                                                     \
+        for (const auto ch : v) {                                                                  \
+            Serial.print(static_cast<char>(ch));                                                   \
+        }                                                                                          \
+    }(U16SPAN)
+
+#if defined SKETCH_TDSL_DEBUG_LOG
+#define TDSL_DEBUG_PRINT(FMTSTR, ...)       SERIAL_PRINTF(FMTSTR, ##__VA_ARGS__)
+#define TDSL_DEBUG_PRINTLN(FMTSTR, ...)     SERIAL_PRINTLNF(FMTSTR, ##__VA_ARGS__)
+#define TDSL_DEBUG_PRINT_U16_AS_MB(U16SPAN) SERIAL_PRINT_U16_AS_MB(U16SPAN)
+#endif
+
+#else
+
+#define SERIAL_PRINTF(FMTSTR, ...)
+#define SERIAL_PRINTLNF(FMTSTR, ...)
+#define SERIAL_PRINT_U16_AS_MB(U16SPAN)
+#endif
+
 #include <Ethernet.h>
 
-// #define PSTR(X) \
-//   []() -> decltype(X) { \
-//     static const char __[] PROGMEM = X; \
-//     intermediate buf?
-//     return __; \
-//   }()
+#ifndef SKETCH_NO_TDSLITE
 
-#define PSTR(X) X
+#include <tdslite.h>
+
+/**
+ * Prints INFO/ERROR messages from SQL server to stdout.
+ *
+ * @param [in] token INFO/ERROR token
+ */
+static void info_callback(void *, const tdsl::tds_info_token & token) noexcept {
+    SERIAL_PRINTF("%c: [%d/%d/%d@%d] --> ", (token.is_info() ? 'I' : 'E'), token.number,
+                  token.state, token.class_, token.line_number);
+    SERIAL_PRINT_U16_AS_MB(token.msgtext);
+    SERIAL_PRINTLNF("");
+}
+
+/**
+ * Handle row data coming from tdsl driver
+ *
+ * @param [in] u user pointer (table_context)
+ * @param [in] colmd Column metadata
+ * @param [in] row Row information
+ */
+static void row_callback(void * u, const tdsl::tds_colmetadata_token & colmd,
+                         const tdsl::tdsl_row & row) {
+    SERIAL_PRINTF("row: ");
+    for (const auto & field : row) {
+        SERIAL_PRINTF("%d\t", field.as<tdsl::uint32_t>());
+    }
+    SERIAL_PRINTLNF("");
+}
+
+// The network buffer
+tdsl::uint8_t net_buf [SKETCH_TDSL_NETBUF_SIZE] = {};
+tdsl::driver_ethc driver{net_buf};
+
+void initTdsliteDriver() {
+    SERIAL_PRINTLNF("... init tdslite ...");
+    tdsl::driver_ethc::connection_parameters params;
+    // Server's hostname or IP address.
+    params.server_name = "192.168.1.22"; // WL
+    // params.server_name = PSTR("192.168.1.45"); // WS
+    //  SQL server port number
+    params.port        = 14333;
+    // Login user
+    params.user_name   = "sa";
+    // Login user password
+    params.password    = "2022-tds-lite-test!";
+    // Client name(optional)
+    params.client_name = "arduino mega";
+    // App name(optional)
+    params.app_name    = "sketch";
+    // Database name(optional)
+    params.db_name     = "master";
+    // TDS packet size
+    // Recommendation: Half of the network buffer.
+    params.packet_size = {SKETCH_TDSL_PACKET_SIZE};
+    driver.set_info_callback(nullptr, &info_callback);
+    driver.connect(params);
+    SERIAL_PRINTLNF("... init tdslite end...");
+}
+
+void initDatabase() {
+    const int r = driver.execute_query("CREATE TABLE #hello_world(a int, b int);");
+    (void) r;
+    SERIAL_PRINTLNF("... init database %d...", r);
+    SERIAL_PRINTLNF("... init database end...");
+}
+
+inline void tdslite_loop() {
+    static int i = 0;
+    driver.execute_query("INSERT INTO #hello_world VALUES(1,2)");
+    if (i++ % 10 == 0) {
+        const auto row_count =
+            driver.execute_query("SELECT * FROM #hello_world;", nullptr, row_callback);
+        SERIAL_PRINTLNF(">> Report: row count [%d], free RAM [%d] <<", row_count, freeMemory());
+    }
+}
+
+#else
+
+inline void tdslite_loop() {}
+
+inline void initDatabase() {}
+
+#endif
 
 int freeMemory() {
 
@@ -52,9 +165,11 @@ int freeMemory() {
  * Initialize serial port for logging
  */
 inline void initSerialPort() {
+#if defined SKETCH_SERIAL_OUTPUT
     Serial.begin(112500);
     while (!Serial)
         ;
+#endif
 }
 
 /**
@@ -63,110 +178,32 @@ inline void initSerialPort() {
  * MUST be done before initializing tdslite.
  */
 inline void initEthernetShield() {
-    Serial.println("... init eth ...");
+    SERIAL_PRINTLNF("... init eth ...");
     byte mac [] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED};
-    // byte ip []     = {192, 168, 1, 235};
-    // byte dns []    = {192, 168, 1, 1};
-    // byte subnet [] = {255, 255, 255, 0};
-    // Ethernet.begin(mac, ip, dns, dns, subnet);
-    // return;
-
+#if defined SKETCH_USE_DHCP
     if (Ethernet.begin(mac) == 0) {
-        Serial.println("Failed to configure Ethernet using DHCP");
+        SERIAL_PRINTLNF("Failed to configure Ethernet using DHCP");
         // Check for Ethernet hardware present
         if (Ethernet.hardwareStatus() == EthernetNoHardware) {
-            Serial.println("Ethernet shield was not found.  Sorry, can't run without hardware. :(");
+            SERIAL_PRINTLNF(
+                "Ethernet shield was not found.  Sorry, can't run without hardware. :(");
             while (true) {
                 delay(1); // do nothing, no point running without Ethernet hardware
             }
         }
         if (Ethernet.linkStatus() == LinkOFF) {
-            Serial.println("Ethernet cable is not connected.");
+            SERIAL_PRINTLNF("Ethernet cable is not connected.");
         }
         // try to congifure using IP address instead of DHCP:
         // Ethernet.begin(mac, ip, myDns);
     }
     else {
-        Serial.print("  DHCP assigned IP ");
-        Serial.println(Ethernet.localIP());
+        SERIAL_PRINTLNF("  DHCP assigned IP %s", Ethernet.localIP());
     }
-}
-
-/**
- * Prints INFO/ERROR messages from SQL server to stdout.
- *
- * @param [in] token INFO/ERROR token
- */
-static void info_callback(void *, const tdsl::tds_info_token & token) noexcept {
-    Serial.print(token.is_info() ? 'I' : 'E');
-    Serial.print(PSTR(": ["));
-    Serial.print(token.number);
-    Serial.print(PSTR("/"));
-    Serial.print(token.state);
-    Serial.print(PSTR("/"));
-    Serial.print(token.class_);
-    Serial.print(PSTR(" @"));
-    Serial.print(token.line_number);
-    Serial.print(PSTR("] --> "));
-    for (unsigned int i = 0; i < token.msgtext.size(); i++) {
-        Serial.print((*reinterpret_cast<const char *>(token.msgtext.data() + i)));
-    }
-    Serial.print(PSTR("\n"));
-}
-
-/**
- * Handle row data coming from tdsl driver
- *
- * @param [in] u user pointer (table_context)
- * @param [in] colmd Column metadata
- * @param [in] row Row information
- */
-static void row_callback(void * u, const tdsl::tds_colmetadata_token & colmd,
-                         const tdsl::tdsl_row & row) {
-
-    Serial.print(PSTR("row: "));
-    for (const auto & field : row) {
-        Serial.print(field.as<tdsl::uint32_t>());
-        Serial.print("\t");
-    }
-    Serial.println("");
-    Serial.flush();
-}
-
-// The network buffer
-tdsl::uint8_t net_buf [4096] = {};
-tdsl::driver_ethc driver{net_buf};
-
-void initTdsliteDriver() {
-    Serial.println("... init tdslite ...");
-    decltype(driver)::connection_parameters params;
-    // Server's hostname or IP address.
-    params.server_name = PSTR("192.168.1.22"); // WL
-    // params.server_name = PSTR("192.168.1.45"); // WS
-    //  SQL server port number
-    params.port        = 14333;
-    // Login user
-    params.user_name   = PSTR("sa");
-    // Login user password
-    params.password    = PSTR("2022-tds-lite-test!");
-    // Client name(optional)
-    params.client_name = PSTR("arduino mega");
-    // App name(optional)
-    params.app_name    = PSTR("sketch");
-    // Database name(optional)
-    params.db_name     = PSTR("master");
-    // TDS packet size
-    // Recommendation: Half of the network buffer.
-    params.packet_size = {sizeof(net_buf) / 2};
-    driver.set_info_callback(nullptr, &info_callback);
-    driver.connect(params);
-    Serial.println("... init tdslite end...");
-}
-
-void initDatabase() {
-    Serial.println("... init database ...");
-    driver.execute_query("CREATE TABLE #hello_world(a int, b int, c varchar(255));");
-    Serial.println("... init database end...");
+#else
+    IPAddress ip(192, 168, 1, 241);
+    Ethernet.begin(mac, ip);
+#endif
 }
 
 void setup() {
@@ -174,23 +211,16 @@ void setup() {
     initEthernetShield();
     initTdsliteDriver();
     initDatabase();
-    Serial.println("... setup complete ...");
+    SERIAL_PRINTLNF("sizeof ptr(%d), size_t(%d), tdsl::span<unsigned char>(%d)",
+                    sizeof(tdsl::uint8_t *), sizeof(tdsl::size_t),
+                    sizeof(tdsl::span<unsigned char>));
+    SERIAL_PRINTLNF("... setup complete ...");
 }
 
-int i = 0;
-
 void loop() {
-    // put your main code here, to run repeatedly:
-    driver.execute_query(
-        "INSERT INTO #hello_world VALUES(1,2, "
-        "'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa');");
-    if (i++ % 10 == 0) {
-        auto row_count = driver.execute_query("SELECT * FROM #hello_world;", nullptr, row_callback);
-        Serial.print(PSTR("REPORT: rows count --> "));
-        Serial.print(row_count);
-        Serial.print(", free RAM: ");
-        Serial.println(freeMemory());
-    }
+    tdslite_loop();
+#ifdef SKETCH_USE_DHCP
     Ethernet.maintain();
-    delay(100);
+#endif
+    // delay(100);
 }

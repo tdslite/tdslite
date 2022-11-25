@@ -219,6 +219,16 @@ namespace tdsl { namespace traits {
     template <typename T>
     struct is_integral : is_integral_base<typename remove_cv<T>::type> {};
 
+    template <class T>
+    struct is_floating_point
+        : integral_constant<bool, is_same<float, typename remove_cv<T>::type>::value ||
+                                      is_same<double, typename remove_cv<T>::type>::value ||
+                                      is_same<long double, typename remove_cv<T>::type>::value> {};
+
+    template <typename T>
+    struct is_arithmetic
+        : integral_constant<bool, is_integral<T>::value || is_floating_point<T>::value> {};
+
     namespace detail {
         template <typename>
         struct is_void_helper : public false_type {};
@@ -509,6 +519,64 @@ namespace tdsl { namespace traits {
             using type = signed long long;
         };
 
+        template <typename T>
+        struct make_unsigned_helper; // undefined for all types by default
+
+        template <>
+        struct make_unsigned_helper<signed char> {
+            using type = unsigned char;
+        };
+
+        template <>
+        struct make_unsigned_helper<signed short> {
+            using type = unsigned short;
+        };
+
+        template <>
+        struct make_unsigned_helper<signed int> {
+            using type = unsigned int;
+        };
+
+        template <>
+        struct make_unsigned_helper<signed long> {
+            using type = unsigned long;
+        };
+
+        template <>
+        struct make_unsigned_helper<signed long long> {
+            using type = unsigned long long;
+        };
+
+        template <>
+        struct make_unsigned_helper<char> {
+            using type = unsigned char;
+        };
+
+        template <>
+        struct make_unsigned_helper<unsigned char> {
+            using type = unsigned char;
+        };
+
+        template <>
+        struct make_unsigned_helper<unsigned short> {
+            using type = unsigned short;
+        };
+
+        template <>
+        struct make_unsigned_helper<unsigned int> {
+            using type = unsigned int;
+        };
+
+        template <>
+        struct make_unsigned_helper<unsigned long> {
+            using type = unsigned long;
+        };
+
+        template <>
+        struct make_unsigned_helper<unsigned long long> {
+            using type = unsigned long long;
+        };
+
     } // namespace detail
 
     template <typename SRC, typename DST>
@@ -562,6 +630,43 @@ namespace tdsl { namespace traits {
     static_assert(is_same<make_signed<long long>::type, signed long long>::value, "");
     static_assert(is_same<make_signed<signed long long>::type, signed long long>::value, "");
     static_assert(is_same<make_signed<unsigned long long>::type, signed long long>::value, "");
+
+    template <typename T>
+    struct make_unsigned {
+    private:
+        using naked_t          = typename remove_cv<T>::type;
+        using naked_unsigned_t = typename detail::make_unsigned_helper<naked_t>::type;
+
+    public:
+        using type = typename copy_qualifiers<T, naked_unsigned_t>::type;
+    };
+
+    static_assert(is_same<make_unsigned<char>::type, unsigned char>::value, "");
+    static_assert(is_same<make_unsigned<signed char>::type, unsigned char>::value, "");
+    static_assert(is_same<make_unsigned<unsigned char>::type, unsigned char>::value, "");
+
+    static_assert(is_same<make_unsigned<int>::type, unsigned int>::value, "");
+    static_assert(is_same<make_unsigned<signed int>::type, unsigned int>::value, "");
+    static_assert(is_same<make_unsigned<unsigned int>::type, unsigned int>::value, "");
+
+    static_assert(is_same<make_unsigned<long>::type, unsigned long>::value, "");
+    static_assert(is_same<make_unsigned<signed long>::type, unsigned long>::value, "");
+    static_assert(is_same<make_unsigned<unsigned long>::type, unsigned long>::value, "");
+
+    static_assert(is_same<make_unsigned<long long>::type, unsigned long long>::value, "");
+    static_assert(is_same<make_unsigned<signed long long>::type, unsigned long long>::value, "");
+    static_assert(is_same<make_unsigned<unsigned long long>::type, unsigned long long>::value, "");
+
+    namespace detail {
+        template <typename T, bool = traits::is_arithmetic<T>::value>
+        struct is_signed : integral_constant<bool, T(-1) < T(0)> {};
+
+        template <typename T>
+        struct is_signed<T, false> : false_type {};
+    } // namespace detail
+
+    template <typename T>
+    struct is_signed : detail::is_signed<T>::type {};
 
 }} // namespace tdsl::traits
 

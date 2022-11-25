@@ -92,10 +92,10 @@ namespace tdsl {
          * @return A new reader in [current - next(min(size, remaining_bytes))] range
          */
         template <tdsl::endian SubreaderEndianness = DataEndianness>
-        inline TDSL_NODISCARD auto subreader(tdsl::uint32_t size) const noexcept
+        inline TDSL_NODISCARD auto subreader(tdsl::size_t size) const noexcept
             -> binary_reader<SubreaderEndianness> {
             if (!this->has_bytes(size)) {
-                return binary_reader<SubreaderEndianness>{nullptr, static_cast<tdsl::uint32_t>(0)};
+                return binary_reader<SubreaderEndianness>{nullptr, static_cast<tdsl::size_t>(0)};
             }
             return binary_reader<SubreaderEndianness>(this->current(), size);
         }
@@ -108,7 +108,7 @@ namespace tdsl {
          * @return std::span<const T>
          */
         inline TDSL_NODISCARD TDSL_CXX14_CONSTEXPR auto
-        read(tdsl::uint32_t number_of_elements) noexcept -> span_type {
+        read(tdsl::size_t number_of_elements) noexcept -> span_type {
             if (number_of_elements > 0 && this->has_bytes(number_of_elements)) {
                 span_type result{this->current(), (this->current() + number_of_elements)};
                 this->do_advance(number_of_elements);
@@ -155,3 +155,16 @@ namespace tdsl {
     } while (0)
 
 #endif
+
+#define TDSL_TRY_READ_VARCHAR(TYPE, VARNAME, READER)                                               \
+    const auto VARNAME##_octets = (READER.read<TYPE>() * 2);                                       \
+    if (not READER.has_bytes(VARNAME##_octets)) {                                                  \
+        return VARNAME##_octets - READER.remaining_bytes();                                        \
+    }                                                                                              \
+    const auto VARNAME = READER.read(VARNAME##_octets)
+
+#define TDSL_TRY_READ_U16_VARCHAR(VARNAME, READER)                                                 \
+    TDSL_TRY_READ_VARCHAR(tdsl::uint16_t, VARNAME, READER)
+
+#define TDSL_TRY_READ_U8_VARCHAR(VARNAME, READER)                                                  \
+    TDSL_TRY_READ_VARCHAR(tdsl::uint8_t, VARNAME, READER)

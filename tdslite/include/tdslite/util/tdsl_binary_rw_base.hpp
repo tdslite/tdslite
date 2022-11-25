@@ -15,6 +15,7 @@
 #include <tdslite/util/tdsl_inttypes.hpp>
 #include <tdslite/util/tdsl_type_traits.hpp>
 #include <tdslite/util/tdsl_span.hpp>
+#include <tdslite/util/tdsl_debug_print.hpp>
 
 namespace tdsl {
     template <typename Derived>
@@ -37,18 +38,15 @@ namespace tdsl {
          *
          * @return std::int64_t Amount of bytes remaining
          */
-
-        inline TDSL_NODISCARD constexpr auto remaining_bytes() const noexcept -> tdsl::int64_t {
-            return tdsl::int64_t{static_cast<const Derived &>(*this).size_bytes()} -
-                   tdsl::int64_t{offset()};
+        inline TDSL_NODISCARD TDSL_CXX14_CONSTEXPR auto remaining_bytes() const noexcept
+            -> tdsl::size_t {
+            return static_cast<const Derived &>(*this).size_bytes() - offset();
         }
 
         /**
          * Current offset
-         *
-         * @return tdsl::uint32_t Current  offset
          */
-        inline TDSL_NODISCARD TDSL_CXX14_CONSTEXPR auto offset() const noexcept -> tdsl::uint32_t {
+        inline TDSL_NODISCARD TDSL_CXX14_CONSTEXPR auto offset() const noexcept -> tdsl::size_t {
             TDSL_ASSERT(offset_ <= static_cast<const Derived &>(*this).size_bytes());
             return offset_;
         }
@@ -63,7 +61,7 @@ namespace tdsl {
          * @note @ref offset_ is guaranteed to be not modified when the
          * result is false
          */
-        inline TDSL_CXX14_CONSTEXPR auto seek(tdsl::uint32_t pos) noexcept -> bool {
+        inline TDSL_CXX14_CONSTEXPR auto seek(tdsl::size_t pos) noexcept -> bool {
             // Check boundaries
             if (pos >= static_cast<Derived &>(*this).size_bytes()) {
                 return false;
@@ -91,14 +89,22 @@ namespace tdsl {
          * @note @ref offset_ is guaranteed to be not modified when the
          * result is false
          */
-        inline TDSL_CXX14_CONSTEXPR auto advance(tdsl::int32_t amount_of_bytes) noexcept -> bool {
-            // Check boundaries
-            if ((static_cast<tdsl::int64_t>(offset_) +
-                 static_cast<tdsl::int64_t>(amount_of_bytes)) >
-                    static_cast<Derived &>(*this).size_bytes() ||
-                (static_cast<tdsl::int64_t>(offset_) + amount_of_bytes) < 0) {
-                return false;
+        inline TDSL_CXX14_CONSTEXPR auto advance(tdsl::ssize_t amount_of_bytes) noexcept -> bool {
+
+            // If moving forwards, ensure we got that much amount
+            if (amount_of_bytes >= 0) {
+                if ((static_cast<tdsl::size_t>(amount_of_bytes) > remaining_bytes())) {
+                    return false;
+                }
             }
+            else {
+                // If moving backwards, the offset must be at
+                // at least `amount of bytes`
+                if (static_cast<tdsl::size_t>(-(amount_of_bytes)) > offset()) {
+                    return false;
+                }
+            }
+
             do_advance(amount_of_bytes);
             TDSL_ASSERT(offset_ <= static_cast<Derived &>(*this).size_bytes());
             return true;
@@ -112,11 +118,14 @@ namespace tdsl {
          * @return false otherwise
          */
         inline TDSL_NODISCARD TDSL_CXX14_CONSTEXPR auto
-        has_bytes(tdsl::uint32_t amount_of_bytes) const noexcept -> bool {
-            // Promote offset and v to next greater signed integer type
-            // since the result of the sum may overflow
-            return (tdsl::int64_t{offset_} + tdsl::int64_t{amount_of_bytes}) <=
-                   tdsl::int64_t{static_cast<const Derived &>(*this).size_bytes()};
+        has_bytes(tdsl::size_t amount_of_bytes) const noexcept -> bool {
+
+            // overflow check
+            if (amount_of_bytes > (tdsl::numeric_limits::max_value<tdsl::size_t>() - offset())) {
+                return false;
+            }
+
+            return (offset() + amount_of_bytes) <= static_cast<const Derived &>(*this).size_bytes();
         }
 
         /**
@@ -128,11 +137,16 @@ namespace tdsl {
          * @return false otherwise
          */
         inline TDSL_NODISCARD TDSL_CXX14_CONSTEXPR auto
-        has_bytes(tdsl::uint32_t amount_of_bytes, tdsl::uint32_t offset) const noexcept -> bool {
-            // Promote offset and v to next greater signed integer type
-            // since the result of the sum may overflow
-            return (tdsl::int64_t{offset} + tdsl::int64_t{amount_of_bytes}) <=
-                   tdsl::int64_t{static_cast<const Derived &>(*this).size_bytes()};
+        has_bytes(tdsl::size_t amount_of_bytes, tdsl::size_t offset) const noexcept -> bool {
+
+            // overflow check
+            if (amount_of_bytes > (tdsl::numeric_limits::max_value<tdsl::size_t>() - offset)) {
+                return false;
+            }
+
+            // offset + amount_of_bytes guaranteed to be <=
+            // tdsl::numeric_limits<tdsl::size_t>::max()
+            return (offset + amount_of_bytes) <= static_cast<const Derived &>(*this).size_bytes();
         }
 
         /**
@@ -193,15 +207,29 @@ namespace tdsl {
          *
          * @param [in] amount_of_bytes Amount to advance
          */
-        inline TDSL_CXX14_CONSTEXPR void do_advance(tdsl::int32_t amount_of_bytes) noexcept {
+        inline TDSL_CXX14_CONSTEXPR void do_advance(tdsl::ssize_t amount_of_bytes) noexcept {
+            if (amount_of_bytes >= 0) {
+                if ((offset() + static_cast<tdsl::size_t>(amount_of_bytes)) >
+                    static_cast<Derived &>(*this).size_bytes()) {
+                    TDSL_ASSERT_MSG(
+                        false,
+                        "Offset is going to be OOB when advance(amount_of_bytes) is applied!");
+                    TDSL_TRAP;
+                }
+            }
+            else {
+                if (static_cast<tdsl::size_t>(-amount_of_bytes) > offset()) {
+                    TDSL_ASSERT_MSG(
+                        false,
+                        "Offset is going to be OOB when advance(amount_of_bytes) is applied!");
+                    TDSL_TRAP;
+                }
+            }
 
-            TDSL_ASSERT(((tdsl::int64_t{offset()} + amount_of_bytes) >= 0) &&
-                        ((tdsl::int64_t{offset()} + amount_of_bytes) <=
-                         static_cast<Derived &>(*this).size_bytes()));
             offset_ += amount_of_bytes;
         }
 
-        tdsl::uint32_t offset_{}; /**<! Current offset */
+        tdsl::size_t offset_{}; /**<! Current offset */
     };
 } // namespace tdsl
 

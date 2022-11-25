@@ -10,6 +10,8 @@
  * _______________________________________________________
  */
 
+#include <tdslite/util/tdsl_type_traits.hpp>
+
 #include <stdint.h>
 #include <stddef.h>
 
@@ -22,6 +24,7 @@
 namespace tdsl {
 
     using ::size_t;
+    using ssize_t = typename tdsl::traits::make_signed<tdsl::size_t>::type;
 
     using ::int16_t;
     using int16_be_t = tdsl::int16_t;
@@ -71,6 +74,33 @@ namespace tdsl {
     using ::uintmax_t;
     using ::uintptr_t;
 
+    struct numeric_limits {
+
+        template <typename Q>
+        inline static constexpr auto min_value() noexcept ->
+            typename traits::enable_if<traits::is_signed<Q>::value, Q>::type {
+            return -max_value<Q>() + Q{-1};
+        }
+
+        template <typename Q>
+        inline static constexpr auto min_value() noexcept ->
+            typename traits::enable_if<!traits::is_signed<Q>::value, Q>::type {
+            return 0;
+        }
+
+        template <typename Q>
+        inline static constexpr auto max_value() noexcept ->
+            typename traits::enable_if<traits::is_signed<Q>::value, Q>::type {
+            return static_cast<typename traits::make_unsigned<Q>::type>(~0) >> 1;
+        }
+
+        template <typename Q>
+        inline static constexpr auto max_value() noexcept ->
+            typename traits::enable_if<!traits::is_signed<Q>::value, Q>::type {
+            return ~Q{0};
+        }
+    };
+
 } // namespace tdsl
 
 static_assert(sizeof(tdsl::int8_t) == 1, "sizeof(tdsl::int8_t) is not 1 in your platform!");
@@ -81,6 +111,30 @@ static_assert(sizeof(tdsl::int32_t) == 4, "sizeof(tdsl::int32_t) is not 4 in you
 static_assert(sizeof(tdsl::uint32_t) == 4, "sizeof(tdsl::uint32_t) is not 4 in your platform!");
 static_assert(sizeof(tdsl::int64_t) == 8, "sizeof(tdsl::int64_t) is not 8 in your platform!");
 static_assert(sizeof(tdsl::uint64_t) == 8, "sizeof(tdsl::uint64_t) is not 8 in your platform!");
+
+static_assert(tdsl::numeric_limits::min_value<tdsl::int8_t>() == tdsl::int8_t{-128}, "");
+static_assert(tdsl::numeric_limits::max_value<tdsl::int8_t>() == tdsl::int8_t{127}, "");
+static_assert(tdsl::numeric_limits::min_value<tdsl::int16_t>() == tdsl::int16_t{-32768}, "");
+static_assert(tdsl::numeric_limits::max_value<tdsl::int16_t>() == tdsl::int16_t{32767}, "");
+static_assert(tdsl::numeric_limits::min_value<tdsl::int32_t>() == tdsl::int32_t{-2147483648}, "");
+static_assert(tdsl::numeric_limits::max_value<tdsl::int32_t>() == tdsl::int32_t{2147483647}, "");
+static_assert(tdsl::numeric_limits::min_value<tdsl::int64_t>() ==
+                  tdsl::int64_t{-9223372036854775807 - 1},
+              "");
+static_assert(tdsl::numeric_limits::max_value<tdsl::int64_t>() ==
+                  tdsl::int64_t{9223372036854775807},
+              "");
+
+static_assert(tdsl::numeric_limits::min_value<tdsl::uint8_t>() == tdsl::uint8_t{0}, "");
+static_assert(tdsl::numeric_limits::max_value<tdsl::uint8_t>() == tdsl::uint8_t{255}, "");
+static_assert(tdsl::numeric_limits::min_value<tdsl::uint16_t>() == tdsl::uint16_t{0}, "");
+static_assert(tdsl::numeric_limits::max_value<tdsl::uint16_t>() == tdsl::uint16_t{65535}, "");
+static_assert(tdsl::numeric_limits::min_value<tdsl::uint32_t>() == tdsl::uint32_t{0}, "");
+static_assert(tdsl::numeric_limits::max_value<tdsl::uint32_t>() == tdsl::uint32_t{4294967295}, "");
+static_assert(tdsl::numeric_limits::min_value<tdsl::uint64_t>() == tdsl::uint64_t{0}, "");
+static_assert(tdsl::numeric_limits::max_value<tdsl::uint64_t>() ==
+                  tdsl::uint64_t{18446744073709551615ull},
+              "");
 
 // user-defined literals for casting integers
 

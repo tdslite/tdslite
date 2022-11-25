@@ -144,8 +144,8 @@ namespace tdsl {
 
         using element_type               = T;
         using value_type                 = typename traits::remove_cv<T>::type;
-        using size_type                  = tdsl::uint32_t;
-        using ssize_type                 = tdsl::int32_t;
+        using size_type                  = tdsl::size_t;
+        using ssize_type                 = tdsl::ssize_t;
         using pointer                    = T *;
         using const_pointer              = const T *;
         using reference                  = T &;

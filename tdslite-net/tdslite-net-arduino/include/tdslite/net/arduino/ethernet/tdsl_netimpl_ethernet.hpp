@@ -55,28 +55,28 @@ namespace tdsl { namespace net {
             client.stop();
 
             int cr      = 0;
-            int retries = 3;
+            int retries = 10;
 
             // Retry up to MAX_CONNECT_ATTEMPTS times.
             while (retries--) {
-                Serial.println(PSTR("...trying..."));
+                // Serial.println("...trying...");
                 cr = client.connect(target.data(), port);
 
                 if (cr == 1) {
-                    Serial.println(PSTR("...connected ..."));
-                    Serial.print(client.localPort());
-                    Serial.print(PSTR(" --> "));
-                    Serial.print(client.remoteIP());
-                    Serial.print(PSTR(":"));
-                    Serial.println(client.remotePort());
+                    // Serial.println("...connected ...");
+                    // Serial.print(client.localPort());
+                    // Serial.print(" --> ");
+                    // Serial.print(client.remoteIP());
+                    // Serial.print(":");
+                    // Serial.println(client.remotePort());
                     break;
                 }
 
-                Serial.print("...got: ");
-                Serial.print(cr);
-                Serial.println(" retrying...");
+                // Serial.print("...got: ");
+                // Serial.print(cr);
+                // Serial.println(" retrying...");
 
-                delay(1000);
+                delay(3000);
             }
 
             if (cr == 1) {
@@ -119,8 +119,8 @@ namespace tdsl { namespace net {
             }
 
             // There is an error, we should handle it appropriately
-            TDSL_DEBUG_PRINT(PSTR("tdsl_netimpl_asio::dispatch_receive(...) -> error, aborting and "
-                                  "disconnecting\n"));
+            TDSL_DEBUG_PRINT("tdsl_netimpl_asio::dispatch_receive(...) -> error, aborting and "
+                             "disconnecting\n");
 
             // do_disconnect();
             return unexpected<tdsl::int32_t>{-1}; // error case
@@ -128,12 +128,12 @@ namespace tdsl { namespace net {
 
         TDSL_SYMBOL_VISIBLE expected<tdsl::uint32_t, tdsl::int32_t>
         do_recv(tdsl::uint32_t transfer_exactly) noexcept {
-            auto writer                   = this->network_buffer.get_writer();
-            const tdsl::int64_t rem_space = writer->remaining_bytes();
+            auto writer          = this->network_buffer.get_writer();
+            const auto rem_space = writer->remaining_bytes();
 
             if (transfer_exactly > rem_space) {
-                TDSL_DEBUG_PRINTLN(PSTR("tdsl_netimpl_ethernet::do_recv(...) -> error, not enough "
-                                        "space in recv buffer (%u vs %ld)"),
+                TDSL_DEBUG_PRINTLN("tdsl_netimpl_ethernet::do_recv(...) -> error, not enough "
+                                   "space in recv buffer (%u vs %ld)",
                                    transfer_exactly, rem_space);
                 TDSL_ASSERT(0);
                 return unexpected<tdsl::int32_t>{-2};
