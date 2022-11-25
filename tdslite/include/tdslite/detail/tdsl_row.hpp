@@ -22,13 +22,13 @@
 namespace tdsl {
 
     struct tdsl_row : util::noncopyable {
-        using field_allocator_t = tds_allocator<tdsl_field>;
-        using fields_type_t     = tdsl::span<tdsl_field>;
-
         enum class e_tdsl_row_make_err
         {
             MEM_ALLOC = -1
         };
+        using field_allocator_t = tds_allocator<tdsl_field>;
+        using fields_type_t     = tdsl::span<tdsl_field>;
+        using make_result_t     = tdsl::expected<tdsl_row, e_tdsl_row_make_err>;
 
         // --------------------------------------------------------------------------------
 
@@ -77,12 +77,12 @@ namespace tdsl {
          * @return tdsl_row with n_col field on success
          * @return e_tdsl_row_make_err::FAILURE_MEM_ALLOC on failure
          */
-        static inline tdsl::expected<tdsl_row, e_tdsl_row_make_err> make(tdsl::uint32_t n_col) {
+        static inline make_result_t make(tdsl::uint32_t n_col) {
             tdsl_field * fields = field_allocator_t::create_n(n_col);
             if (fields) {
                 return tdsl_row(fields, n_col);
             }
-            return tdsl::unexpected<e_tdsl_row_make_err>(e_tdsl_row_make_err::MEM_ALLOC);
+            return make_result_t::unexpected(e_tdsl_row_make_err::MEM_ALLOC);
         }
 
         // --------------------------------------------------------------------------------

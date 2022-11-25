@@ -1,13 +1,13 @@
-// arduino-specific debug printers.
+#if defined ESP8266
+#include <ESP8266WiFi.h>
+#elif defined ESP32
+#include <WiFi.h>
+#else
+#error "Architecture unrecognized by this code."
+#endif
 
-#define SKETCH_TDSL_DEBUG_LOG
-#define SKETCH_SERIAL_OUTPUT
-// #define SKETCH_USE_DHCP
-// #define SKETCH_NO_TDSLITE
-#define SKETCH_TDSL_NETBUF_SIZE 512 * 8
-#define SKETCH_TDSL_PACKET_SIZE SKETCH_TDSL_NETBUF_SIZE / 2
-
-#if defined SKETCH_SERIAL_OUTPUT
+#define SKETCH_TDSL_NETBUF_SIZE 512 * 16
+#define SKETCH_TDSL_PACKET_SIZE 1400 // ~tcp segment size
 
 /**
  * Print a formatted string to serial output.
@@ -40,20 +40,9 @@
         }                                                                                          \
     }(U16SPAN)
 
-#if defined SKETCH_TDSL_DEBUG_LOG
 #define TDSL_DEBUG_PRINT(FMTSTR, ...)       SERIAL_PRINTF(FMTSTR, ##__VA_ARGS__)
 #define TDSL_DEBUG_PRINTLN(FMTSTR, ...)     SERIAL_PRINTLNF(FMTSTR, ##__VA_ARGS__)
 #define TDSL_DEBUG_PRINT_U16_AS_MB(U16SPAN) SERIAL_PRINT_U16_AS_MB(U16SPAN)
-#endif
-
-#else
-
-#define SERIAL_PRINTF(FMTSTR, ...)
-#define SERIAL_PRINTLNF(FMTSTR, ...)
-#define SERIAL_PRINT_U16_AS_MB(U16SPAN)
-#endif
-
-#include <Ethernet.h>
 
 #ifndef SKETCH_NO_TDSLITE
 
@@ -89,11 +78,18 @@ static void row_callback(void * u, const tdsl::tds_colmetadata_token & colmd,
 
 // The network buffer
 tdsl::uint8_t net_buf [SKETCH_TDSL_NETBUF_SIZE] = {};
-tdsl::arduino_driver<EthernetClient> driver{net_buf};
+tdsl::arduino_driver<WiFiClient> driver{net_buf};
 
-void initTdsliteDriver() {
+void tdslite_database_init() {
+    SERIAL_PRINTLNF("... init database begin...");
+    const int r = driver.execute_query("CREATE TABLE #hello_world(a int, b int, c varchar(255));");
+    (void) r;
+    SERIAL_PRINTLNF("... init database end, result `%d`...", r);
+}
+
+void tdslite_setup() {
     SERIAL_PRINTLNF("... init tdslite ...");
-    tdsl::arduino_driver<EthernetClient>::connection_parameters params;
+    tdsl::arduino_driver<WiFiClient>::connection_parameters params;
     // Server's hostname or IP address.
     params.server_name = "192.168.1.22"; // WL
     // params.server_name = PSTR("192.168.1.45"); // WS
@@ -114,23 +110,19 @@ void initTdsliteDriver() {
     params.packet_size = {SKETCH_TDSL_PACKET_SIZE};
     driver.set_info_callback(nullptr, &info_callback);
     driver.connect(params);
+    tdslite_database_init();
     SERIAL_PRINTLNF("... init tdslite end...");
-}
-
-void initDatabase() {
-    const int r = driver.execute_query("CREATE TABLE #hello_world(a int, b int);");
-    (void) r;
-    SERIAL_PRINTLNF("... init database %d...", r);
-    SERIAL_PRINTLNF("... init database end...");
 }
 
 inline void tdslite_loop() {
     static int i = 0;
-    driver.execute_query("INSERT INTO #hello_world VALUES(1,2)");
+    driver.execute_query("INSERT INTO #hello_world VALUES(1,2, "
+                         "'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                         "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa')");
     if (i++ % 10 == 0) {
         const auto row_count =
             driver.execute_query("SELECT * FROM #hello_world;", nullptr, row_callback);
-        SERIAL_PRINTLNF(">> Report: row count [%d], free RAM [%d] <<", row_count, freeMemory());
+        SERIAL_PRINTLNF(">> Report: row count [%d] <<", row_count);
     }
 }
 
@@ -142,85 +134,32 @@ inline void initDatabase() {}
 
 #endif
 
-int freeMemory() {
-
-#ifdef __arm__
-    // should use uinstd.h to define sbrk but Due causes a conflict
-    extern "C" char * sbrk(int incr);
-#else  // __ARM__
-    extern char * __brkval;
-#endif // __arm__
-
-    char top;
-#ifdef __arm__
-    return &top - reinterpret_cast<char *>(sbrk(0));
-#elif defined(CORE_TEENSY) || (ARDUINO > 103 && ARDUINO != 151)
-    return &top - __brkval;
-#else  // __arm__
-    return __brkval ? &top - __brkval : &top - __malloc_heap_start;
-#endif // __arm__
-}
-
-/**
- * Initialize serial port for logging
- */
-inline void initSerialPort() {
-#if defined SKETCH_SERIAL_OUTPUT
+inline void init_serial() {
     Serial.begin(112500);
     while (!Serial)
         ;
-#endif
 }
 
-/**
- * Initialize the ethernet shield with DHCP
- *
- * MUST be done before initializing tdslite.
- */
-inline void initEthernetShield() {
-    SERIAL_PRINTLNF("... init eth ...");
-    byte mac [] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED};
-#if defined SKETCH_USE_DHCP
-    if (Ethernet.begin(mac) == 0) {
-        SERIAL_PRINTLNF("Failed to configure Ethernet using DHCP");
-        // Check for Ethernet hardware present
-        if (Ethernet.hardwareStatus() == EthernetNoHardware) {
-            SERIAL_PRINTLNF(
-                "Ethernet shield was not found.  Sorry, can't run without hardware. :(");
-            while (true) {
-                delay(1); // do nothing, no point running without Ethernet hardware
-            }
-        }
-        if (Ethernet.linkStatus() == LinkOFF) {
-            SERIAL_PRINTLNF("Ethernet cable is not connected.");
-        }
-        // try to congifure using IP address instead of DHCP:
-        // Ethernet.begin(mac, ip, myDns);
-    }
-    else {
-        SERIAL_PRINTLNF("  DHCP assigned IP %s", Ethernet.localIP());
-    }
-#else
-    IPAddress ip(192, 168, 1, 241);
-    Ethernet.begin(mac, ip);
-#endif
+inline void wifi_setup() {
+    const char * ssid     = "<>";
+    const char * password = "<>";
+    WiFi.mode(WIFI_STA); // Optional
+    WiFi.begin(ssid, password);
+    while (WiFi.status() != WL_CONNECTED) {
+        SERIAL_PRINTLNF("... waiting for WiFi connection ...");
+        delay(1000);
+    };
+    SERIAL_PRINTLNF("Connected to the WiFi network `%s`, IP address is: %s", ssid,
+                    WiFi.localIP().toString().c_str());
 }
 
 void setup() {
-    initSerialPort();
-    initEthernetShield();
-    initTdsliteDriver();
-    initDatabase();
-    SERIAL_PRINTLNF("sizeof ptr(%d), size_t(%d), tdsl::span<unsigned char>(%d)",
-                    sizeof(tdsl::uint8_t *), sizeof(tdsl::size_t),
-                    sizeof(tdsl::span<unsigned char>));
-    SERIAL_PRINTLNF("... setup complete ...");
+    init_serial();
+    wifi_setup();
+    tdslite_setup();
 }
 
 void loop() {
     tdslite_loop();
-#ifdef SKETCH_USE_DHCP
-    Ethernet.maintain();
-#endif
     delay(250);
 }

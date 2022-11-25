@@ -26,6 +26,8 @@ namespace tdsl { namespace net {
     template <typename EthernetClientType>
     struct tdsl_netimpl_ethernet
         : public network_io_base<tdsl_netimpl_ethernet<EthernetClientType>> {
+        using network_io_result =
+            typename network_io_base<tdsl_netimpl_ethernet<EthernetClientType>>::network_io_result;
 
         /**
          * Construct a new tdsl driver object
@@ -85,6 +87,11 @@ namespace tdsl { namespace net {
             return cr;
         }
 
+        TDSL_SYMBOL_VISIBLE tdsl::int32_t do_disconnect() {
+            client.stop();
+            return 0;
+        }
+
         /**
          * Send byte_views @p header and @p bufs sequentially to the connected endpoint
          *
@@ -94,7 +101,7 @@ namespace tdsl { namespace net {
          * @returns -1 when asynchronous send is not called due to  another
          *           asynchronous send is already in progress
          */
-        TDSL_SYMBOL_VISIBLE int do_send(byte_view header, byte_view message) noexcept {
+        TDSL_SYMBOL_VISIBLE void do_send(byte_view header, byte_view message) noexcept {
             client.write(header.data(), header.size_bytes());
             client.write(message.data(), message.size_bytes());
             client.flush();
@@ -105,29 +112,31 @@ namespace tdsl { namespace net {
          *
          * @param [in] dst_buf Destination
          */
-        TDSL_SYMBOL_VISIBLE expected<tdsl::uint32_t, tdsl::int32_t>
-        do_recv(tdsl::uint32_t transfer_exactly, byte_span dst_buf) {
+        TDSL_SYMBOL_VISIBLE auto do_recv(tdsl::uint32_t transfer_exactly, byte_span dst_buf)
+            -> network_io_result {
 
             if (transfer_exactly > dst_buf.size_bytes()) {
-                return unexpected<tdsl::int32_t>{-3}; // error case
+                return network_io_result::unexpected(-3); // error case
             }
-
-            if (wait_for_bytes(transfer_exactly) >= transfer_exactly) {
+            const auto wfb_r = wait_for_bytes(transfer_exactly);
+            if (wfb_r) {
                 // Transfer `exactly` @p transfer_exactly bytes
-                client.read(dst_buf.data(), dst_buf.size_bytes());
-                return dst_buf.size_bytes();
+                client.read(dst_buf.data(), transfer_exactly);
+                return transfer_exactly;
             }
 
             // There is an error, we should handle it appropriately
-            TDSL_DEBUG_PRINT("tdsl_netimpl_asio::dispatch_receive(...) -> error, aborting and "
-                             "disconnecting\n");
+            TDSL_DEBUG_PRINTLN("tdsl_netimpl_ethernet::do_recv(...) -> error, wait for bytes value "
+                               "(%d) < (%d) aborting and "
+                               "disconnecting",
+                               wfb_r.error(), transfer_exactly);
 
-            // do_disconnect();
-            return unexpected<tdsl::int32_t>{-1}; // error case
+            do_disconnect();
+            return network_io_result::unexpected(-1); // error case
         }
 
-        TDSL_SYMBOL_VISIBLE expected<tdsl::uint32_t, tdsl::int32_t>
-        do_recv(tdsl::uint32_t transfer_exactly) noexcept {
+        TDSL_SYMBOL_VISIBLE auto do_recv(tdsl::uint32_t transfer_exactly) noexcept
+            -> network_io_result {
             auto writer          = this->network_buffer.get_writer();
             const auto rem_space = writer->remaining_bytes();
 
@@ -136,39 +145,61 @@ namespace tdsl { namespace net {
                                    "space in recv buffer (%u vs %ld)",
                                    transfer_exactly, rem_space);
                 TDSL_ASSERT(0);
-                return unexpected<tdsl::int32_t>{-2};
+                return network_io_result::unexpected(-2);
             }
             auto free_space_span = writer->free_span();
             auto result          = do_recv(transfer_exactly, free_space_span);
 
             if (result) {
+                TDSL_DEBUG_PRINTLN("advance by %d", transfer_exactly);
                 writer->advance(static_cast<tdsl::int32_t>(transfer_exactly));
+            }
+            else {
+                TDSL_DEBUG_PRINTLN("!!result is false!!", transfer_exactly);
             }
 
             return result;
         }
 
     private:
-        tdsl::uint16_t delay_millis = {300};
-        tdsl::uint16_t wait_millis  = {3000};
+        /**
+         * Wait for bytes to arrive
+         *
+         * @param [in] bytes_need Amount of bytes needed
+         * @param [in] poll_interval How often client.available() should be checked
+         * @param [in] timeout When to give up
+         *
+         * @returns amount of bytes available when successful
+         * @returns -1 if client is disconnected during poll
+         * @returns -2 if operation could not be completed in time
+         */
+        inline network_io_result wait_for_bytes(tdsl::size_t bytes_need,
+                                                tdsl::uint32_t poll_interval = 300,
+                                                tdsl::uint32_t timeout       = 30000) noexcept {
+            const long wait_till = millis() + timeout;
 
-        inline int wait_for_bytes(int bytes_need) noexcept {
-            const long wait_till = millis() + delay_millis;
-            int num              = 0;
-            long now             = 0;
+            while (client.connected()) {
+                delay(poll_interval / 2);
+                const auto bytes_avail = client.available();
+                if (bytes_avail >= bytes_need) {
+                    return bytes_avail;
+                }
+                if (millis() >= wait_till) {
+                    // timeout
+                    TDSL_DEBUG_PRINTLN(
+                        "tdsl_netimpl_ethernet::wait_for_bytes(...) -> error, time out!");
+                    return network_io_result::unexpected(-2);
+                }
+                TDSL_DEBUG_PRINTLN(
+                    "tdsl_netimpl_ethernet::wait_for_bytes(...) --> still polling %d/%d",
+                    bytes_avail, bytes_need);
+                delay(poll_interval / 2);
+            }
 
-            do {
-                now = millis();
-                num = client.available();
-                if (num < bytes_need)
-                    delay(wait_millis);
-                else
-                    break;
-            } while (now < wait_till);
-
-            if (num == 0 && now >= wait_till)
-                client.stop();
-            return num;
+            TDSL_DEBUG_PRINTLN(
+                "tdsl_netimpl_ethernet::wait_for_bytes(...) -> error, disconnected!");
+            do_disconnect();
+            return network_io_result::unexpected(-1);
         }
 
         EthernetClientType client;

@@ -209,7 +209,7 @@ namespace tdsl {
         /**
          * Copy assignment
          */
-        inline TDSL_CXX14_CONSTEXPR span & operator=(const self_type & other) noexcept {
+        inline span & operator=(const self_type & other) noexcept {
             // For avoiding "compound-statement in `constexpr` function warning in C++11 mode"
             &other != this ? (data_ = other.data_) : static_cast<element_type *>(nullptr);
             &other != this ? (element_count = other.element_count)
@@ -220,7 +220,7 @@ namespace tdsl {
         /**
          * Move assignment
          */
-        inline TDSL_CXX14_CONSTEXPR span & operator=(self_type && other) noexcept {
+        inline span & operator=(self_type && other) noexcept {
             // For avoiding "compound-statement in `constexpr` function warning in C++11 mode"
             &other != this ? (data_ = detail::exchange(other.data_, nullptr))
                            : static_cast<element_type *>(0);

@@ -93,8 +93,7 @@ namespace tdsl {
          * span will be unmodified in this case.
          */
         template <typename T, tdsl::uint32_t N>
-        inline TDSL_NODISCARD TDSL_CXX14_CONSTEXPR auto write(const T (&data) [N]) noexcept
-            -> bool {
+        inline TDSL_NODISCARD auto write(const T (&data) [N]) noexcept -> bool {
             return write(tdsl::byte_view{data});
         }
 
@@ -107,8 +106,7 @@ namespace tdsl {
          * @return false if writer does not have enough space. The underlying
          * span will be unmodified in this case.
          */
-        inline TDSL_NODISCARD TDSL_CXX14_CONSTEXPR auto write(tdsl::byte_view data) noexcept
-            -> bool {
+        inline TDSL_NODISCARD auto write(tdsl::byte_view data) noexcept -> bool {
             if (not this->has_bytes(data.size_bytes())) {
                 return false;
             }
@@ -127,8 +125,7 @@ namespace tdsl {
          * @return false if writer does not have enough space. The underlying
          * span will be unmodified in this case.
          */
-        inline TDSL_NODISCARD TDSL_CXX14_CONSTEXPR auto write(size_type start_offset,
-                                                              tdsl::byte_view data) noexcept
+        inline TDSL_NODISCARD auto write(size_type start_offset, tdsl::byte_view data) noexcept
             -> bool {
 
             // if (start_offset > this->offset()) {
@@ -164,7 +161,7 @@ namespace tdsl {
          * is unmodified in this case.
          */
         template <tdsl::endian WriteEndianness = DataEndianness, typename T>
-        inline TDSL_NODISCARD TDSL_CXX14_CONSTEXPR auto write(T value) noexcept -> bool {
+        inline TDSL_NODISCARD auto write(T value) noexcept -> bool {
             if (not this->has_bytes(sizeof(T))) {
                 return false;
             }
@@ -191,7 +188,7 @@ namespace tdsl {
          * is unmodified in this case.
          */
         template <typename T>
-        inline TDSL_NODISCARD TDSL_CXX14_CONSTEXPR auto write_raw(T value) noexcept -> bool {
+        inline TDSL_NODISCARD auto write_raw(T value) noexcept -> bool {
             if (not this->has_bytes(sizeof(T))) {
                 return false;
             }

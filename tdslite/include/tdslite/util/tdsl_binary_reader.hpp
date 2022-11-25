@@ -79,7 +79,7 @@ namespace tdsl {
          * ReadEndianness!=HostEndianness
          */
         template <typename T, tdsl::endian ReadEndianness = DataEndianness>
-        inline TDSL_NODISCARD TDSL_CXX14_CONSTEXPR auto read() noexcept -> T {
+        inline TDSL_NODISCARD auto read() noexcept -> T {
             return tdsl::swap_endianness<ReadEndianness, tdsl::endian::native>(read_raw<T>());
         }
 
@@ -107,8 +107,7 @@ namespace tdsl {
          * @param number_of_elements How many elements
          * @return std::span<const T>
          */
-        inline TDSL_NODISCARD TDSL_CXX14_CONSTEXPR auto
-        read(tdsl::size_t number_of_elements) noexcept -> span_type {
+        inline TDSL_NODISCARD auto read(tdsl::size_t number_of_elements) noexcept -> span_type {
             if (number_of_elements > 0 && this->has_bytes(number_of_elements)) {
                 span_type result{this->current(), (this->current() + number_of_elements)};
                 this->do_advance(number_of_elements);
@@ -125,7 +124,7 @@ namespace tdsl {
          * @return A value with sizeof(T) bytes, read as type T
          */
         template <typename T>
-        inline TDSL_NODISCARD TDSL_CXX14_CONSTEXPR auto read_raw() noexcept -> T {
+        inline TDSL_NODISCARD auto read_raw() noexcept -> T {
             if (not this->has_bytes(sizeof(T))) {
                 TDSL_ASSERT_MSG(false, "Unchecked read, check size before reading!");
                 TDSL_TRAP;

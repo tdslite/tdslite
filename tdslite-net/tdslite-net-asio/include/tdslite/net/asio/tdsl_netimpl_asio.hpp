@@ -30,6 +30,8 @@ namespace tdsl { namespace net {
      */
     struct tdsl_netimpl_asio : public network_io_base<tdsl_netimpl_asio> {
 
+        using network_io_base<tdsl_netimpl_asio>::network_io_result;
+
         // --------------------------------------------------------------------------------
 
         /**
@@ -92,8 +94,7 @@ namespace tdsl { namespace net {
          *
          * @param [in] transfer_amount Exact amount of bytes to read
          */
-        TDSL_SYMBOL_VISIBLE expected<tdsl::uint32_t, tdsl::int32_t>
-        do_recv(tdsl::uint32_t transfer_amount) noexcept;
+        TDSL_SYMBOL_VISIBLE network_io_result do_recv(tdsl::uint32_t transfer_amount) noexcept;
 
         // --------------------------------------------------------------------------------
 
@@ -104,8 +105,8 @@ namespace tdsl { namespace net {
          * @param [in] dst_buf Destination
          * @param [in] transfer_amount Exact amount of bytes to read
          */
-        TDSL_SYMBOL_VISIBLE expected<tdsl::uint32_t, tdsl::int32_t>
-        do_recv(tdsl::uint32_t exact_amount, byte_span dst_buf);
+        TDSL_SYMBOL_VISIBLE network_io_result do_recv(tdsl::uint32_t exact_amount,
+                                                      byte_span dst_buf);
 
     private:
         // Underlying buffer

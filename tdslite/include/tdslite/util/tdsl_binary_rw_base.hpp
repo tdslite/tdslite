@@ -27,7 +27,7 @@ namespace tdsl {
          * @return const tdsl::uint8_t* Pointer to the current position
          */
         template <typename U = Derived>
-        inline TDSL_NODISCARD TDSL_CXX14_CONSTEXPR auto current() const noexcept
+        inline TDSL_NODISCARD auto current() const noexcept
             -> decltype(traits::declval<U>().data()) {
             TDSL_ASSERT(offset_ <= static_cast<const U &>(*this).size_bytes());
             return static_cast<const U &>(*this).data() + offset_;
@@ -38,15 +38,14 @@ namespace tdsl {
          *
          * @return std::int64_t Amount of bytes remaining
          */
-        inline TDSL_NODISCARD TDSL_CXX14_CONSTEXPR auto remaining_bytes() const noexcept
-            -> tdsl::size_t {
+        inline TDSL_NODISCARD auto remaining_bytes() const noexcept -> tdsl::size_t {
             return static_cast<const Derived &>(*this).size_bytes() - offset();
         }
 
         /**
          * Current offset
          */
-        inline TDSL_NODISCARD TDSL_CXX14_CONSTEXPR auto offset() const noexcept -> tdsl::size_t {
+        inline TDSL_NODISCARD auto offset() const noexcept -> tdsl::size_t {
             TDSL_ASSERT(offset_ <= static_cast<const Derived &>(*this).size_bytes());
             return offset_;
         }
@@ -61,7 +60,7 @@ namespace tdsl {
          * @note @ref offset_ is guaranteed to be not modified when the
          * result is false
          */
-        inline TDSL_CXX14_CONSTEXPR auto seek(tdsl::size_t pos) noexcept -> bool {
+        inline auto seek(tdsl::size_t pos) noexcept -> bool {
             // Check boundaries
             if (pos >= static_cast<Derived &>(*this).size_bytes()) {
                 return false;
@@ -74,7 +73,7 @@ namespace tdsl {
         /**
          * Reset offset to zero
          */
-        inline TDSL_CXX14_CONSTEXPR auto reset() noexcept -> void {
+        inline auto reset() noexcept -> void {
             offset_ = {0};
         }
 
@@ -89,7 +88,7 @@ namespace tdsl {
          * @note @ref offset_ is guaranteed to be not modified when the
          * result is false
          */
-        inline TDSL_CXX14_CONSTEXPR auto advance(tdsl::ssize_t amount_of_bytes) noexcept -> bool {
+        inline auto advance(tdsl::ssize_t amount_of_bytes) noexcept -> bool {
 
             // If moving forwards, ensure we got that much amount
             if (amount_of_bytes >= 0) {
@@ -117,8 +116,7 @@ namespace tdsl {
          * @return true if Derived has at least v bytes
          * @return false otherwise
          */
-        inline TDSL_NODISCARD TDSL_CXX14_CONSTEXPR auto
-        has_bytes(tdsl::size_t amount_of_bytes) const noexcept -> bool {
+        inline TDSL_NODISCARD auto has_bytes(tdsl::size_t amount_of_bytes) const noexcept -> bool {
 
             // overflow check
             if (amount_of_bytes > (tdsl::numeric_limits::max_value<tdsl::size_t>() - offset())) {
@@ -136,8 +134,8 @@ namespace tdsl {
          * @return true if Derived has at least v bytes
          * @return false otherwise
          */
-        inline TDSL_NODISCARD TDSL_CXX14_CONSTEXPR auto
-        has_bytes(tdsl::size_t amount_of_bytes, tdsl::size_t offset) const noexcept -> bool {
+        inline TDSL_NODISCARD auto has_bytes(tdsl::size_t amount_of_bytes,
+                                             tdsl::size_t offset) const noexcept -> bool {
 
             // overflow check
             if (amount_of_bytes > (tdsl::numeric_limits::max_value<tdsl::size_t>() - offset)) {
@@ -207,7 +205,7 @@ namespace tdsl {
          *
          * @param [in] amount_of_bytes Amount to advance
          */
-        inline TDSL_CXX14_CONSTEXPR void do_advance(tdsl::ssize_t amount_of_bytes) noexcept {
+        inline void do_advance(tdsl::ssize_t amount_of_bytes) noexcept {
             if (amount_of_bytes >= 0) {
                 if ((offset() + static_cast<tdsl::size_t>(amount_of_bytes)) >
                     static_cast<Derived &>(*this).size_bytes()) {

@@ -31,7 +31,9 @@ namespace tdsl {
      * The ethernet MUST be initialized with Ethernet.begin()
      * before interacting with instances of this type.
      */
-    using driver_ethc = driver<net::tdsl_netimpl_ethernet<class EthernetClient>>;
+    template <typename ClientTypeT>
+    using arduino_driver = driver<net::tdsl_netimpl_ethernet<ClientTypeT>>;
+
 } // namespace tdsl
 
 #endif

@@ -361,10 +361,14 @@ namespace tdsl { namespace detail {
 
                     if (ect == envchange_type::packet_size) {
                         auto u16v_to_u16 = [](tdsl::u16char_view v) {
+                            const auto as_bv   = v.rebind_cast<const tdsl::uint8_t>();
                             tdsl::uint16_t val = {0};
-                            for (char16_t c : v) {
-                                val = (val << 3) + (val << 1) + (c - '0');
+                            for (tdsl::size_t ix = 0; ix < as_bv.size_bytes(); ix += 2) {
+                                val = (val << 3) + (val << 1) + (as_bv [ix] - '0');
                             }
+
+                            // for (char16_t c : v) {
+                            // }
                             return val;
                         };
 
@@ -501,10 +505,10 @@ namespace tdsl { namespace detail {
                              +token.interface, token.tds_version);
             TDSL_DEBUG_PRINT("prog_name: [");
             TDSL_DEBUG_PRINT_U16_AS_MB(token.prog_name);
-            TDSL_DEBUG_PRINT("] | ");
-            TDSL_DEBUG_PRINTLN("prog_version: [%d.%d.%d.%d]", token.prog_version.maj,
-                               token.prog_version.min, token.prog_version.buildnum_hi,
-                               token.prog_version.buildnum_lo);
+            // TDSL_DEBUG_PRINT("] | ");
+            // TDSL_DEBUG_PRINTLN("prog_version: [%d.%d.%d.%d]", token.prog_version.maj,
+            //                    token.prog_version.min, token.prog_version.buildnum_hi,
+            //                    token.prog_version.buildnum_lo);
             callbacks.loginack(token);
             return 0;
         }

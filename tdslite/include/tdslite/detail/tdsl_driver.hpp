@@ -17,7 +17,6 @@
 #include <tdslite/detail/tdsl_command_context.hpp>
 
 // fwdecl
-class EthernetClient;
 
 namespace tdsl { namespace detail {
 

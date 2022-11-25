@@ -189,8 +189,8 @@ namespace tdsl { namespace net {
 
         // --------------------------------------------------------------------------------
 
-        expected<tdsl::uint32_t, tdsl::int32_t>
-        tdsl_netimpl_asio::do_recv(tdsl::uint32_t transfer_exactly) noexcept {
+        auto tdsl_netimpl_asio::do_recv(tdsl::uint32_t transfer_exactly) noexcept
+            -> network_io_result {
             TDSL_ASSERT(socket_handle);
 
             auto writer          = network_buffer.get_writer();
@@ -203,7 +203,7 @@ namespace tdsl { namespace net {
                     "space in recv buffer (%u vs %ld)",
                     transfer_exactly, rem_space);
                 TDSL_ASSERT(0);
-                return unexpected<tdsl::int32_t>{-2}; // error case;
+                return network_io_result::unexpected(-2); // error case;
             }
 
             // Retrieve the free space
@@ -225,8 +225,8 @@ namespace tdsl { namespace net {
 
         // --------------------------------------------------------------------------------
 
-        expected<tdsl::uint32_t, tdsl::int32_t>
-        tdsl_netimpl_asio::do_recv(tdsl::uint32_t transfer_amount, byte_span dst_buf) {
+        auto tdsl_netimpl_asio::do_recv(tdsl::uint32_t transfer_amount, byte_span dst_buf)
+            -> network_io_result {
             TDSL_ASSERT(socket_handle);
             boost::system::error_code ec;
 
@@ -245,7 +245,7 @@ namespace tdsl { namespace net {
                              ec.value(), ec.what().c_str());
 
             do_disconnect();
-            return unexpected<tdsl::int32_t>{-1}; // error case
+            return network_io_result::unexpected(-1); // error case
         }
 
         // --------------------------------------------------------------------------------

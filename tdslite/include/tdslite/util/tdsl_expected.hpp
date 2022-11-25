@@ -24,21 +24,16 @@ namespace tdsl {
     // TODO: limit this to arithmetic & enum types
     // so we don't have to deal with non-triviality
     // of others.
-    template <typename ET>
-    struct unexpected {
-        unexpected() = default;
+    // template <typename ET>
+    // struct unexpected {
+    //     unexpected() = default;
 
-        unexpected(ET && unexpected) : value(TDSL_MOVE(unexpected)) {}
+    //     unexpected(ET && unexpected) : value(TDSL_MOVE(unexpected)) {}
 
-        ET value;
-        static_assert(tdsl::traits::is_reference<ET>::value == false,
-                      "ET cannot be a reference type");
-    };
-
-    template <typename ET>
-    inline auto make_unexpected(ET v) -> unexpected<ET> {
-        return unexpected<ET>(v);
-    }
+    //     ET value;
+    //     static_assert(tdsl::traits::is_reference<ET>::value == false,
+    //                   "ET cannot be a reference type");
+    // };
 
     /**
      * Barebones* expected implementation
@@ -47,9 +42,10 @@ namespace tdsl {
      * @tparam ST Success data type
      * @tparam ET Error data type
      */
-    template <typename ST, typename ET = tdsl::uint32_t>
+    template <typename ST, typename ET = tdsl::int32_t>
     struct expected {
     private:
+        using self_type = expected<ST, ET>;
         static_assert(tdsl::traits::is_reference<ST>::value == false,
                       "ST cannot be a reference type");
 
@@ -65,12 +61,16 @@ namespace tdsl {
             ST & value;
         };
 
+        struct unexpected_ctr_tag {};
+
     public:
-        using unexpected_type = unexpected<ET>;
+        inline static auto unexpected(ET v) noexcept -> self_type {
+            return self_type{v, unexpected_ctr_tag{}};
+        }
 
         union {
             ST value;
-            unexpected_type unexpected_value{};
+            ET unexpected_value{};
         };
 
         inline auto operator->() noexcept -> maw {
@@ -112,7 +112,8 @@ namespace tdsl {
          *
          * @param [in] unexpected Value for unexpected
          */
-        expected(unexpected_type unexpected) : unexpected_value(unexpected), has_expected(false) {}
+        expected(ET unexpected, unexpected_ctr_tag) :
+            unexpected_value(unexpected), has_expected(false) {}
 
         inline ~expected() {
             // ... because destructor cannot be a templated function.
@@ -153,25 +154,25 @@ namespace tdsl {
         inline TDSL_NODISCARD ET & error() & {
             TDSL_ASSERT_MSG(!has_value(),
                             "invalid expected access, unexpected does not have a value");
-            return unexpected_value.value;
+            return unexpected_value;
         }
 
         inline TDSL_NODISCARD const ET & error() const & {
             TDSL_ASSERT_MSG(!has_value(),
                             "invalid expected access, unexpected does not have a value");
-            return unexpected_value.value;
+            return unexpected_value;
         }
 
         inline TDSL_NODISCARD ET && error() && {
             TDSL_ASSERT_MSG(!has_value(),
                             "invalid expected access, unexpected does not have a value");
-            return TDSL_MOVE(unexpected_value.value);
+            return TDSL_MOVE(unexpected_value);
         }
 
         inline TDSL_NODISCARD const ET && error() const && {
             TDSL_ASSERT_MSG(!has_value(),
                             "invalid expected access, unexpected does not have a value");
-            return TDSL_MOVE(unexpected_value.value);
+            return TDSL_MOVE(unexpected_value);
         }
 
     private:
@@ -184,10 +185,6 @@ namespace tdsl {
 
         template <typename Q = ST, traits::enable_when::non_class_type<Q> = true>
         void destructor_impl() {}
-
-        // // noop
-        // template <typename Q>
-        // void destructor_impl() {}
     };
 
 } // namespace tdsl
