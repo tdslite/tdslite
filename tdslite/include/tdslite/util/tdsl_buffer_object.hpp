@@ -55,8 +55,9 @@ namespace tdsl {
             inline ~progressive_binary_reader() noexcept {
                 writer.shift_left(reader.offset());
                 in_use_flag = {false};
-                TDSL_DEBUG_PRINTLN("~progressive_binary_reader: consumed %d bytes, writer free %d",
-                                   reader.offset(), writer.remaining_bytes());
+                TDSL_DEBUG_PRINTLN("netbuf: [consumed `%zu`, inuse `%zu`, free `%zu`]",
+                                   reader.offset(), reader.remaining_bytes(),
+                                   writer.remaining_bytes());
             }
 
             inline binary_reader_type * operator->() noexcept {

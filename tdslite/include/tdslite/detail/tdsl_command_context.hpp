@@ -183,7 +183,7 @@ namespace tdsl { namespace detail {
                 result.status       = token_handler_status::not_enough_bytes;
                 result.needed_bytes = k_min_colmetadata_bytes - rr.remaining_bytes();
                 TDSL_DEBUG_PRINTLN(
-                    "received COLMETADATA token, not enough bytes need (at least) %d, have %ld",
+                    "received COLMETADATA token, not enough bytes need (at least) %d, have %zu",
                     k_min_colmetadata_bytes, rr.remaining_bytes());
                 return result;
             }
@@ -339,7 +339,7 @@ namespace tdsl { namespace detail {
                 ++colindex;
             }
 
-            TDSL_DEBUG_PRINTLN("received COLMETADATA token -> column count [%d]",
+            TDSL_DEBUG_PRINTLN("received COLMETADATA token -> column count [%zu]",
                                qstate.colmd.columns.size());
             result.status       = token_handler_status::success;
             result.needed_bytes = 0;
@@ -414,9 +414,9 @@ namespace tdsl { namespace detail {
                             }
                         }
 
-                        TDSL_DEBUG_PRINTLN(
-                            "not enough bytes for reading field textptr, %lu more bytes needed",
-                            textptr_need_bytes - rr.remaining_bytes());
+                        TDSL_DEBUG_PRINTLN("handle_row_token() --> not enough bytes for reading "
+                                           "field textptr, %lu more bytes needed",
+                                           textptr_need_bytes - rr.remaining_bytes());
                         result.status       = token_handler_status::not_enough_bytes;
                         result.needed_bytes = textptr_need_bytes - rr.remaining_bytes();
                         return result;
@@ -469,8 +469,9 @@ namespace tdsl { namespace detail {
 
                 if (dprop.is_variable_size() &&
                     not is_valid_variable_length_for_type(column.type, field_length)) {
-                    TDSL_DEBUG_PRINTLN("invalid varlength for column type %d -> %d",
-                                       static_cast<int>(column.type), field_length);
+                    TDSL_DEBUG_PRINTLN(
+                        "handle_row_token() --> invalid varlength for column type %d -> %d",
+                        static_cast<int>(column.type), field_length);
                     result.status = token_handler_status::invalid_field_length;
                     return result;
                 }
@@ -481,7 +482,8 @@ namespace tdsl { namespace detail {
                 }
 
                 if (not rr.has_bytes(field_length)) {
-                    TDSL_DEBUG_PRINTLN("not enough bytes for reading field, %lu more bytes needed",
+                    TDSL_DEBUG_PRINTLN("handle_row_token() --> not enough bytes for reading field, "
+                                       "%lu more bytes needed",
                                        field_length - rr.remaining_bytes());
                     result.status       = token_handler_status::not_enough_bytes;
                     result.needed_bytes = field_length - rr.remaining_bytes();

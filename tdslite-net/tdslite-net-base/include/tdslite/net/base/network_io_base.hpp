@@ -36,7 +36,7 @@ namespace tdsl { namespace net {
     /**
      * Base network type
      *
-     * @tparam ConcreteNetImpl Concrete network implementation type
+     * @tparam Implementation Concrete network implementation type
      */
     template <typename Implementation>
     struct network_io_base : private network_io_contract<Implementation> {
@@ -181,7 +181,7 @@ namespace tdsl { namespace net {
                 // network
 
                 if (packet_data_size > network_buffer.get_writer()->remaining_bytes()) {
-                    TDSL_DEBUG_PRINTLN("Cannot fit complete message into network buffer %d > %d "
+                    TDSL_DEBUG_PRINTLN("Cannot fit complete message into network buffer %zu > %zu "
                                        "will try partial pull",
                                        packet_data_size,
                                        network_buffer.get_writer()->remaining_bytes());
@@ -215,7 +215,7 @@ namespace tdsl { namespace net {
                     if (not nmsg_rdr->has_bytes(packet_data_size)) {
                         TDSL_DEBUG_PRINTLN(
                             "network_io_base::do_receive_tds_pdu(...) -> error, receive buffer "
-                            "does not contain expected amount of bytes (%d < %d) ",
+                            "does not contain expected amount of bytes (%zu < %zu) ",
                             nmsg_rdr->remaining_bytes(), packet_data_size);
                         // this should not happen
                         TDSL_ASSERT_MSG(0, "The receive buffer does not contain expected amount of "
@@ -227,8 +227,8 @@ namespace tdsl { namespace net {
                     // TODO: Check if we got enough space to pull the next message
                     const auto needed_bytes = packet_data_cb(message_type, *nmsg_rdr);
 
-                    TDSL_DEBUG_PRINTLN("network_impl_base::handle_tds_response(...) -> msg_cb_ctx, "
-                                       "need byte(s) value:%d",
+                    TDSL_DEBUG_PRINTLN("network_impl_base::do_receive_tds_pdu(...) -> "
+                                       "packet_data_cb needs `%d` more bytes",
                                        needed_bytes);
                     (void) needed_bytes;
                 }

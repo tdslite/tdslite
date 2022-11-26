@@ -105,7 +105,7 @@ namespace tdsl { namespace net {
          * @param [in] dst_buf Destination
          * @param [in] transfer_amount Exact amount of bytes to read
          */
-        TDSL_SYMBOL_VISIBLE network_io_result do_recv(tdsl::uint32_t exact_amount,
+        TDSL_SYMBOL_VISIBLE network_io_result do_recv(tdsl::uint32_t transfer_amount,
                                                       byte_span dst_buf);
 
     private:

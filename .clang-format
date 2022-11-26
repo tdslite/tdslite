@@ -178,6 +178,13 @@ BreakBeforeConceptDeclarations: true
 # }
 IndentRequires: false
 
+# #if FOO
+#   #if BAR
+#     #include <foo>
+#   #endif
+# #endif
+IndentPPDirectives: BeforeHash
+
 # true:
 # void f(int aaaaaaaaaaaaaaaaaaaa, int aaaaaaaaaaaaaaaaaaaa,
 #        int aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa) {}

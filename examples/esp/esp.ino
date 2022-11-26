@@ -1,9 +1,9 @@
 #if defined ESP8266
-#include <ESP8266WiFi.h>
+    #include <ESP8266WiFi.h>
 #elif defined ESP32
-#include <WiFi.h>
+    #include <WiFi.h>
 #else
-#error "Architecture unrecognized by this code."
+    #error "Architecture unrecognized by this code."
 #endif
 
 #define SKETCH_TDSL_NETBUF_SIZE 512 * 16
@@ -46,7 +46,7 @@
 
 #ifndef SKETCH_NO_TDSLITE
 
-#include <tdslite.h>
+    #include <tdslite.h>
 
 /**
  * Prints INFO/ERROR messages from SQL server to stdout.
@@ -80,16 +80,16 @@ static void row_callback(void * u, const tdsl::tds_colmetadata_token & colmd,
 tdsl::uint8_t net_buf [SKETCH_TDSL_NETBUF_SIZE] = {};
 tdsl::arduino_driver<WiFiClient> driver{net_buf};
 
-void tdslite_database_init() {
+void tdslite_database_init() noexcept {
     SERIAL_PRINTLNF("... init database begin...");
     const int r = driver.execute_query("CREATE TABLE #hello_world(a int, b int, c varchar(255));");
     (void) r;
     SERIAL_PRINTLNF("... init database end, result `%d`...", r);
 }
 
-void tdslite_setup() {
+bool tdslite_setup() noexcept {
     SERIAL_PRINTLNF("... init tdslite ...");
-    tdsl::arduino_driver<WiFiClient>::connection_parameters params;
+    decltype(driver)::connection_parameters params;
     // Server's hostname or IP address.
     params.server_name = "192.168.1.22"; // WL
     // params.server_name = PSTR("192.168.1.45"); // WS
@@ -109,12 +109,19 @@ void tdslite_setup() {
     // Recommendation: Half of the network buffer.
     params.packet_size = {SKETCH_TDSL_PACKET_SIZE};
     driver.set_info_callback(nullptr, &info_callback);
-    driver.connect(params);
+    auto cr = driver.connect(params);
+    if (not(decltype(driver)::e_driver_error_code::success == cr)) {
+        SERIAL_PRINTLNF("... tdslite init failed, connection failed %d ...",
+                        static_cast<tdsl::uint32_t>(cr));
+        return false;
+    }
+
     tdslite_database_init();
     SERIAL_PRINTLNF("... init tdslite end...");
+    return true;
 }
 
-inline void tdslite_loop() {
+inline void tdslite_loop() noexcept {
     static int i = 0;
     driver.execute_query("INSERT INTO #hello_world VALUES(1,2, "
                          "'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
@@ -134,29 +141,40 @@ inline void initDatabase() {}
 
 #endif
 
-inline void init_serial() {
+inline bool init_serial() {
     Serial.begin(112500);
     while (!Serial)
         ;
+    return true;
 }
 
-inline void wifi_setup() {
+inline bool wifi_setup() {
+    SERIAL_PRINTLNF("... wifi setup ...");
     const char * ssid     = "<>";
     const char * password = "<>";
     WiFi.mode(WIFI_STA); // Optional
     WiFi.begin(ssid, password);
-    while (WiFi.status() != WL_CONNECTED) {
+    while (not(WiFi.status() == WL_CONNECTED)) {
         SERIAL_PRINTLNF("... waiting for WiFi connection ...");
         delay(1000);
     };
     SERIAL_PRINTLNF("Connected to the WiFi network `%s`, IP address is: %s", ssid,
                     WiFi.localIP().toString().c_str());
+    return true;
 }
 
 void setup() {
-    init_serial();
-    wifi_setup();
-    tdslite_setup();
+    bool r = {false};
+    r      = init_serial();
+    r      = r && wifi_setup();
+    r      = r && tdslite_setup();
+    if (not r) {
+        SERIAL_PRINTLNF("... setup failed ...");
+        for (;;) {
+            delay(1000);
+        }
+    }
+    SERIAL_PRINTLNF("--- setup finished ---");
 }
 
 void loop() {

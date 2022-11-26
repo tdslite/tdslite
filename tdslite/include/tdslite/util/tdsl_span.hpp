@@ -36,7 +36,7 @@ namespace tdsl {
             /**
              * Shift elements to left
              *
-             * @param [in] count
+             * @param [in] count Amount of left shifts to perform
              *
              * @return Shifted element count
              */

@@ -21,7 +21,7 @@
 
 #include <tdslite/tdslite.hpp>
 #include <tdslite/net/base/network_io_base.hpp>
-#include <tdslite/net/arduino/ethernet/tdsl_netimpl_ethernet.hpp>
+#include <tdslite/net/arduino/ethernet/tdsl_netimpl_arduino.hpp>
 
 namespace tdsl {
     /**
@@ -32,7 +32,7 @@ namespace tdsl {
      * before interacting with instances of this type.
      */
     template <typename ClientTypeT>
-    using arduino_driver = driver<net::tdsl_netimpl_ethernet<ClientTypeT>>;
+    using arduino_driver = driver<net::tdsl_netimpl_arduino<ClientTypeT>>;
 
 } // namespace tdsl
 

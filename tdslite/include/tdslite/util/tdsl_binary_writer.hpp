@@ -67,7 +67,6 @@ namespace tdsl {
          * advance back by amount of shifted elements.
          *
          * @param [in] amount Left shift count.
-         * @return tdsl::uint32_t
          */
         inline void shift_left(tdsl::uint32_t amount) noexcept {
             span_type::shift_left(amount, this->offset());
@@ -77,7 +76,7 @@ namespace tdsl {
         /**
          * Get a view to underlying data
          *
-         * @return byte_view
+         * @return byte_view View to the underlying data
          */
         inline auto underlying_view() const noexcept -> tdsl::byte_view {
             return span_type::template rebind_cast<const tdsl::uint8_t>();

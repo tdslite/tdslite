@@ -1,16 +1,20 @@
 /**
  * _________________________________________________
+ * Network implementation compatible with Official arduino
+ * ethernet library's EthernetClient. Also compatible with
+ * other implementations that implements the same interface.
+ * (e.g. WiFiClient)
  *
- * @file   tdsl_netimpl_ethernet.hpp
+ * @file   tdsl_netimpl_arduino.hpp
  * @author Mustafa Kemal GILOR <mustafagilor@gmail.com>
  * @date   20.04.2022
  *
- * SPDX-License-Identifier:    MIT
+ * SPDX-License-Identifier: MIT
  * _________________________________________________
  */
 
-#ifndef TDSL_NET_NETIMPL_ETHERNET_HPP
-#define TDSL_NET_NETIMPL_ETHERNET_HPP
+#ifndef TDSL_NET_NETIMPL_ARDUINO_HPP
+#define TDSL_NET_NETIMPL_ARDUINO_HPP
 
 #include <tdslite/net/base/network_io_base.hpp>
 
@@ -21,13 +25,30 @@
 namespace tdsl { namespace net {
 
     /**
-     * Synchronous ASIO networking code for tdslite
+     * Synchronous networking code for Arduino-like devices.
+     *
+     * This implementation does not depend on any concrete type and will
+     * work with any EthernetClientType class that provides the following
+     * public API interface:
+     *
+     * - A write function that can be called with `const unsigned char* buf, unsigned long len`
+     *   * Should write the content to the network buffer
+     * - connect() function that can be called with `const char* host, unsigned short port`
+     *   * Must try to establish connection to host:port
+     * - read() function that can be called with `unsigned char* buf, unsigned long amount`
+     *   * Transfers 'exactly' amount bytes to the 'buf'. 'buf' is guaranteed to have 'amount'
+     *     bytes of space.
+     * - `stop()` function
+     *
+     * Also, the implementation depends on following global free functions as well:
+     *
+     *  * millis()   -> milliseconds obtained from a steady clock
+     *  * delay(ms)  -> must put current execution path to sleep for at least ms milliseconds
      */
     template <typename EthernetClientType>
-    struct tdsl_netimpl_ethernet
-        : public network_io_base<tdsl_netimpl_ethernet<EthernetClientType>> {
+    struct tdsl_netimpl_arduino : public network_io_base<tdsl_netimpl_arduino<EthernetClientType>> {
         using network_io_result =
-            typename network_io_base<tdsl_netimpl_ethernet<EthernetClientType>>::network_io_result;
+            typename network_io_base<tdsl_netimpl_arduino<EthernetClientType>>::network_io_result;
 
         /**
          * Construct a new tdsl driver object
@@ -35,8 +56,8 @@ namespace tdsl { namespace net {
          * @param [in] network_io_buffer Network I/O buffer
          */
         template <tdsl::uint32_t BufSize>
-        inline tdsl_netimpl_ethernet(tdsl::uint8_t (&network_io_buffer) [BufSize],
-                                     EthernetClientType ec = {}) :
+        inline tdsl_netimpl_arduino(tdsl::uint8_t (&network_io_buffer) [BufSize],
+                                    EthernetClientType ec = {}) :
             client(TDSL_MOVE(ec)) {
             this->network_buffer = tdsl::tdsl_buffer_object{network_io_buffer};
         }
@@ -47,37 +68,38 @@ namespace tdsl { namespace net {
          * @param [in] network_io_buffer Network I/O buffer
          */
         template <typename Z>
-        inline tdsl_netimpl_ethernet(tdsl::byte_span network_io_buffer,
-                                     EthernetClientType ec = {}) :
+        inline tdsl_netimpl_arduino(tdsl::byte_span network_io_buffer, EthernetClientType ec = {}) :
             client(TDSL_MOVE(ec)) {
             this->network_buffer = tdsl::tdsl_buffer_object{network_io_buffer};
         }
 
+        /**
+         * Try to connect to the target endpoint @p target : @p port
+         *
+         * @param [in] target Host name or IP address
+         * @param [in] port Port number
+         * @return 0 if connection is successful, implementation-specific error code
+         *         otherwise.
+         */
         TDSL_SYMBOL_VISIBLE int do_connect(tdsl::char_view target, tdsl::uint16_t port) {
-            client.stop();
+            // Disconnect if already connected
+            do_disconnect();
 
             int cr      = 0;
             int retries = 10;
 
             // Retry up to MAX_CONNECT_ATTEMPTS times.
             while (retries--) {
-                // Serial.println("...trying...");
+                TDSL_DEBUG_PRINTLN("... attempting to connect to %s:%d, %d retries remaining ...",
+                                   target.data(), port, retries);
                 cr = client.connect(target.data(), port);
-
                 if (cr == 1) {
-                    // Serial.println("...connected ...");
-                    // Serial.print(client.localPort());
-                    // Serial.print(" --> ");
-                    // Serial.print(client.remoteIP());
-                    // Serial.print(":");
-                    // Serial.println(client.remotePort());
+                    TDSL_DEBUG_PRINTLN("... connected, %d --> %s:%d ...", client.localPort(),
+                                       client.remoteIP().toString().c_str(), client.remotePort());
                     break;
                 }
 
-                // Serial.print("...got: ");
-                // Serial.print(cr);
-                // Serial.println(" retrying...");
-
+                TDSL_DEBUG_PRINTLN("... connection attempt failed (%d) ...", cr);
                 delay(3000);
             }
 
@@ -126,7 +148,7 @@ namespace tdsl { namespace net {
             }
 
             // There is an error, we should handle it appropriately
-            TDSL_DEBUG_PRINTLN("tdsl_netimpl_ethernet::do_recv(...) -> error, wait for bytes value "
+            TDSL_DEBUG_PRINTLN("tdsl_netimpl_arduino::do_recv(...) -> error, wait for bytes value "
                                "(%d) < (%d) aborting and "
                                "disconnecting",
                                wfb_r.error(), transfer_exactly);
@@ -141,7 +163,7 @@ namespace tdsl { namespace net {
             const auto rem_space = writer->remaining_bytes();
 
             if (transfer_exactly > rem_space) {
-                TDSL_DEBUG_PRINTLN("tdsl_netimpl_ethernet::do_recv(...) -> error, not enough "
+                TDSL_DEBUG_PRINTLN("tdsl_netimpl_arduino::do_recv(...) -> error, not enough "
                                    "space in recv buffer (%u vs %ld)",
                                    transfer_exactly, rem_space);
                 TDSL_ASSERT(0);
@@ -151,11 +173,7 @@ namespace tdsl { namespace net {
             auto result          = do_recv(transfer_exactly, free_space_span);
 
             if (result) {
-                TDSL_DEBUG_PRINTLN("advance by %d", transfer_exactly);
                 writer->advance(static_cast<tdsl::int32_t>(transfer_exactly));
-            }
-            else {
-                TDSL_DEBUG_PRINTLN("!!result is false!!", transfer_exactly);
             }
 
             return result;
@@ -187,21 +205,25 @@ namespace tdsl { namespace net {
                 if (millis() >= wait_till) {
                     // timeout
                     TDSL_DEBUG_PRINTLN(
-                        "tdsl_netimpl_ethernet::wait_for_bytes(...) -> error, time out!");
+                        "tdsl_netimpl_arduino::wait_for_bytes(...) -> error, time out!");
                     return network_io_result::unexpected(-2);
                 }
-                TDSL_DEBUG_PRINTLN(
-                    "tdsl_netimpl_ethernet::wait_for_bytes(...) --> still polling %d/%d",
-                    bytes_avail, bytes_need);
+                TDSL_DEBUG_PRINTLN("tdsl_netimpl_arduino::wait_for_bytes(...) --> still polling "
+                                   "[avail:`%d`, need:`%d`]",
+                                   bytes_avail, bytes_need);
                 delay(poll_interval / 2);
             }
 
-            TDSL_DEBUG_PRINTLN(
-                "tdsl_netimpl_ethernet::wait_for_bytes(...) -> error, disconnected!");
+            TDSL_DEBUG_PRINTLN("tdsl_netimpl_arduino::wait_for_bytes(...) -> error, disconnected!");
             do_disconnect();
             return network_io_result::unexpected(-1);
         }
 
+        /**
+         * The client instance. Any client type compatible with
+         * arduino's EthernetClient interface will work with this
+         * class.
+         */
         EthernetClientType client;
     };
 }} // namespace tdsl::net

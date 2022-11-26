@@ -1,63 +1,63 @@
 // arduino-specific debug printers.
 
 #define SKETCH_TDSL_DEBUG_LOG
-#define SKETCH_SERIAL_OUTPUT
-// #define SKETCH_USE_DHCP
-// #define SKETCH_NO_TDSLITE
-#define SKETCH_TDSL_NETBUF_SIZE 512 * 8
+// #define SKETCH_SERIAL_OUTPUT
+//  #define SKETCH_USE_DHCP
+//  #define SKETCH_NO_TDSLITE
+#define SKETCH_TDSL_NETBUF_SIZE 512 * 2
 #define SKETCH_TDSL_PACKET_SIZE SKETCH_TDSL_NETBUF_SIZE / 2
 
 #if defined SKETCH_SERIAL_OUTPUT
 
-/**
- * Print a formatted string to serial output.
- *
- * @param [in] FMTSTR Format string
- * @param [in] ...    Format arguments
- *
- * The format string will be stored in program memory in order
- * to save space.
- */
-#define SERIAL_PRINTF(FMTSTR, ...)                                                                 \
-    [&]() {                                                                                        \
-        static_assert(sizeof(FMTSTR) <= 255, "Format string cannot be greater than 255");          \
-        /* Save format string into program */                                                      \
-        /* memory to save flash space */                                                           \
-        static const char __fmtpm [] PROGMEM = FMTSTR;                                             \
-        char buf [128]                       = {};                                                 \
-        snprintf_P(buf, sizeof(buf), __fmtpm, ##__VA_ARGS__);                                      \
-        Serial.print(buf);                                                                         \
-    }()
+    /**
+     * Print a formatted string to serial output.
+     *
+     * @param [in] FMTSTR Format string
+     * @param [in] ...    Format arguments
+     *
+     * The format string will be stored in program memory in order
+     * to save space.
+     */
+    #define SERIAL_PRINTF(FMTSTR, ...)                                                             \
+        [&]() {                                                                                    \
+            static_assert(sizeof(FMTSTR) <= 255, "Format string cannot be greater than 255");      \
+            /* Save format string into program */                                                  \
+            /* memory to save flash space */                                                       \
+            static const char __fmtpm [] PROGMEM = FMTSTR;                                         \
+            char buf [128]                       = {};                                             \
+            snprintf_P(buf, sizeof(buf), __fmtpm, ##__VA_ARGS__);                                  \
+            Serial.print(buf);                                                                     \
+        }()
 
-#define SERIAL_PRINTLNF(FMTSTR, ...)                                                               \
-    SERIAL_PRINTF(FMTSTR, ##__VA_ARGS__);                                                          \
-    Serial.println("")
+    #define SERIAL_PRINTLNF(FMTSTR, ...)                                                           \
+        SERIAL_PRINTF(FMTSTR, ##__VA_ARGS__);                                                      \
+        Serial.println("")
 
-#define SERIAL_PRINT_U16_AS_MB(U16SPAN)                                                            \
-    [](tdsl::u16char_view v) {                                                                     \
-        for (const auto ch : v) {                                                                  \
-            Serial.print(static_cast<char>(ch));                                                   \
-        }                                                                                          \
-    }(U16SPAN)
+    #define SERIAL_PRINT_U16_AS_MB(U16SPAN)                                                        \
+        [](tdsl::u16char_view v) {                                                                 \
+            for (const auto ch : v) {                                                              \
+                Serial.print(static_cast<char>(ch));                                               \
+            }                                                                                      \
+        }(U16SPAN)
 
-#if defined SKETCH_TDSL_DEBUG_LOG
-#define TDSL_DEBUG_PRINT(FMTSTR, ...)       SERIAL_PRINTF(FMTSTR, ##__VA_ARGS__)
-#define TDSL_DEBUG_PRINTLN(FMTSTR, ...)     SERIAL_PRINTLNF(FMTSTR, ##__VA_ARGS__)
-#define TDSL_DEBUG_PRINT_U16_AS_MB(U16SPAN) SERIAL_PRINT_U16_AS_MB(U16SPAN)
-#endif
+    #if defined SKETCH_TDSL_DEBUG_LOG
+        #define TDSL_DEBUG_PRINT(FMTSTR, ...)       SERIAL_PRINTF(FMTSTR, ##__VA_ARGS__)
+        #define TDSL_DEBUG_PRINTLN(FMTSTR, ...)     SERIAL_PRINTLNF(FMTSTR, ##__VA_ARGS__)
+        #define TDSL_DEBUG_PRINT_U16_AS_MB(U16SPAN) SERIAL_PRINT_U16_AS_MB(U16SPAN)
+    #endif
 
 #else
 
-#define SERIAL_PRINTF(FMTSTR, ...)
-#define SERIAL_PRINTLNF(FMTSTR, ...)
-#define SERIAL_PRINT_U16_AS_MB(U16SPAN)
+    #define SERIAL_PRINTF(FMTSTR, ...)
+    #define SERIAL_PRINTLNF(FMTSTR, ...)
+    #define SERIAL_PRINT_U16_AS_MB(U16SPAN)
 #endif
 
 #include <Ethernet.h>
 
 #ifndef SKETCH_NO_TDSLITE
 
-#include <tdslite.h>
+    #include <tdslite.h>
 
 /**
  * Prints INFO/ERROR messages from SQL server to stdout.
