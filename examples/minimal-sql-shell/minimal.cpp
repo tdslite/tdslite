@@ -11,8 +11,6 @@
  * _________________________________________________
  */
 
-#define TDSL_DEBUG_PRINT_ENABLED
-
 #include <tdslite/net/asio/tdsl_netimpl_asio.hpp> // network implementation to use
 #include <tdslite/tdslite.hpp>                    // main tdslite header
 #include <fort/fort.hpp>

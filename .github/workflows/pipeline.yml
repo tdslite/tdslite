@@ -1,0 +1,91 @@
+name: CI
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read #  to fetch code (actions/checkout)
+  packages: read #  to fetch packages (docker)
+
+jobs:
+  Build:
+    strategy:
+      matrix:
+        cmake_preset: ["gcc-12-ci-release", "clang-15-ci-release"]
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/mustafakemalgilor/tdslite/tdslite-devenv:0.1.0
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.github_token }}
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: "true"
+      - uses: actions/cache@v3
+        with:
+          # will miss
+          key: ccache-${{ matrix.cmake_preset }}-${{ github.run_id }}
+          path: .ccache
+          # will partial match to a previous cache, if present
+          restore-keys: |
+            ccache-${{ matrix.cmake_preset }}
+      # Try to use latest build's build folder?
+      - uses: actions/cache@v3
+        with:
+          key: build-dir-${{ matrix.cmake_preset }}-${{ github.run_id }}
+          path: build
+          restore-keys: |
+            build-dir-${{ matrix.cmake_preset }}
+      - name: Pre
+        run: |
+          git --version
+          cmake --version
+          git config --global --add safe.directory ${GITHUB_WORKSPACE}
+          echo "gh workspace:" $GITHUB_WORKSPACE
+          /usr/bin/ccache --set-config cache_dir="${GITHUB_WORKSPACE}/.ccache"
+          /usr/bin/ccache -sv
+      - name: Configure
+        run: ./hadouken --configure --preset ${{ matrix.cmake_preset }}
+      - name: Build
+        run: |
+          ./hadouken --build
+          /usr/bin/ccache -sv
+  Test:
+    needs: Build
+    strategy:
+      matrix:
+        cmake_preset: ["gcc-12-ci-release", "clang-15-ci-release"]
+        mssql_version: [2017, 2019, 2022]
+    runs-on: ubuntu-latest
+    services:
+      mssql-2017:
+        image: mcr.microsoft.com/mssql/server:${{ matrix.mssql_version }}-latest
+        env:
+          MSSQL_SA_PASSWORD: "2022-tds-lite-test!"
+          ACCEPT_EULA: "Y"
+    container:
+      image: ghcr.io/mustafakemalgilor/tdslite/tdslite-devenv:0.1.0
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.github_token }}
+    steps:
+      - name: Wait for 90 seconds until SQL server is online
+        # We don't need any external tools since mssql docker
+        # container already have sqlcmd available
+        run: |
+          curl https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
+          curl https://packages.microsoft.com/config/ubuntu/20.04/prod.list | sudo tee /etc/apt/sources.list.d/msprod.list
+          sudo apt-get -y update
+          sudo ACCEPT_EULA=y apt-get -y install mssql-tools unixodbc-dev
+          /usr/bin/timeout 90 /bin/bash -c 'until /opt/mssql-tools/bin/sqlcmd -S "mssql-2017" -U "sa" -P "2022-tds-lite-test!" -Q "exit"; do >&2 echo "Database is unavailable - sleeping"; sleep 1; done'
+      - uses: actions/checkout@v3
+        with:
+          submodules: "true"
+      - uses: actions/cache@v3
+        with:
+          # will hit
+          key: build-dir-${{ matrix.cmake_preset }}-${{ github.run_id }}
+          path: build
+      - name: Test
+        run: ctest --preset=${{ matrix.cmake_preset }} --parallel $(nproc) --output-junit ut_reports/all-tests.xml

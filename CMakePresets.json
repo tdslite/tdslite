@@ -102,6 +102,10 @@
                 "TDSLITE_PROJECT_STRIP_SYMBOL_AND_RELOCATION_INFO": {
                     "type": "BOOL",
                     "value": "OFF"
+                },
+                "TDSLITE_PROJECT_DEBUG_PRINT_ENABLED": {
+                    "type": "BOOL",
+                    "value": "ON"
                 }
             }
         },
@@ -257,6 +261,14 @@
                     "type": "BOOL",
                     "value": "ON"
                 },
+                "TDSLITE_PROJECT_TOOLCONF_USE_CCACHE": {
+                    "type": "BOOL",
+                    "value": "ON"
+                },
+                "TDSLITE_PROJECT_DEBUG_PRINT_ENABLED": {
+                    "type": "BOOL",
+                    "value": "ON"
+                },
                 "CMAKE_CXX_FLAGS": {
                     "type": "STRING",
                     "value": "-s"
@@ -264,6 +276,14 @@
                 "CMAKE_C_FLAGS": {
                     "type": "STRING",
                     "value": "-s"
+                },
+                "CMAKE_C_COMPILER_LAUNCHER": {
+                    "type": "STRING",
+                    "value": "/usr/bin/ccache"
+                },
+                "CMAKE_CXX_COMPILER_LAUNCHER": {
+                    "type": "STRING",
+                    "value": "/usr/bin/ccache"
                 }
             }
         },

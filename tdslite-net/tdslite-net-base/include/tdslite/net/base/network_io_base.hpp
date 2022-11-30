@@ -46,7 +46,7 @@ namespace tdsl { namespace net {
         }
 
     public:
-        using network_io_result      = expected<tdsl::uint32_t, tdsl::int32_t>;
+        using network_io_result      = expected<tdsl::size_t, tdsl::int32_t>;
         using tds_msg_handler_result = packet_handler_result<bool, false>;
 
         /**
@@ -307,7 +307,9 @@ namespace tdsl { namespace net {
          */
         template <typename T>
         inline void do_write(tdsl::span<T> data) noexcept {
-            TDSL_ASSERT(network_buffer.get_writer()->write(data));
+            const auto r = network_buffer.get_writer()->write(data);
+            TDSL_ASSERT(r);
+            (void) r;
         }
 
         // --------------------------------------------------------------------------------
@@ -321,7 +323,9 @@ namespace tdsl { namespace net {
          */
         template <typename T>
         inline void do_write(tdsl::uint32_t offset, tdsl::span<T> data) noexcept {
-            TDSL_ASSERT(network_buffer.get_writer()->write(offset, data));
+            const auto r = network_buffer.get_writer()->write(offset, data);
+            TDSL_ASSERT(r);
+            (void) r;
         }
 
         // --------------------------------------------------------------------------------

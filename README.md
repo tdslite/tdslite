@@ -31,4 +31,6 @@ tdslite is a standalone library with no external dependencies, and it does not r
 - Helpful commands to diagnose global memory:
   - `size /workspace/build/arduino-build/arduino.ino.elf`
   - `readelf --demangle -a --wide /workspace/build/arduino-build/arduino.ino.elf`
+- If you are not seeing your device under /dev/tty* after plugging:
+  - Remove `brltty` package: `sudo apt purge brltty`
   

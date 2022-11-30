@@ -9,7 +9,9 @@
  * SPDX-License-Identifier:    MIT
  * ____________________________________________________
  */
-#define NDEBUG // to disable assertions
+#ifndef NDEBUG
+    #define NDEBUG // to disable assertions
+#endif
 #include <tdslite/detail/tdsl_allocator.hpp>
 #include <gtest/gtest.h>
 

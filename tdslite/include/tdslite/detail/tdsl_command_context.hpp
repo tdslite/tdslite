@@ -65,6 +65,8 @@ namespace tdsl { namespace detail {
          * @param [in] ctx The TDS context associated with the command
          */
         command_context(tds_context_type & ctx) noexcept : tds_ctx(ctx) {
+            // Disabled by default
+            // this->flags.read_colnames           = {false};
 
             tds_ctx.callbacks.sub_token_handler = {this, &token_handler};
 

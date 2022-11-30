@@ -94,8 +94,10 @@ namespace tdsl { namespace net {
                                    target.data(), port, retries);
                 cr = client.connect(target.data(), port);
                 if (cr == 1) {
-                    TDSL_DEBUG_PRINTLN("... connected, %d --> %s:%d ...", client.localPort(),
-                                       client.remoteIP().toString().c_str(), client.remotePort());
+                    TDSL_DEBUG_PRINTLN("... connected, %d --> %d.%d.%d.%d:%d ...",
+                                       client.localPort(), client.remoteIP() [0],
+                                       client.remoteIP() [1], client.remoteIP() [2],
+                                       client.remoteIP() [3], client.remotePort());
                     break;
                 }
 

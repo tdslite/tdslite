@@ -56,24 +56,24 @@ namespace tdsl { namespace net {
         // C-tor
 
         tdsl_netimpl_asio::tdsl_netimpl_asio() {
-            TDSL_DEBUG_PRINT("tdsl_netimpl_asio::tdsl_netimpl_asio() -> constructor call\n");
+            TDSL_DEBUG_PRINTLN("tdsl_netimpl_asio::tdsl_netimpl_asio() -> constructor call");
             network_buffer = tdsl_buffer_object{
                 underlying_buffer.data(), static_cast<tdsl::uint32_t>(underlying_buffer.size())};
             io_context = std::make_shared<io_context_t>(1);
             io_context_work_guard =
                 std::make_shared<work_guard_t>(boost::asio::make_work_guard(*as_ctx(io_context)));
-            TDSL_DEBUG_PRINT("tdsl_netimpl_asio::tdsl_netimpl_asio() -> constructor return\n");
+            TDSL_DEBUG_PRINTLN("tdsl_netimpl_asio::tdsl_netimpl_asio() -> constructor return");
         }
 
         // --------------------------------------------------------------------------------
         // D-tor
 
         tdsl_netimpl_asio::~tdsl_netimpl_asio() {
-            TDSL_DEBUG_PRINT("tdsl_netimpl_asio::~tdsl_netimpl_asio() -> destructor call\n");
+            TDSL_DEBUG_PRINTLN("tdsl_netimpl_asio::~tdsl_netimpl_asio() -> destructor call");
             io_context_work_guard.reset();
             as_ctx(io_context)->stop();
 
-            TDSL_DEBUG_PRINT("tdsl_netimpl_asio::~tdsl_netimpl_asio() -> destructor return\n");
+            TDSL_DEBUG_PRINTLN("tdsl_netimpl_asio::~tdsl_netimpl_asio() -> destructor return");
         }
 
         // --------------------------------------------------------------------------------
@@ -163,7 +163,7 @@ namespace tdsl { namespace net {
 
             const auto bytes_written = asio::write(*as_socket(socket_handle), bufs, ec);
             if (not ec) {
-                TDSL_DEBUG_PRINT("tdsl_netimpl_asio::do_send(byte_view, byte_view) -> sent %u "
+                TDSL_DEBUG_PRINT("tdsl_netimpl_asio::do_send(byte_view, byte_view) -> sent %zu "
                                  "byte(s), ec %d (%s)\n",
                                  bytes_written, ec.value(), ec.what().c_str());
             }
@@ -181,7 +181,7 @@ namespace tdsl { namespace net {
             }
 
             TDSL_DEBUG_PRINTLN(
-                "tdsl_netimpl_asio::do_send(byte_view, byte_view) -> exit, bytes written %u",
+                "tdsl_netimpl_asio::do_send(byte_view, byte_view) -> exit, bytes written %zu",
                 bytes_written);
             (void) bytes_written;
             return e_result::success;
@@ -213,9 +213,11 @@ namespace tdsl { namespace net {
             if (result) {
                 // asio::read will write `read_bytes` into `free_space_span`.
                 // Advance writer's offset to reflect the changes.
-                TDSL_ASSERT(writer->advance(*result));
+                const auto adv_r = writer->advance(*result);
+                TDSL_ASSERT(adv_r);
+                (void) adv_r;
                 TDSL_DEBUG_PRINTLN(
-                    "tdsl_netimpl_asio::do_recv(...) -> read bytes(%ld), consumable bytes (%u)",
+                    "tdsl_netimpl_asio::do_recv(...) -> read bytes(%zu), consumable bytes (%zu)",
                     *result, writer->inuse_span().size_bytes());
                 TDSL_ASSERT(*result == transfer_exactly);
             }
@@ -230,11 +232,16 @@ namespace tdsl { namespace net {
             TDSL_ASSERT(socket_handle);
             boost::system::error_code ec;
 
-            const auto read_bytes = asio::read(*as_socket(socket_handle),
-                                               asio::buffer(dst_buf.data(), dst_buf.size_bytes()),
-                                               asio::transfer_exactly(transfer_amount), ec);
+            auto read_bytes = asio::read(*as_socket(socket_handle),
+                                         asio::buffer(dst_buf.data(), dst_buf.size_bytes()),
+                                         asio::transfer_exactly(transfer_amount), ec);
 
+            // FIXME: We're effectively ignoring any remaining
+            // data here, so when the connected endpoint sends
+            // us data and disconnects, we'll never read the sent
+            // data.
             if (not ec) {
+                TDSL_DEBUG_PRINTLN("tdsl_netimpl_asio::do_recverror: %s", ec.what().c_str());
                 return read_bytes;
             }
 

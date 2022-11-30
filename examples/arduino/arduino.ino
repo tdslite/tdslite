@@ -1,11 +1,11 @@
 // arduino-specific debug printers.
 
-#define SKETCH_TDSL_DEBUG_LOG
-// #define SKETCH_SERIAL_OUTPUT
+// #define SKETCH_TDSL_DEBUG_LOG
+#define SKETCH_SERIAL_OUTPUT
 //  #define SKETCH_USE_DHCP
 //  #define SKETCH_NO_TDSLITE
-#define SKETCH_TDSL_NETBUF_SIZE 512 * 2
-#define SKETCH_TDSL_PACKET_SIZE SKETCH_TDSL_NETBUF_SIZE / 2
+#define SKETCH_TDSL_NETBUF_SIZE 512 + 256
+#define SKETCH_TDSL_PACKET_SIZE 512
 
 #if defined SKETCH_SERIAL_OUTPUT
 
@@ -24,14 +24,15 @@
             /* Save format string into program */                                                  \
             /* memory to save flash space */                                                       \
             static const char __fmtpm [] PROGMEM = FMTSTR;                                         \
-            char buf [128]                       = {};                                             \
+            char buf [64]                        = {};                                             \
             snprintf_P(buf, sizeof(buf), __fmtpm, ##__VA_ARGS__);                                  \
             Serial.print(buf);                                                                     \
         }()
 
     #define SERIAL_PRINTLNF(FMTSTR, ...)                                                           \
         SERIAL_PRINTF(FMTSTR, ##__VA_ARGS__);                                                      \
-        Serial.println("")
+        Serial.println("");                                                                        \
+        Serial.flush()
 
     #define SERIAL_PRINT_U16_AS_MB(U16SPAN)                                                        \
         [](tdsl::u16char_view v) {                                                                 \
@@ -56,15 +57,57 @@
 #include <Ethernet.h>
 
 #ifndef SKETCH_NO_TDSLITE
-
+    #define TDSL_DISABLE_DEFAULT_ALLOCATOR 1
     #include <tdslite.h>
+
+extern unsigned int __heap_start;
+extern void * __brkval;
+
+/*
+ * The free list structure as maintained by the
+ * avr-libc memory allocation routines.
+ */
+struct __freelist {
+    size_t sz;
+    struct __freelist * nx;
+};
+
+/* The head of the free list structure */
+extern struct __freelist * __flp;
+
+/* Calculates the size of the free list */
+int freeListSize() {
+    struct __freelist * current;
+    int total = 0;
+
+    for (current = __flp; current; current = current->nx) {
+        total += 2; /* Add two bytes for the memory block's header  */
+        total += (int) current->sz;
+    }
+
+    return total;
+}
+
+int freeRam() {
+    int free_memory;
+
+    if ((int) __brkval == 0) {
+        free_memory = ((int) &free_memory) - ((int) &__heap_start);
+    }
+    else {
+        free_memory = ((int) &free_memory) - ((int) __brkval);
+        free_memory += freeListSize();
+    }
+    return free_memory;
+}
 
 /**
  * Prints INFO/ERROR messages from SQL server to stdout.
  *
  * @param [in] token INFO/ERROR token
  */
-static void info_callback(void *, const tdsl::tds_info_token & token) noexcept {
+static void info_callback(void *, const ::tdsl::tds_info_token & token) noexcept {
+    SERIAL_PRINTLNF("m_inf %d", freeRam());
     SERIAL_PRINTF("%c: [%d/%d/%d@%d] --> ", (token.is_info() ? 'I' : 'E'), token.number,
                   token.state, token.class_, token.line_number);
     SERIAL_PRINT_U16_AS_MB(token.msgtext);
@@ -91,8 +134,22 @@ static void row_callback(void * u, const tdsl::tds_colmetadata_token & colmd,
 tdsl::uint8_t net_buf [SKETCH_TDSL_NETBUF_SIZE] = {};
 tdsl::arduino_driver<EthernetClient> driver{net_buf};
 
+inline void * my_malloc(unsigned long amount) noexcept {
+    auto alloc = ::malloc(amount);
+    SERIAL_PRINTLNF("alloc req %lu, result %p, rem: %d", amount, alloc, freeRam());
+    return alloc;
+}
+
+// --------------------------------------------------------------------------------
+
+inline void my_free(void * ptr) noexcept {
+    SERIAL_PRINTLNF("free req %p", ptr);
+    return ::free(ptr);
+}
+
 void initTdsliteDriver() {
     SERIAL_PRINTLNF("... init tdslite ...");
+    tdsl::tdslite_malloc_free(my_malloc, my_free);
     tdsl::arduino_driver<EthernetClient>::connection_parameters params;
     // Server's hostname or IP address.
     params.server_name = "192.168.1.22"; // WL
@@ -130,7 +187,8 @@ inline void tdslite_loop() {
     if (i++ % 10 == 0) {
         const auto row_count =
             driver.execute_query("SELECT * FROM #hello_world;", nullptr, row_callback);
-        SERIAL_PRINTLNF(">> Report: row count [%d], free RAM [%d] <<", row_count, freeMemory());
+        SERIAL_PRINTLNF(">> Report: row count [%d], free RAM [%d] <<", row_count, freeRam());
+        SERIAL_PRINTLNF("%d", freeRam());
     }
 }
 
@@ -142,25 +200,6 @@ inline void initDatabase() {}
 
 #endif
 
-int freeMemory() {
-
-#ifdef __arm__
-    // should use uinstd.h to define sbrk but Due causes a conflict
-    extern "C" char * sbrk(int incr);
-#else  // __ARM__
-    extern char * __brkval;
-#endif // __arm__
-
-    char top;
-#ifdef __arm__
-    return &top - reinterpret_cast<char *>(sbrk(0));
-#elif defined(CORE_TEENSY) || (ARDUINO > 103 && ARDUINO != 151)
-    return &top - __brkval;
-#else  // __arm__
-    return __brkval ? &top - __brkval : &top - __malloc_heap_start;
-#endif // __arm__
-}
-
 /**
  * Initialize serial port for logging
  */
@@ -170,6 +209,7 @@ inline void initSerialPort() {
     while (!Serial)
         ;
 #endif
+    SERIAL_PRINTLNF("m_isp %d", freeRam());
 }
 
 /**
@@ -204,6 +244,7 @@ inline void initEthernetShield() {
     IPAddress ip(192, 168, 1, 241);
     Ethernet.begin(mac, ip);
 #endif
+    SERIAL_PRINTLNF("m_ies %d", freeRam());
 }
 
 void setup() {
@@ -215,6 +256,7 @@ void setup() {
                     sizeof(tdsl::uint8_t *), sizeof(tdsl::size_t),
                     sizeof(tdsl::span<unsigned char>));
     SERIAL_PRINTLNF("... setup complete ...");
+    SERIAL_PRINTLNF("m_setup %lu", freeRam());
 }
 
 void loop() {

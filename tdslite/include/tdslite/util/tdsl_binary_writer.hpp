@@ -127,11 +127,6 @@ namespace tdsl {
         inline TDSL_NODISCARD auto write(size_type start_offset, tdsl::byte_view data) noexcept
             -> bool {
 
-            // if (start_offset > this->offset()) {
-            //     //TDSL_ASSERT_MSG(false, "write() with offset only supports rewriting existing
-            //     data!");
-            // }
-
             if (not this->has_bytes(data.size_bytes(), start_offset)) {
                 return false;
             }

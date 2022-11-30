@@ -2,6 +2,7 @@
     #include <ESP8266WiFi.h>
 #elif defined ESP32
     #include <WiFi.h>
+    #include <esp_task_wdt.h>
 #else
     #error "Architecture unrecognized by this code."
 #endif
@@ -69,7 +70,17 @@ static void info_callback(void *, const tdsl::tds_info_token & token) noexcept {
  */
 static void row_callback(void * u, const tdsl::tds_colmetadata_token & colmd,
                          const tdsl::tdsl_row & row) {
+    // Feed the dog so he won't bite us
+
+    #if defined ESP8266
+    ESP.wdtFeed();
+    #elif defined ESP32
+    esp_task_wdt_reset();
+    #endif
+
     SERIAL_PRINTF("row: ");
+
+    // TODO: implement a visitor for this?
     for (const auto & field : row) {
         SERIAL_PRINTF("%d\t", field.as<tdsl::uint32_t>());
     }
@@ -123,9 +134,11 @@ bool tdslite_setup() noexcept {
 
 inline void tdslite_loop() noexcept {
     static int i = 0;
-    driver.execute_query("INSERT INTO #hello_world VALUES(1,2, "
-                         "'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-                         "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa')");
+    driver.execute_query(
+        "INSERT INTO #hello_world VALUES(1,2, "
+        "'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor "
+        "incididunt ut labore et dolore magna aliqua. Semper viverra nam libero justo laoreet sit "
+        "amet. Fringilla ut morbi tincidunt augue interdum velit.')");
     if (i++ % 10 == 0) {
         const auto row_count =
             driver.execute_query("SELECT * FROM #hello_world;", nullptr, row_callback);

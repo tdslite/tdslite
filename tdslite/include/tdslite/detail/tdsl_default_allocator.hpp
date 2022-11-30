@@ -17,8 +17,7 @@
 
 #ifndef TDSL_DISABLE_DEFAULT_ALLOCATOR
 
-
-#include <stdlib.h> // for default malloc-free
+    #include <stdlib.h> // for default malloc-free
 
 namespace tdsl {
 

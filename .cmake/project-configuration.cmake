@@ -51,3 +51,8 @@ elseif(${CMAKE_BUILD_TYPE} STREQUAL "Debug")
         message(STATUS "> [OPT] Sanitizers are enabled")
     endif()
 endif()
+
+if(TDSLITE_PROJECT_DEBUG_PRINT_ENABLED)
+    message(STATUS "> [OPT] tdslite debug print enabled")
+    add_compile_definitions(TDSL_DEBUG_PRINT_ENABLED=1)
+endif()
