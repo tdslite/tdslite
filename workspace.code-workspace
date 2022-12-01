@@ -6,6 +6,14 @@
     ],
     "remoteAuthority": "dev-container+2f776f726b73706163652f6769746875622f7464736c697465",
     "settings": {
+        "C_Cpp.default.cppStandard": "c++11",
+        "C_Cpp.default.cStandard": "c11",
+        "C_Cpp.default.intelliSenseMode": "gcc-x64",
+        "C_Cpp.intelliSenseEngine": "Disabled",
+        "C_Cpp.autocomplete": "Disabled", // So you don't get autocomplete from both extensions.
+        "C_Cpp.errorSquiggles": "Disabled",
+        "C_Cpp.formatting": "Disabled",
+        "C_Cpp.default.compileCommands": "/workspace/compile_commands.json",
         "C_Cpp.codeFolding": "Enabled",
         "C_Cpp.autoAddFileAssociations": false,
         "C_Cpp.enhancedColorization": "Enabled",

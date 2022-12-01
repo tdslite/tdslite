@@ -89,3 +89,28 @@ jobs:
           path: build
       - name: Test
         run: ctest --preset=${{ matrix.cmake_preset }} --parallel $(nproc) --output-junit ut_reports/all-tests.xml
+  Device-Toolchain-Build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/pip
+            ~/.platformio/.cache
+          key: ${{ runner.os }}-pio
+      - uses: actions/setup-python@v4
+        with:
+          python-version: "3.9"
+      - name: Install PlatformIO Core
+        run: pip install --upgrade platformio
+      - name: Install PlatformIO libraries
+        run: |
+          bash .misc/arduino/prep-lib.sh
+          pio lib --global install arduino-libraries/Ethernet
+          pio lib --global install build/arduino-libpack-root/tdslite.zip
+      - name: build-avr
+        # A few selection of AVR boards, to be extended later.
+        run: pio ci --board nanoatmega328 --board uno --board megaatmega1280 --board megaatmega2560 --board miniatmega328 --board leonardo examples/arduino/arduino.ino
+      - name: build-esp
+        run: pio ci --board nodemcu-32s --board nodemcuv2 examples/esp/esp.ino
