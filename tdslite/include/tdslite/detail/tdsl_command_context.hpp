@@ -94,7 +94,8 @@ namespace tdsl { namespace detail {
          *
          * @return Number of rows affected
          */
-        template <typename T, traits::enable_when::same_any_of<T, string_view, wstring_view> = true>
+        template <typename T, traits::enable_when::same_any_of<T, string_view, wstring_view,
+                                                               struct progmem_string_view> = true>
         inline tdsl::uint32_t execute_query(
             T command, void * rcb_uptr = nullptr,
             row_callback_fn_t row_callback = +[](void *, const tds_colmetadata_token &,

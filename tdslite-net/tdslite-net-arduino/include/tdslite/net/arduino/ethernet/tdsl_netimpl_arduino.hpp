@@ -81,18 +81,43 @@ namespace tdsl { namespace net {
          * @return 0 if connection is successful, implementation-specific error code
          *         otherwise.
          */
-        TDSL_SYMBOL_VISIBLE int do_connect(tdsl::char_view target, tdsl::uint16_t port) {
+        template <typename T>
+        TDSL_SYMBOL_VISIBLE int do_connect(T target, tdsl::uint16_t port) {
             // Disconnect if already connected
             do_disconnect();
 
             int cr      = 0;
             int retries = 10;
 
+            // There may be residue data in network buffer
+            // Reset it to ensure a clean start
+            this->network_buffer.get_writer()->reset();
+
+            tdsl::char_view destination_host{};
+
+            // Given that @p target can be a progmem string,
+            // we need to ensure that it is in SRAM before passing
+            // it to `connect` function. For that, instead of allocating
+            // a new buffer, we use the network buffer since it's sufficiently
+            // large free space not yet in use for anything.
+
+            if (target.size_bytes() <= this->network_buffer.get_writer()->remaining_bytes()) {
+
+                auto w = this->network_buffer.get_writer();
+                for (auto c : target) {
+                    w->write(c);
+                }
+                destination_host = w->inuse_span().template rebind_cast<const char>();
+            }
+            else {
+                return -99; // FIXME: proper error code
+            }
+
             // Retry up to MAX_CONNECT_ATTEMPTS times.
             while (retries--) {
                 TDSL_DEBUG_PRINTLN("... attempting to connect to %s:%d, %d retries remaining ...",
-                                   target.data(), port, retries);
-                cr = client.connect(target.data(), port);
+                                   destination_host.data(), port, retries);
+                cr = client.connect(destination_host.data(), port);
                 if (cr == 1) {
                     TDSL_DEBUG_PRINTLN("... connected, %d --> %d.%d.%d.%d:%d ...",
                                        client.localPort(), client.remoteIP() [0],
@@ -104,6 +129,10 @@ namespace tdsl { namespace net {
                 TDSL_DEBUG_PRINTLN("... connection attempt failed (%d) ...", cr);
                 delay(3000);
             }
+
+            // Reset the network buffer so it's ready to
+            // use by its real purpose
+            this->network_buffer.get_writer()->reset();
 
             if (cr == 1) {
                 return 0;

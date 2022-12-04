@@ -38,7 +38,6 @@ namespace tdsl { namespace detail {
                 if (encoder) {
                     encoder(reinterpret_cast<tdsl::uint8_t *>(&c), sizeof(char16_t));
                 }
-
                 xc.write(c);
             }
         }
@@ -59,13 +58,21 @@ namespace tdsl { namespace detail {
             }
         }
 
-        static inline auto calculate_write_size(const wstring_view & sv) noexcept
-            -> tdsl::uint32_t {
-            return sv.size_bytes();
+        template <typename T = struct progmem_string_view>
+        static void write(typename TDSCTX::tx_mixin & xc, const T & sv,
+                          void (*encoder)(tdsl::uint8_t *, tdsl::uint32_t) = nullptr) {
+            for (auto ch : sv) {
+                char16_t c = ch;
+                if (encoder) {
+                    encoder(reinterpret_cast<tdsl::uint8_t *>(&c), sizeof(char16_t));
+                }
+                xc.write(c);
+            }
         }
 
-        static inline auto calculate_write_size(const string_view & sv) noexcept -> tdsl::uint32_t {
-            return sv.size_bytes() * sizeof(char16_t);
+        template <typename T>
+        static inline auto calculate_write_size(const T & sv) noexcept -> tdsl::size_t {
+            return sv.size_bytes() * (sizeof(char16_t) / sizeof(typename T::element_type));
         }
     };
 }} // namespace tdsl::detail

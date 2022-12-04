@@ -25,11 +25,12 @@ namespace tdsl { namespace detail {
      */
     template <typename NetImpl>
     struct tdsl_driver {
-        using tds_context_type       = detail::tds_context<NetImpl>;
-        using login_context_type     = detail::login_context<NetImpl>;
-        using login_parameters_type  = typename login_context_type::login_parameters;
-        using wlogin_parameters_type = typename login_context_type::wlogin_parameters;
-        using sql_command_type       = detail::command_context<NetImpl>;
+        using tds_context_type           = detail::tds_context<NetImpl>;
+        using login_context_type         = detail::login_context<NetImpl>;
+        using login_parameters_type      = typename login_context_type::login_parameters;
+        using pmem_login_parameters_type = typename login_context_type::pmem_login_parameters;
+        using wlogin_parameters_type     = typename login_context_type::wlogin_parameters;
+        using sql_command_type           = detail::command_context<NetImpl>;
 
         enum class e_driver_error_code
         {
@@ -40,10 +41,8 @@ namespace tdsl { namespace detail {
             connection_param_packet_size_invalid
         };
 
-        /**
-         * Connection parameters
-         */
-        struct connection_parameters : public login_parameters_type {
+        template <typename T>
+        struct connection_parameters_base : public T {
             tdsl::uint16_t port = {1433};
 
             /**
@@ -73,6 +72,11 @@ namespace tdsl { namespace detail {
             }
         };
 
+        using connection_parameters  = connection_parameters_base<login_parameters_type>;
+        using wconnection_parameters = connection_parameters_base<wlogin_parameters_type>;
+        using progmem_connection_parameters =
+            connection_parameters_base<pmem_login_parameters_type>;
+
         /**
          * Construct a new tdsl driver object
          *
@@ -100,7 +104,9 @@ namespace tdsl { namespace detail {
          *          if packet_size is smaller or larger than allowed
          *          (must be >=512 && <=32767)
          */
-        inline auto connect(const connection_parameters & p) noexcept -> e_driver_error_code {
+        template <typename T>
+        inline auto connect(const connection_parameters_base<T> & p) noexcept
+            -> e_driver_error_code {
 
             // Validate the parameters first
             auto pvr = p.validate();

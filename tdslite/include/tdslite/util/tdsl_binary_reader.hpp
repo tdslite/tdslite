@@ -10,16 +10,16 @@
  */
 
 #ifndef TDSL_UTIL_TDS_BINARY_READER_HPP
-#define TDSL_UTIL_TDS_BINARY_READER_HPP
+    #define TDSL_UTIL_TDS_BINARY_READER_HPP
 
-#include <tdslite/util/tdsl_byte_swap.hpp>
-#include <tdslite/util/tdsl_inttypes.hpp>
-#include <tdslite/util/tdsl_endian.hpp>
-#include <tdslite/util/tdsl_span.hpp>
-#include <tdslite/util/tdsl_macrodef.hpp>
-#include <tdslite/util/tdsl_binary_rw_base.hpp>
+    #include <tdslite/util/tdsl_byte_swap.hpp>
+    #include <tdslite/util/tdsl_inttypes.hpp>
+    #include <tdslite/util/tdsl_endian.hpp>
+    #include <tdslite/util/tdsl_span.hpp>
+    #include <tdslite/util/tdsl_macrodef.hpp>
+    #include <tdslite/util/tdsl_binary_rw_base.hpp>
 
-#include <string.h>
+    #include <string.h>
 
 namespace tdsl {
 
@@ -118,13 +118,28 @@ namespace tdsl {
 
         /**
          * Read a value with type T from current reader position,
+         * without converting its' endianness and then advance the
+         * reader position by sizeof(T).
+         *
+         * @tparam T Type to read
+         * @return A value with sizeof(T) bytes, read as type T
+         */
+        template <typename T, typename MemcpyFnT = decltype(::memcpy)>
+        inline TDSL_NODISCARD auto read_raw(MemcpyFnT f = ::memcpy) noexcept -> T {
+            auto result = peek_raw<T, MemcpyFnT>(f);
+            this->do_advance(sizeof(T));
+            return result;
+        }
+
+        /**
+         * Read a value with type T from current reader position,
          * without converting its' endianness.
          *
          * @tparam T Type to read
          * @return A value with sizeof(T) bytes, read as type T
          */
-        template <typename T>
-        inline TDSL_NODISCARD auto read_raw() noexcept -> T {
+        template <typename T, typename MemcpyFnT = decltype(::memcpy)>
+        inline TDSL_NODISCARD auto peek_raw(MemcpyFnT f = ::memcpy) const noexcept -> T {
             if (not this->has_bytes(sizeof(T))) {
                 TDSL_ASSERT_MSG(false, "Unchecked read, check size before reading!");
                 TDSL_TRAP;
@@ -133,8 +148,7 @@ namespace tdsl {
             // This is for complying the strict aliasing rules
             // for type T. The compiler should optimize this
             // call away.
-            memcpy(&result, this->current(), sizeof(T));
-            this->do_advance(sizeof(T));
+            f(&result, this->current(), sizeof(T));
             return result;
         }
 
@@ -142,16 +156,16 @@ namespace tdsl {
 
 } // namespace tdsl
 
-/**
- * shortcut macro to return N if READER does
- * not have at least N bytes
- */
-#define TDSL_RETIF_LESS_BYTES(READER, N)                                                           \
-    do {                                                                                           \
-        if (not READER.has_bytes(N)) {                                                             \
-            return N - READER.remaining_bytes();                                                   \
-        }                                                                                          \
-    } while (0)
+    /**
+     * shortcut macro to return N if READER does
+     * not have at least N bytes
+     */
+    #define TDSL_RETIF_LESS_BYTES(READER, N)                                                       \
+        do {                                                                                       \
+            if (not READER.has_bytes(N)) {                                                         \
+                return N - READER.remaining_bytes();                                               \
+            }                                                                                      \
+        } while (0)
 
 #endif
 

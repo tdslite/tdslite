@@ -170,6 +170,11 @@ namespace tdsl { namespace traits {
         using type = T;
     };
 
+    template <typename T>
+    struct remove_cvref {
+        using type = typename remove_reference<typename remove_cv<T>::type>::type;
+    };
+
     // is_integral
     template <typename>
     struct is_integral_base : public false_type {};
@@ -242,10 +247,13 @@ namespace tdsl { namespace traits {
     struct is_void : public detail::is_void_helper<typename remove_cv<T>::type>::type {};
 
     // enable_if_integral
+    template <typename... Ts>
+    struct make_void {
+        typedef void type;
+    };
 
-    // void_t
-    template <class...>
-    using void_t = void;
+    template <typename... Ts>
+    using void_t = typename make_void<Ts...>::type;
 
     // declval
 

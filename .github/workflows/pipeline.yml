@@ -106,7 +106,7 @@ jobs:
         run: pip install --upgrade platformio
       - name: Install PlatformIO libraries
         run: |
-          bash .misc/arduino/prep-lib.sh
+          bash tdslite/platform/arduino/prep-lib.sh
           pio lib --global install arduino-libraries/Ethernet
           pio lib --global install build/arduino-libpack-root/tdslite.zip
       - name: build-avr

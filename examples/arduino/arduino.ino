@@ -76,7 +76,7 @@ struct __freelist {
 extern struct __freelist * __flp;
 
 /* Calculates the size of the free list */
-int freeListSize() {
+static int freeListSize() {
     struct __freelist * current;
     int total = 0;
 
@@ -88,7 +88,7 @@ int freeListSize() {
     return total;
 }
 
-int freeRam() {
+static int freeRam() {
     int free_memory;
 
     if ((int) __brkval == 0) {
@@ -150,32 +150,32 @@ inline void my_free(void * ptr) noexcept {
 void initTdsliteDriver() {
     SERIAL_PRINTLNF("... init tdslite ...");
     tdsl::tdslite_malloc_free(my_malloc, my_free);
-    tdsl::arduino_driver<EthernetClient>::connection_parameters params;
+    tdsl::arduino_driver<EthernetClient>::progmem_connection_parameters params;
     // Server's hostname or IP address.
-    params.server_name = "192.168.1.22"; // WL
-    // params.server_name = PSTR("192.168.1.45"); // WS
+    params.server_name = TDSL_PMEMSTR("192.168.1.22"); // WL
+    // params.server_name = TDSL_PMEMSTR("192.168.1.45"); // WS
     //  SQL server port number
     params.port        = 14333;
     // Login user
-    params.user_name   = "sa";
+    params.user_name   = TDSL_PMEMSTR("sa");
     // Login user password
-    params.password    = "2022-tds-lite-test!";
+    params.password    = TDSL_PMEMSTR("2022-tds-lite-test!");
     // Client name(optional)
-    params.client_name = "arduino mega";
+    params.client_name = TDSL_PMEMSTR("arduino mega");
     // App name(optional)
-    params.app_name    = "sketch";
+    params.app_name    = TDSL_PMEMSTR("sketch");
     // Database name(optional)
-    params.db_name     = "master";
+    params.db_name     = TDSL_PMEMSTR("master");
     // TDS packet size
     // Recommendation: Half of the network buffer.
     params.packet_size = {SKETCH_TDSL_PACKET_SIZE};
     driver.set_info_callback(nullptr, &info_callback);
-    driver.connect(params);
-    SERIAL_PRINTLNF("... init tdslite end...");
+    auto result = driver.connect(params);
+    SERIAL_PRINTLNF("... init tdslite end, %d...", result);
 }
 
 void initDatabase() {
-    const int r = driver.execute_query("CREATE TABLE #hello_world(a int, b int);");
+    const int r = driver.execute_query(TDSL_PMEMSTR("CREATE TABLE #hello_world(a int, b int);"));
     (void) r;
     SERIAL_PRINTLNF("... init database %d...", r);
     SERIAL_PRINTLNF("... init database end...");
@@ -183,10 +183,10 @@ void initDatabase() {
 
 inline void tdslite_loop() {
     static int i = 0;
-    driver.execute_query("INSERT INTO #hello_world VALUES(1,2)");
+    driver.execute_query(TDSL_PMEMSTR("INSERT INTO #hello_world VALUES(1,2)"));
     if (i++ % 10 == 0) {
-        const auto row_count =
-            driver.execute_query("SELECT * FROM #hello_world;", nullptr, row_callback);
+        const auto row_count = driver.execute_query(TDSL_PMEMSTR("SELECT * FROM #hello_world;"),
+                                                    nullptr, row_callback);
         SERIAL_PRINTLNF(">> Report: row count [%d], free RAM [%d] <<", row_count, freeRam());
         SERIAL_PRINTLNF("%d", freeRam());
     }
@@ -249,12 +249,13 @@ inline void initEthernetShield() {
 
 void setup() {
     initSerialPort();
+    SERIAL_PRINTLNF("sizeof ptr(%d), size_t(%d)", sizeof(tdsl::uint8_t *), sizeof(tdsl::size_t));
+    SERIAL_PRINTLNF("sizeof tdsl::span<unsigned char>(%d), tdsl::arduino_driver(%d)",
+                    sizeof(tdsl::span<unsigned char>),
+                    sizeof(tdsl::arduino_driver<EthernetClient>));
     initEthernetShield();
     initTdsliteDriver();
     initDatabase();
-    SERIAL_PRINTLNF("sizeof ptr(%d), size_t(%d), tdsl::span<unsigned char>(%d)",
-                    sizeof(tdsl::uint8_t *), sizeof(tdsl::size_t),
-                    sizeof(tdsl::span<unsigned char>));
     SERIAL_PRINTLNF("... setup complete ...");
     SERIAL_PRINTLNF("m_setup %lu", freeRam());
 }

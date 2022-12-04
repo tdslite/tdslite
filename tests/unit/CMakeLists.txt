@@ -50,6 +50,10 @@ make_component(
             SUFFIX .buffer_object
             SOURCES ut_buffer_object.cpp
 
+    TARGET  TYPE UNIT_TEST
+            SUFFIX .progmem_string_view
+            SOURCES ut_progmem_string_view.cpp
+
     ALL_NO_AUTO_COMPILATION_UNIT
     ALL_WITH_COVERAGE
     ALL_COVERAGE_TARGETS tdslite
