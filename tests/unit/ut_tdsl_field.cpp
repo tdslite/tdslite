@@ -54,6 +54,30 @@ TEST_F(tdsl_field_fixture, field_as_uint64) {
 
 // --------------------------------------------------------------------------------
 
+TEST_F(tdsl_field_fixture, field_as_sqlmoney) {
+    tdsl::uint8_t buf1 [8] = {0x00, 0x00, 0x00, 0x80, 0x00, 0x00, 0x00, 0x00};
+    tdsl::uint8_t buf2 [8] = {0xff, 0xff, 0xff, 0x7f, 0xff, 0xff, 0xff, 0xff};
+    field                  = buf1;
+    EXPECT_EQ(field.as<tdsl::sqltypes::sql_money>().raw(),
+              tdsl::numeric_limits::min_value<tdsl::int64_t>());
+    EXPECT_EQ(field.as<tdsl::sqltypes::sql_money>(), -922337203685477.5808);
+
+    field = buf2;
+    EXPECT_EQ(field.as<tdsl::sqltypes::sql_money>().raw(),
+              tdsl::numeric_limits::max_value<tdsl::int64_t>());
+    EXPECT_EQ(field.as<tdsl::sqltypes::sql_money>(), 922337203685477.5807);
+}
+
+// --------------------------------------------------------------------------------
+
+TEST_F(tdsl_field_fixture, field_as_int64) {
+    tdsl::uint8_t buf [8] = {0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08};
+    field                 = buf;
+    EXPECT_EQ(field.as<tdsl::uint64_t>(), tdsl::uint64_t{578437695752307201});
+}
+
+// --------------------------------------------------------------------------------
+
 TEST_F(tdsl_field_fixture, field_as_string_view) {
     constexpr tdsl::uint8_t buf [14] = {0x74, 0x68, 0x69, 0x73, 0x20, 0x69, 0x73,
                                         0x20, 0x61, 0x20, 0x74, 0x65, 0x73, 0x74};

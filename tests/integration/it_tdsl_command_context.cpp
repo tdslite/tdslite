@@ -264,8 +264,8 @@ TEST_F(tds_command_ctx_it_fixture, exact_numerics_tinyint) {
     auto validator = +[](void *, uut_t::column_metadata_cref c, uut_t::row_cref r) {
         ASSERT_EQ(c.columns.size(), 2);
         ASSERT_EQ(r.size(), 2);
-        EXPECT_EQ(r [0].as<tdsl::uint8_t>(), tdsl::uint8_t{0});
-        EXPECT_EQ(r [1].as<tdsl::uint8_t>(), tdsl::uint8_t{255});
+        EXPECT_EQ(r [0].as<tdsl::uint8_t>(), tdsl::numeric_limits::min_value<tdsl::uint8_t>());
+        EXPECT_EQ(r [1].as<tdsl::uint8_t>(), tdsl::numeric_limits::max_value<tdsl::uint8_t>());
     };
     ASSERT_EQ(0, exec(cq("q tinyint", "y tinyint")));
     ASSERT_EQ(1, exec(iq("0", "255")));
@@ -277,8 +277,8 @@ TEST_F(tds_command_ctx_it_fixture, exact_numerics_smallint) {
     auto validator = +[](void *, uut_t::column_metadata_cref c, uut_t::row_cref r) {
         ASSERT_EQ(c.columns.size(), 2);
         ASSERT_EQ(r.size(), 2);
-        EXPECT_EQ(r [0].as<tdsl::int16_t>(), tdsl::int16_t{-0x7FFF - 1});
-        EXPECT_EQ(r [1].as<tdsl::int16_t>(), tdsl::int16_t{+0x7FFF});
+        EXPECT_EQ(r [0].as<tdsl::int16_t>(), tdsl::numeric_limits::min_value<tdsl::int16_t>());
+        EXPECT_EQ(r [1].as<tdsl::int16_t>(), tdsl::numeric_limits::max_value<tdsl::int16_t>());
     };
     ASSERT_EQ(0, exec(cq("q smallint", "y smallint")));
     ASSERT_EQ(1, exec(iq("-32768", "32767")));
@@ -290,8 +290,8 @@ TEST_F(tds_command_ctx_it_fixture, exact_numerics_int) {
     auto validator = +[](void *, uut_t::column_metadata_cref c, uut_t::row_cref r) {
         ASSERT_EQ(c.columns.size(), 2);
         ASSERT_EQ(r.size(), 2);
-        EXPECT_EQ(r [0].as<tdsl::int32_t>(), tdsl::int32_t{-0x7FFFFFFF - 1});
-        EXPECT_EQ(r [1].as<tdsl::int32_t>(), tdsl::int32_t{+0x7FFFFFFF});
+        EXPECT_EQ(r [0].as<tdsl::int32_t>(), tdsl::numeric_limits::min_value<tdsl::int32_t>());
+        EXPECT_EQ(r [1].as<tdsl::int32_t>(), tdsl::numeric_limits::max_value<tdsl::int32_t>());
     };
     ASSERT_EQ(0, exec(cq("q int", "y int")));
     ASSERT_EQ(1, exec(iq("-2147483648", "2147483647")));
@@ -303,8 +303,8 @@ TEST_F(tds_command_ctx_it_fixture, exact_numerics_bigint) {
     auto validator = +[](void *, uut_t::column_metadata_cref c, uut_t::row_cref r) {
         ASSERT_EQ(c.columns.size(), 2);
         ASSERT_EQ(r.size(), 2);
-        EXPECT_EQ(r [0].as<tdsl::int64_t>(), tdsl::int64_t{-0x7FFFFFFFFFFFFFFF - 1});
-        EXPECT_EQ(r [1].as<tdsl::int64_t>(), tdsl::int64_t{+0x7FFFFFFFFFFFFFFF});
+        EXPECT_EQ(r [0].as<tdsl::int64_t>(), tdsl::numeric_limits::min_value<tdsl::int64_t>());
+        EXPECT_EQ(r [1].as<tdsl::int64_t>(), tdsl::numeric_limits::max_value<tdsl::int64_t>());
     };
     ASSERT_EQ(0, exec(cq("q bigint", "y bigint")));
     ASSERT_EQ(1, exec(iq("-9223372036854775808", "9223372036854775807")));
@@ -423,8 +423,8 @@ TEST_F(tds_command_ctx_it_fixture, exact_numerics_smallmoney) {
 
         // prec-scale 10/4
         // FIXME: Use decimal after implementing it.
-        EXPECT_EQ(r [0].as<tdsl::int32_t>(), tdsl::int32_t{-0x7FFFFFFF - 1});
-        EXPECT_EQ(r [1].as<tdsl::int32_t>(), tdsl::int32_t{+0x7FFFFFFF});
+        EXPECT_EQ(r [0].as<tdsl::int32_t>(), tdsl::numeric_limits::min_value<tdsl::int32_t>());
+        EXPECT_EQ(r [1].as<tdsl::int32_t>(), tdsl::numeric_limits::max_value<tdsl::int32_t>());
     };
     // smallmoney	- 214,748.3648 to 214,748.3647
     ASSERT_EQ(0, exec(cq("q smallmoney", "y smallmoney")));
@@ -440,11 +440,13 @@ TEST_F(tds_command_ctx_it_fixture, exact_numerics_money) {
         ASSERT_EQ(r [0].size_bytes(), 8);
         ASSERT_EQ(r [1].size_bytes(), 8);
 
-        // prec-scale 10/4
-        // FIXME: Use decimal after implementing it.
-        // FIXME: there is something wrong with the validation.
-        // EXPECT_EQ(r [0].as<tdsl::int64_t>(), tdsl::int64_t{-0x7FFFFFFFFFFFFFFF - 1});
-        // EXPECT_EQ(r [1].as<tdsl::int64_t>(), tdsl::int64_t{+0x7FFFFFFFFFFFFFFF});
+        EXPECT_EQ(r [0].as<tdsl::sqltypes::sql_money>().raw(),
+                  tdsl::numeric_limits::min_value<tdsl::int64_t>());
+        EXPECT_EQ(r [1].as<tdsl::sqltypes::sql_money>().raw(),
+                  tdsl::numeric_limits::max_value<tdsl::int64_t>());
+
+        EXPECT_EQ(r [0].as<tdsl::sqltypes::sql_money>(), -922337203685477.5808);
+        EXPECT_EQ(r [1].as<tdsl::sqltypes::sql_money>(), 922337203685477.5807);
     };
     // smallmoney	- 214,748.3648 to 214,748.3647
     ASSERT_EQ(0, exec(cq("q money", "y money")));
@@ -454,8 +456,7 @@ TEST_F(tds_command_ctx_it_fixture, exact_numerics_money) {
 
 // // --------------------------------------------------------------------------------
 // TEST_F(tds_command_ctx_it_fixture, exact_numerics_real) {
-//     auto validator = +[](void *, uut_t::column_metadata_cref c, uut_t::row_cref r)
-//     {
+//     auto validator = +[](void *, uut_t::column_metadata_cref c, uut_t::row_cref r) {
 //         ASSERT_EQ(c.columns.size(), 2);
 //         ASSERT_EQ(r.size(), 2);
 //         EXPECT_EQ(r [0].as<tdsl::float_>(), tdsl::int64_t{-0x7FFFFFFFFFFFFFFF - 1});

@@ -20,12 +20,53 @@
 
 namespace tdsl {
 
-    namespace types {
-        using sql_bit      = bool;
-        using sql_tinyint  = tdsl::uint8_t;
-        using sql_smallint = tdsl::int16_t;
-        using sql_int      = tdsl::int32_t;
-        using sql_bigint   = tdsl::int64_t;
+    namespace sqltypes {
+        using s_bit      = bool;
+        using s_tinyint  = tdsl::uint8_t;
+        using s_smallint = tdsl::int16_t;
+        using s_int      = tdsl::int32_t;
+        using s_bigint   = tdsl::int64_t;
+
+        struct sql_data_type_base {};
+
+        // using s_varchar  = tdsl::string_view;
+
+        struct sql_money : public sql_data_type_base {
+            explicit sql_money(tdsl::byte_view v) noexcept {
+                // money is represented as an 8-byte signed integer. The TDS value is the money
+                // value multiplied by 10^4. The 8-byte signed integer itself is represented in the
+                // following sequence:
+                // * One 4-byte integer that represents the more significant half.
+                // * One 4-byte integer that represents the less significant half.
+                tdsl::binary_reader<tdsl::endian::little> br{v};
+                const tdsl::uint32_t msh = br.read<tdsl::uint32_t>();
+                const tdsl::uint32_t lsh = br.read<tdsl::uint32_t>();
+                value = static_cast<tdsl::int64_t>((static_cast<tdsl::uint64_t>(msh) << 32) |
+                                                   (static_cast<tdsl::uint64_t>(lsh)));
+            }
+
+            inline tdsl::int64_t integer() const noexcept {
+                return value / 10000;
+            }
+
+            inline tdsl::int64_t fraction() const noexcept {
+                return value % 10000;
+            }
+
+            inline operator double() const noexcept {
+                return static_cast<double>(integer()) + (static_cast<double>(fraction()) / 10000);
+            }
+
+            /**
+             * Raw 8 byte integer stored in the database
+             */
+            inline tdsl::int64_t raw() const noexcept {
+                return value;
+            }
+
+        private:
+            tdsl::int64_t value;
+        };
 
         // struct sql_decimal {
         //     inline operator tdsl::int64_t() const noexcept {
@@ -36,7 +77,7 @@ namespace tdsl {
         // };
 
         // using sql_numeric = sql_decimal;
-    } // namespace types
+    } // namespace sqltypes
 
     namespace detail {
         template <typename NetImpl>
@@ -59,6 +100,12 @@ namespace tdsl {
                   typename traits::enable_when::template_instance_of<T, tdsl::span> = true>
         inline auto as_impl(byte_view data) -> T {
             return data.rebind_cast<typename T::element_type>();
+        }
+
+        template <typename T,
+                  typename traits::enable_when::base_of<sqltypes::sql_data_type_base, T> = true>
+        inline auto as_impl(byte_view data) -> T {
+            return T{data};
         }
 
         // Decimal is not yet supported.

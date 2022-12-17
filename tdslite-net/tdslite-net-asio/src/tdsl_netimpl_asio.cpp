@@ -235,13 +235,9 @@ namespace tdsl { namespace net {
             auto read_bytes = asio::read(*as_socket(socket_handle),
                                          asio::buffer(dst_buf.data(), dst_buf.size_bytes()),
                                          asio::transfer_exactly(transfer_amount), ec);
-
-            // FIXME: We're effectively ignoring any remaining
-            // data here, so when the connected endpoint sends
-            // us data and disconnects, we'll never read the sent
-            // data.
             if (not ec) {
-                TDSL_DEBUG_PRINTLN("tdsl_netimpl_asio::do_recverror: %s", ec.what().c_str());
+                TDSL_DEBUG_PRINTLN("tdsl_netimpl_asio::do_recv(...) success, read %zu bytes",
+                                   read_bytes);
                 return read_bytes;
             }
 

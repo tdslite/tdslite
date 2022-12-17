@@ -1,5 +1,5 @@
 // arduino-specific debug printers.
-
+#define SKETCH_ENABLE_WATCHDOG
 // #define SKETCH_TDSL_DEBUG_LOG
 #define SKETCH_SERIAL_OUTPUT
 //  #define SKETCH_USE_DHCP
@@ -54,6 +54,12 @@
     #define SERIAL_PRINT_U16_AS_MB(U16SPAN)
 #endif
 
+#if defined SKETCH_ENABLE_WATCHDOG
+    #include "ApplicationMonitor.h"
+Watchdog::CApplicationMonitor ApplicationMonitor;
+
+#endif
+
 #include <Ethernet.h>
 
 #ifndef SKETCH_NO_TDSLITE
@@ -106,7 +112,7 @@ static int freeRam() {
  *
  * @param [in] token INFO/ERROR token
  */
-static void info_callback(void *, const ::tdsl::tds_info_token & token) noexcept {
+static void info_callback(void *, const tdsl::tds_info_token & token) noexcept {
     SERIAL_PRINTLNF("m_inf %d", freeRam());
     SERIAL_PRINTF("%c: [%d/%d/%d@%d] --> ", (token.is_info() ? 'I' : 'E'), token.number,
                   token.state, token.class_, token.line_number);
@@ -123,11 +129,14 @@ static void info_callback(void *, const ::tdsl::tds_info_token & token) noexcept
  */
 static void row_callback(void * u, const tdsl::tds_colmetadata_token & colmd,
                          const tdsl::tdsl_row & row) {
+    digitalWrite(5, HIGH);
+    ApplicationMonitor.IAmAlive();
     SERIAL_PRINTF("row: ");
     for (const auto & field : row) {
         SERIAL_PRINTF("%d\t", field.as<tdsl::uint32_t>());
     }
     SERIAL_PRINTLNF("");
+    digitalWrite(5, LOW);
 }
 
 // The network buffer
@@ -247,7 +256,29 @@ inline void initEthernetShield() {
     SERIAL_PRINTLNF("m_ies %d", freeRam());
 }
 
+#if defined SKETCH_ENABLE_WATCHDOG
+inline void initWatchdog() {
+    ApplicationMonitor.Dump(Serial);
+    ApplicationMonitor.EnableWatchdog(Watchdog::CApplicationMonitor::Timeout_8s);
+}
+
+#else
+inline void initWatchdog() {}
+#endif
+
+inline void initLEDs() {
+    pinMode(3, OUTPUT);
+    pinMode(5, OUTPUT);
+    pinMode(7, OUTPUT);
+    pinMode(9, OUTPUT);
+    digitalWrite(3, HIGH);
+    digitalWrite(5, HIGH);
+    digitalWrite(7, HIGH);
+    digitalWrite(9, HIGH);
+}
+
 void setup() {
+    initLEDs();
     initSerialPort();
     SERIAL_PRINTLNF("sizeof ptr(%d), size_t(%d)", sizeof(tdsl::uint8_t *), sizeof(tdsl::size_t));
     SERIAL_PRINTLNF("sizeof tdsl::span<unsigned char>(%d), tdsl::arduino_driver(%d)",
@@ -258,12 +289,16 @@ void setup() {
     initDatabase();
     SERIAL_PRINTLNF("... setup complete ...");
     SERIAL_PRINTLNF("m_setup %lu", freeRam());
+    initWatchdog();
 }
 
 void loop() {
+    ApplicationMonitor.IAmAlive();
     tdslite_loop();
 #ifdef SKETCH_USE_DHCP
     Ethernet.maintain();
 #endif
+    digitalWrite(3, HIGH);
     delay(250);
+    digitalWrite(3, LOW);
 }

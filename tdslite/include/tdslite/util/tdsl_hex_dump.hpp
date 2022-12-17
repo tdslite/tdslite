@@ -1,7 +1,9 @@
 /**
  * _________________________________________________
+ * Utility functions for printing out buffers in human
+ * readable hex format.
  *
- * @file   hex_dump.hpp
+ * @file   tdsl_hex_dump.hpp
  * @author Mustafa K. GILOR <mustafagilor@gmail.com>
  * @date   20.04.2022
  *
@@ -11,6 +13,8 @@
 
 #ifndef TDSL_UTIL_HEX_DUMP_HPP
 #define TDSL_UTIL_HEX_DUMP_HPP
+
+#include <tdslite/util/tdsl_span.hpp>
 
 #include <stdio.h>
 #include <ctype.h>
@@ -40,6 +44,10 @@ namespace tdsl { namespace util {
         }
     }
 
+    static inline void hexdump(tdsl::byte_view v) {
+        return hexdump(v.data(), v.size_bytes());
+    }
+
     static inline void hexprint(const void * ptr, unsigned long long buflen) noexcept {
         const unsigned char * buf = static_cast<const unsigned char *>(ptr);
         for (unsigned long long i = 0; i < buflen; i++) {
@@ -50,6 +58,10 @@ namespace tdsl { namespace util {
         for (unsigned long long i = 0; i < buflen; i++) {
             printf("%c", isprint(buf [i]) ? buf [i] : '.');
         }
+    }
+
+    static inline void hexprint(tdsl::byte_view v) {
+        return hexprint(v.data(), v.size_bytes());
     }
 }} // namespace tdsl::util
 

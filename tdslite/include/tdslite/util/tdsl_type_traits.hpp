@@ -466,6 +466,9 @@ namespace tdsl { namespace traits {
         template <typename T>
         using non_class_type = typename enable_if<!is_class<T>::value, bool>::type;
 
+        template <typename T, typename Q>
+        using base_of = typename enable_if<is_base_of<T, Q>::value, bool>::type;
+
     } // namespace enable_when
 
     namespace detail {
