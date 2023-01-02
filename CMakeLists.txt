@@ -31,6 +31,8 @@ project(
     DESCRIPTION ${PROJECT_METADATA_DESCRIPTION}
 )
 
+set(CONAN_SYSTEM_INCLUDES "On")
+
 # Include hadouken
 include(.hadouken/hadouken.cmake)
 

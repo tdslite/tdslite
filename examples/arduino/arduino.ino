@@ -1,13 +1,15 @@
-// arduino-specific debug printers.
-#define SKETCH_ENABLE_WATCHDOG
-// #define SKETCH_TDSL_DEBUG_LOG
-#define SKETCH_SERIAL_OUTPUT
-//  #define SKETCH_USE_DHCP
-//  #define SKETCH_NO_TDSLITE
+
+// Sketch options
+#define SKETCH_ENABLE_WATCHDOG_TIMER
+#define SKETCH_ENABLE_SERIAL_OUTPUT
+// #define SKETCH_ENABLE_TDSL_DEBUG_LOG
+//  #define SKETCH_USE_DHCP // Increases memory usage
 #define SKETCH_TDSL_NETBUF_SIZE 512 + 256
 #define SKETCH_TDSL_PACKET_SIZE 512
+// tdslite options
+#define TDSL_DISABLE_DEFAULT_ALLOCATOR 1
 
-#if defined SKETCH_SERIAL_OUTPUT
+#if defined SKETCH_ENABLE_SERIAL_OUTPUT
 
     /**
      * Print a formatted string to serial output.
@@ -20,7 +22,6 @@
      */
     #define SERIAL_PRINTF(FMTSTR, ...)                                                             \
         [&]() {                                                                                    \
-            static_assert(sizeof(FMTSTR) <= 255, "Format string cannot be greater than 255");      \
             /* Save format string into program */                                                  \
             /* memory to save flash space */                                                       \
             static const char __fmtpm [] PROGMEM = FMTSTR;                                         \
@@ -41,30 +42,26 @@
             }                                                                                      \
         }(U16SPAN)
 
-    #if defined SKETCH_TDSL_DEBUG_LOG
+    #if defined SKETCH_ENABLE_TDSL_DEBUG_LOG
         #define TDSL_DEBUG_PRINT(FMTSTR, ...)       SERIAL_PRINTF(FMTSTR, ##__VA_ARGS__)
         #define TDSL_DEBUG_PRINTLN(FMTSTR, ...)     SERIAL_PRINTLNF(FMTSTR, ##__VA_ARGS__)
         #define TDSL_DEBUG_PRINT_U16_AS_MB(U16SPAN) SERIAL_PRINT_U16_AS_MB(U16SPAN)
     #endif
 
 #else
-
     #define SERIAL_PRINTF(FMTSTR, ...)
     #define SERIAL_PRINTLNF(FMTSTR, ...)
     #define SERIAL_PRINT_U16_AS_MB(U16SPAN)
 #endif
 
-#if defined SKETCH_ENABLE_WATCHDOG
+#if defined SKETCH_ENABLE_WATCHDOG_TIMER
     #include "ApplicationMonitor.h"
 Watchdog::CApplicationMonitor ApplicationMonitor;
 
 #endif
 
 #include <Ethernet.h>
-
-#ifndef SKETCH_NO_TDSLITE
-    #define TDSL_DISABLE_DEFAULT_ALLOCATOR 1
-    #include <tdslite.h>
+#include <tdslite.h>
 
 extern unsigned int __heap_start;
 extern void * __brkval;
@@ -82,7 +79,7 @@ struct __freelist {
 extern struct __freelist * __flp;
 
 /* Calculates the size of the free list */
-static int freeListSize() {
+static int freelist_size() {
     struct __freelist * current;
     int total = 0;
 
@@ -94,7 +91,7 @@ static int freeListSize() {
     return total;
 }
 
-static int freeRam() {
+static int free_ram() {
     int free_memory;
 
     if ((int) __brkval == 0) {
@@ -102,7 +99,7 @@ static int freeRam() {
     }
     else {
         free_memory = ((int) &free_memory) - ((int) __brkval);
-        free_memory += freeListSize();
+        free_memory += freelist_size();
     }
     return free_memory;
 }
@@ -113,7 +110,7 @@ static int freeRam() {
  * @param [in] token INFO/ERROR token
  */
 static void info_callback(void *, const tdsl::tds_info_token & token) noexcept {
-    SERIAL_PRINTLNF("m_inf %d", freeRam());
+    SERIAL_PRINTLNF("m_inf %d", free_ram());
     SERIAL_PRINTF("%c: [%d/%d/%d@%d] --> ", (token.is_info() ? 'I' : 'E'), token.number,
                   token.state, token.class_, token.line_number);
     SERIAL_PRINT_U16_AS_MB(token.msgtext);
@@ -145,7 +142,7 @@ tdsl::arduino_driver<EthernetClient> driver{net_buf};
 
 inline void * my_malloc(unsigned long amount) noexcept {
     auto alloc = ::malloc(amount);
-    SERIAL_PRINTLNF("alloc req %lu, result %p, rem: %d", amount, alloc, freeRam());
+    SERIAL_PRINTLNF("alloc req %lu, result %p, rem: %d", amount, alloc, free_ram());
     return alloc;
 }
 
@@ -196,29 +193,21 @@ inline void tdslite_loop() {
     if (i++ % 10 == 0) {
         const auto row_count = driver.execute_query(TDSL_PMEMSTR("SELECT * FROM #hello_world;"),
                                                     nullptr, row_callback);
-        SERIAL_PRINTLNF(">> Report: row count [%d], free RAM [%d] <<", row_count, freeRam());
-        SERIAL_PRINTLNF("%d", freeRam());
+        SERIAL_PRINTLNF(">> Report: row count [%d], free RAM [%d] <<", row_count, free_ram());
+        SERIAL_PRINTLNF("%d", free_ram());
     }
 }
-
-#else
-
-inline void tdslite_loop() {}
-
-inline void initDatabase() {}
-
-#endif
 
 /**
  * Initialize serial port for logging
  */
 inline void initSerialPort() {
-#if defined SKETCH_SERIAL_OUTPUT
+#if defined SKETCH_ENABLE_SERIAL_OUTPUT
     Serial.begin(112500);
     while (!Serial)
         ;
 #endif
-    SERIAL_PRINTLNF("m_isp %d", freeRam());
+    SERIAL_PRINTLNF("m_isp %d", free_ram());
 }
 
 /**
@@ -253,10 +242,10 @@ inline void initEthernetShield() {
     IPAddress ip(192, 168, 1, 241);
     Ethernet.begin(mac, ip);
 #endif
-    SERIAL_PRINTLNF("m_ies %d", freeRam());
+    SERIAL_PRINTLNF("m_ies %d", free_ram());
 }
 
-#if defined SKETCH_ENABLE_WATCHDOG
+#if defined SKETCH_ENABLE_WATCHDOG_TIMER
 inline void initWatchdog() {
     ApplicationMonitor.Dump(Serial);
     ApplicationMonitor.EnableWatchdog(Watchdog::CApplicationMonitor::Timeout_8s);
@@ -288,7 +277,7 @@ void setup() {
     initTdsliteDriver();
     initDatabase();
     SERIAL_PRINTLNF("... setup complete ...");
-    SERIAL_PRINTLNF("m_setup %lu", freeRam());
+    SERIAL_PRINTLNF("m_setup %lu", free_ram());
     initWatchdog();
 }
 

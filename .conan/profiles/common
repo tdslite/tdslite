@@ -52,3 +52,4 @@ build_type=RelWithDebInfo
 [env]
 gtest:CXXFLAGS=-Wno-error
 gtest:CFLAGS=-Wno-error
+boost:CXXFLAGS=-Wno-error=null-dereference

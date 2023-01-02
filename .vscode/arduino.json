@@ -1,0 +1,6 @@
+{
+    "board": "arduino:avr:uno",
+    "sketch": "examples/arduino/arduino.ino",
+    "prebuild": "bash /workspace/tdslite/platform/arduino/prep-lib.sh &> /dev/null",
+    "output": "/workspace/build/arduino-build"
+}

@@ -43,7 +43,7 @@ namespace tdsl { namespace net {
      * Also, the implementation depends on following global free functions as well:
      *
      *  * millis()   -> milliseconds obtained from a steady clock
-     *  * delay(ms)  -> must put current execution path to sleep for at least ms milliseconds
+     *  * delay(ms)  -> must put current caller to sleep for at least ms milliseconds
      */
     template <typename EthernetClientType>
     struct tdsl_netimpl_arduino : public network_io_base<tdsl_netimpl_arduino<EthernetClientType>> {

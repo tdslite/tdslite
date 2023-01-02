@@ -17,8 +17,11 @@
 #include <tdslite/util/tdsl_hex_dump.hpp>
 #include <tdslite/util/tdsl_debug_print.hpp>
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wnull-dereference"
 #include <boost/asio.hpp>
 #include <boost/asio/read.hpp>
+#pragma GCC diagnostic pop
 
 namespace asio       = boost::asio;
 using io_context_t   = asio::io_context;
