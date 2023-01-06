@@ -183,7 +183,7 @@ IndentRequires: false
 #     #include <foo>
 #   #endif
 # #endif
-IndentPPDirectives: BeforeHash
+IndentPPDirectives: None
 
 # true:
 # void f(int aaaaaaaaaaaaaaaaaaaa, int aaaaaaaaaaaaaaaaaaaa,

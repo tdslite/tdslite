@@ -11,98 +11,59 @@
 
 #if defined SKETCH_ENABLE_SERIAL_OUTPUT
 
-    /**
-     * Print a formatted string to serial output.
-     *
-     * @param [in] FMTSTR Format string
-     * @param [in] ...    Format arguments
-     *
-     * The format string will be stored in program memory in order
-     * to save space.
-     */
-    #define SERIAL_PRINTF(FMTSTR, ...)                                                             \
-        [&]() {                                                                                    \
-            /* Save format string into program */                                                  \
-            /* memory to save flash space */                                                       \
-            static const char __fmtpm [] PROGMEM = FMTSTR;                                         \
-            char buf [64]                        = {};                                             \
-            snprintf_P(buf, sizeof(buf), __fmtpm, ##__VA_ARGS__);                                  \
-            Serial.print(buf);                                                                     \
-        }()
+/**
+ * Print a formatted string to serial output.
+ *
+ * @param [in] FMTSTR Format string
+ * @param [in] ...    Format arguments
+ *
+ * The format string will be stored in program memory in order
+ * to save space.
+ */
+#define SERIAL_PRINTF(FMTSTR, ...)                                                                 \
+    [&]() {                                                                                        \
+        /* Save format string into program */                                                      \
+        /* memory to save flash space */                                                           \
+        static const char __fmtpm [] PROGMEM = FMTSTR;                                             \
+        char buf [64]                        = {};                                                 \
+        snprintf_P(buf, sizeof(buf), __fmtpm, ##__VA_ARGS__);                                      \
+        Serial.print(buf);                                                                         \
+    }()
 
-    #define SERIAL_PRINTLNF(FMTSTR, ...)                                                           \
-        SERIAL_PRINTF(FMTSTR, ##__VA_ARGS__);                                                      \
-        Serial.println("");                                                                        \
-        Serial.flush()
+#define SERIAL_PRINTLNF(FMTSTR, ...)                                                               \
+    SERIAL_PRINTF(FMTSTR, ##__VA_ARGS__);                                                          \
+    Serial.println("");                                                                            \
+    Serial.flush()
 
-    #define SERIAL_PRINT_U16_AS_MB(U16SPAN)                                                        \
-        [](tdsl::u16char_view v) {                                                                 \
-            for (const auto ch : v) {                                                              \
-                Serial.print(static_cast<char>(ch));                                               \
-            }                                                                                      \
-        }(U16SPAN)
+#define SERIAL_PRINT_U16_AS_MB(U16SPAN)                                                            \
+    [](tdsl::u16char_view v) {                                                                     \
+        for (const auto ch : v) {                                                                  \
+            Serial.print(static_cast<char>(ch));                                                   \
+        }                                                                                          \
+    }(U16SPAN)
 
-    #if defined SKETCH_ENABLE_TDSL_DEBUG_LOG
-        #define TDSL_DEBUG_PRINT(FMTSTR, ...)       SERIAL_PRINTF(FMTSTR, ##__VA_ARGS__)
-        #define TDSL_DEBUG_PRINTLN(FMTSTR, ...)     SERIAL_PRINTLNF(FMTSTR, ##__VA_ARGS__)
-        #define TDSL_DEBUG_PRINT_U16_AS_MB(U16SPAN) SERIAL_PRINT_U16_AS_MB(U16SPAN)
-    #endif
+#if defined SKETCH_ENABLE_TDSL_DEBUG_LOG
+#define TDSL_DEBUG_PRINT(FMTSTR, ...)       SERIAL_PRINTF(FMTSTR, ##__VA_ARGS__)
+#define TDSL_DEBUG_PRINTLN(FMTSTR, ...)     SERIAL_PRINTLNF(FMTSTR, ##__VA_ARGS__)
+#define TDSL_DEBUG_PRINT_U16_AS_MB(U16SPAN) SERIAL_PRINT_U16_AS_MB(U16SPAN)
+#endif
 
 #else
-    #define SERIAL_PRINTF(FMTSTR, ...)
-    #define SERIAL_PRINTLNF(FMTSTR, ...)
-    #define SERIAL_PRINT_U16_AS_MB(U16SPAN)
+#define SERIAL_PRINTF(FMTSTR, ...)
+#define SERIAL_PRINTLNF(FMTSTR, ...)
+#define SERIAL_PRINT_U16_AS_MB(U16SPAN)
 #endif
 
 #if defined SKETCH_ENABLE_WATCHDOG_TIMER
-    #include "ApplicationMonitor.h"
+#include <ApplicationMonitor.h>
 Watchdog::CApplicationMonitor ApplicationMonitor;
-
 #endif
 
 #include <Ethernet.h>
 #include <tdslite.h>
+#include <MemoryFree.h>
 
-extern unsigned int __heap_start;
-extern void * __brkval;
-
-/*
- * The free list structure as maintained by the
- * avr-libc memory allocation routines.
- */
-struct __freelist {
-    size_t sz;
-    struct __freelist * nx;
-};
-
-/* The head of the free list structure */
-extern struct __freelist * __flp;
-
-/* Calculates the size of the free list */
-static int freelist_size() {
-    struct __freelist * current;
-    int total = 0;
-
-    for (current = __flp; current; current = current->nx) {
-        total += 2; /* Add two bytes for the memory block's header  */
-        total += (int) current->sz;
-    }
-
-    return total;
-}
-
-static int free_ram() {
-    int free_memory;
-
-    if ((int) __brkval == 0) {
-        free_memory = ((int) &free_memory) - ((int) &__heap_start);
-    }
-    else {
-        free_memory = ((int) &free_memory) - ((int) __brkval);
-        free_memory += freelist_size();
-    }
-    return free_memory;
-}
+// --------------------------------------------------------------------------------
 
 /**
  * Prints INFO/ERROR messages from SQL server to stdout.
@@ -110,12 +71,14 @@ static int free_ram() {
  * @param [in] token INFO/ERROR token
  */
 static void info_callback(void *, const tdsl::tds_info_token & token) noexcept {
-    SERIAL_PRINTLNF("m_inf %d", free_ram());
+    SERIAL_PRINTLNF("m_inf %d", freeMemory());
     SERIAL_PRINTF("%c: [%d/%d/%d@%d] --> ", (token.is_info() ? 'I' : 'E'), token.number,
                   token.state, token.class_, token.line_number);
     SERIAL_PRINT_U16_AS_MB(token.msgtext);
     SERIAL_PRINTLNF("");
 }
+
+// --------------------------------------------------------------------------------
 
 /**
  * Handle row data coming from tdsl driver
@@ -136,13 +99,21 @@ static void row_callback(void * u, const tdsl::tds_colmetadata_token & colmd,
     digitalWrite(5, LOW);
 }
 
+// --------------------------------------------------------------------------------
+
 // The network buffer
 tdsl::uint8_t net_buf [SKETCH_TDSL_NETBUF_SIZE] = {};
 tdsl::arduino_driver<EthernetClient> driver{net_buf};
 
+// --------------------------------------------------------------------------------
+
+/**
+ * Custom malloc to trace memory allocations
+ * over serial output
+ */
 inline void * my_malloc(unsigned long amount) noexcept {
     auto alloc = ::malloc(amount);
-    SERIAL_PRINTLNF("alloc req %lu, result %p, rem: %d", amount, alloc, free_ram());
+    SERIAL_PRINTLNF("alloc req %lu, result %p, rem: %d", amount, alloc, freeMemory());
     return alloc;
 }
 
@@ -152,6 +123,8 @@ inline void my_free(void * ptr) noexcept {
     SERIAL_PRINTLNF("free req %p", ptr);
     return ::free(ptr);
 }
+
+// --------------------------------------------------------------------------------
 
 void initTdsliteDriver() {
     SERIAL_PRINTLNF("... init tdslite ...");
@@ -180,6 +153,8 @@ void initTdsliteDriver() {
     SERIAL_PRINTLNF("... init tdslite end, %d...", result);
 }
 
+// --------------------------------------------------------------------------------
+
 void initDatabase() {
     const int r = driver.execute_query(TDSL_PMEMSTR("CREATE TABLE #hello_world(a int, b int);"));
     (void) r;
@@ -187,16 +162,20 @@ void initDatabase() {
     SERIAL_PRINTLNF("... init database end...");
 }
 
+// --------------------------------------------------------------------------------
+
 inline void tdslite_loop() {
     static int i = 0;
     driver.execute_query(TDSL_PMEMSTR("INSERT INTO #hello_world VALUES(1,2)"));
     if (i++ % 10 == 0) {
         const auto row_count = driver.execute_query(TDSL_PMEMSTR("SELECT * FROM #hello_world;"),
                                                     nullptr, row_callback);
-        SERIAL_PRINTLNF(">> Report: row count [%d], free RAM [%d] <<", row_count, free_ram());
-        SERIAL_PRINTLNF("%d", free_ram());
+        SERIAL_PRINTLNF(">> Report: row count [%d], free RAM [%d] <<", row_count, freeMemory());
+        SERIAL_PRINTLNF("%d", freeMemory());
     }
 }
+
+// --------------------------------------------------------------------------------
 
 /**
  * Initialize serial port for logging
@@ -207,8 +186,10 @@ inline void initSerialPort() {
     while (!Serial)
         ;
 #endif
-    SERIAL_PRINTLNF("m_isp %d", free_ram());
+    SERIAL_PRINTLNF("m_isp %d", freeMemory());
 }
+
+// --------------------------------------------------------------------------------
 
 /**
  * Initialize the ethernet shield with DHCP
@@ -217,7 +198,7 @@ inline void initSerialPort() {
  */
 inline void initEthernetShield() {
     SERIAL_PRINTLNF("... init eth ...");
-    byte mac [] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED};
+    byte mac [] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xEE};
 #if defined SKETCH_USE_DHCP
     if (Ethernet.begin(mac) == 0) {
         SERIAL_PRINTLNF("Failed to configure Ethernet using DHCP");
@@ -239,11 +220,13 @@ inline void initEthernetShield() {
         SERIAL_PRINTLNF("  DHCP assigned IP %s", Ethernet.localIP());
     }
 #else
-    IPAddress ip(192, 168, 1, 241);
+    IPAddress ip(192, 168, 1, 244);
     Ethernet.begin(mac, ip);
 #endif
-    SERIAL_PRINTLNF("m_ies %d", free_ram());
+    SERIAL_PRINTLNF("m_ies %d", freeMemory());
 }
+
+// --------------------------------------------------------------------------------
 
 #if defined SKETCH_ENABLE_WATCHDOG_TIMER
 inline void initWatchdog() {
@@ -254,6 +237,8 @@ inline void initWatchdog() {
 #else
 inline void initWatchdog() {}
 #endif
+
+// --------------------------------------------------------------------------------
 
 inline void initLEDs() {
     pinMode(3, OUTPUT);
@@ -266,6 +251,8 @@ inline void initLEDs() {
     digitalWrite(9, HIGH);
 }
 
+// --------------------------------------------------------------------------------
+
 void setup() {
     initLEDs();
     initSerialPort();
@@ -277,9 +264,11 @@ void setup() {
     initTdsliteDriver();
     initDatabase();
     SERIAL_PRINTLNF("... setup complete ...");
-    SERIAL_PRINTLNF("m_setup %lu", free_ram());
+    SERIAL_PRINTLNF("m_setup %lu", freeMemory());
     initWatchdog();
 }
+
+// --------------------------------------------------------------------------------
 
 void loop() {
     ApplicationMonitor.IAmAlive();

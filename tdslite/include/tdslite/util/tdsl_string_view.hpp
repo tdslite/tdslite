@@ -18,6 +18,9 @@
 namespace tdsl {
     /**
      * Wide-character (16 bit) string view
+     *
+     * If given character array is nul-terminated, the span
+     * will omit the nul terminator from span range.
      */
     struct wstring_view : public tdsl::u16char_view {
 
@@ -36,8 +39,10 @@ namespace tdsl {
 
     /**
      * String view
+     *
+     * If given character array is nul-terminated, the span
+     * will omit the nul terminator from span range.
      */
-
     struct string_view : public tdsl::char_view {
         using ::tdsl::char_view::span;
 
@@ -56,8 +61,8 @@ namespace tdsl {
 
 #if defined(PROGMEM) && !defined(TDSL_FORCE_DISABLE_PROGMEM_STRING_VIEW)
 
-    #include <tdslite/util/tdsl_binary_reader.hpp>
-    #include <tdslite/util/tdsl_type_traits.hpp>
+#include <tdslite/util/tdsl_binary_reader.hpp>
+#include <tdslite/util/tdsl_type_traits.hpp>
 
 namespace tdsl {
     struct progmem_forward_iterator;
@@ -105,7 +110,6 @@ namespace tdsl {
          *
          * @return Char value read from program memory
          */
-
         inline char operator*() const {
             // binary_reader uses memcpy to read,by default
             // so it is sufficient to override the memcpy
@@ -173,7 +177,7 @@ namespace tdsl {
                 element_count -= 1;
             }
         }
-    #if defined pgm_read_byte_near
+#if defined pgm_read_byte_near
         /**
          * Array subscript operator
          *
@@ -187,9 +191,9 @@ namespace tdsl {
             //     function to be " "available!");
             return pgm_read_byte_near(tdsl::char_view::begin() + idx);
         }
-    #else
-        #error "pgm_read_byte_near macro is undefined!"
-    #endif
+#else
+#error "pgm_read_byte_near macro is undefined!"
+#endif
 
         /**
          * Get an iterator to the beginning of the
@@ -211,6 +215,13 @@ namespace tdsl {
             return progmem_forward_iterator{
                 tdsl::char_view{tdsl::char_view::end(), tdsl::char_view::end()}
             };
+        }
+
+        /**
+         * Get raw data pointer
+         */
+        inline const char * raw_data() const noexcept {
+            return data();
         }
     };
 
@@ -243,20 +254,20 @@ inline bool operator!=(const tdsl::progmem_forward_iterator & a,
     return !operator==(a, b);
 };
 
-    /**
-     * Auto-wraps and stores a string literal in
-     * PROGMEM. Returns a tdsl::progmem_string_view
-     * to created progmem string.
-     *
-     * @param [in] X The string literal
-     */
-    #define TDSL_PMEMSTR(X)                                                                        \
-        tdsl::progmem_string_view {                                                                \
-            [&]() -> decltype(X) {                                                                 \
-                static const char __pm [] PROGMEM = X;                                             \
-                return __pm;                                                                       \
-            }()                                                                                    \
-        }
+/**
+ * Auto-wraps and stores a string literal in
+ * PROGMEM. Returns a tdsl::progmem_string_view
+ * to created progmem string.
+ *
+ * @param [in] X The string literal
+ */
+#define TDSL_PMEMSTR(X)                                                                            \
+    tdsl::progmem_string_view {                                                                    \
+        [&]() -> decltype(X) {                                                                     \
+            static const char __pm [] PROGMEM = X;                                                 \
+            return __pm;                                                                           \
+        }()                                                                                        \
+    }
 
 #endif
 

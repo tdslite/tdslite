@@ -1,10 +1,10 @@
 #if defined ESP8266
-    #include <ESP8266WiFi.h>
+#include <ESP8266WiFi.h>
 #elif defined ESP32
-    #include <WiFi.h>
-    #include <esp_task_wdt.h>
+#include <WiFi.h>
+#include <esp_task_wdt.h>
 #else
-    #error "Architecture unrecognized by this code."
+#error "Architecture unrecognized by this code."
 #endif
 
 #define SKETCH_TDSL_NETBUF_SIZE 512 * 16
@@ -47,7 +47,9 @@
 
 #ifndef SKETCH_NO_TDSLITE
 
-    #include <tdslite.h>
+#include <tdslite.h>
+
+// --------------------------------------------------------------------------------
 
 /**
  * Prints INFO/ERROR messages from SQL server to stdout.
@@ -61,6 +63,8 @@ static void info_callback(void *, const tdsl::tds_info_token & token) noexcept {
     SERIAL_PRINTLNF("");
 }
 
+// --------------------------------------------------------------------------------
+
 /**
  * Handle row data coming from tdsl driver
  *
@@ -72,11 +76,11 @@ static void row_callback(void * u, const tdsl::tds_colmetadata_token & colmd,
                          const tdsl::tdsl_row & row) {
     // Feed the dog so he won't bite us
 
-    #if defined ESP8266
+#if defined ESP8266
     ESP.wdtFeed();
-    #elif defined ESP32
+#elif defined ESP32
     esp_task_wdt_reset();
-    #endif
+#endif
 
     SERIAL_PRINTF("row: ");
 
@@ -91,12 +95,16 @@ static void row_callback(void * u, const tdsl::tds_colmetadata_token & colmd,
 tdsl::uint8_t net_buf [SKETCH_TDSL_NETBUF_SIZE] = {};
 tdsl::arduino_driver<WiFiClient> driver{net_buf};
 
+// --------------------------------------------------------------------------------
+
 void tdslite_database_init() noexcept {
     SERIAL_PRINTLNF("... init database begin...");
     const int r = driver.execute_query("CREATE TABLE #hello_world(a int, b int, c varchar(255));");
     (void) r;
     SERIAL_PRINTLNF("... init database end, result `%d`...", r);
 }
+
+// --------------------------------------------------------------------------------
 
 bool tdslite_setup() noexcept {
     SERIAL_PRINTLNF("... init tdslite ...");
@@ -132,6 +140,8 @@ bool tdslite_setup() noexcept {
     return true;
 }
 
+// --------------------------------------------------------------------------------
+
 inline void tdslite_loop() noexcept {
     static int i = 0;
     driver.execute_query(
@@ -154,12 +164,16 @@ inline void initDatabase() {}
 
 #endif
 
+// --------------------------------------------------------------------------------
+
 inline bool init_serial() {
     Serial.begin(112500);
     while (!Serial)
         ;
     return true;
 }
+
+// --------------------------------------------------------------------------------
 
 inline bool wifi_setup() {
     SERIAL_PRINTLNF("... wifi setup ...");
@@ -176,6 +190,8 @@ inline bool wifi_setup() {
     return true;
 }
 
+// --------------------------------------------------------------------------------
+
 void setup() {
     bool r = {false};
     r      = init_serial();
@@ -189,6 +205,8 @@ void setup() {
     }
     SERIAL_PRINTLNF("--- setup finished ---");
 }
+
+// --------------------------------------------------------------------------------
 
 void loop() {
     tdslite_loop();

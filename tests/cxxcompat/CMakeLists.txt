@@ -1,3 +1,12 @@
+# _________________________________________________
+# tdslite C++ 14/17/20 compatibility tests
+#
+# @file   CMakeLists.txt
+# @author Mustafa K. GILOR <mustafagilor@gmail.com>
+# @date   12.04.2022
+#
+# SPDX-License-Identifier:    MIT
+# _________________________________________________
 
 set(ALL_TEST_SOURCES ../unit/ut_tdslite.cpp ../unit/ut_binary_reader.cpp ../unit/ut_byte_swap.cpp ../unit/ut_span.cpp ../unit/ut_tdsl_login_context.cpp ../integration/it_tdsl_login_context.cpp)
 

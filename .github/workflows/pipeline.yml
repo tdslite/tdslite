@@ -108,9 +108,11 @@ jobs:
         run: |
           bash tdslite/platform/arduino/prep-lib.sh
           pio lib --global install arduino-libraries/Ethernet
-          pio lib --global install build/arduino-libpack-root/tdslite.zip
+          pio lib --global install ./build/arduino-libpack-root/tdslite.zip
+          pio lib --global install ./vendor/CrashMonitor
+          pio lib --global install ./vendor/MemoryFree
       - name: build-avr
         # A few selection of AVR boards, to be extended later.
-        run: pio ci --board nanoatmega328 --board uno --board megaatmega1280 --board megaatmega2560 --board miniatmega328 --board leonardo examples/arduino/arduino.ino
+        run: pio ci --board nanoatmega328 --board uno --board megaatmega1280 --board megaatmega2560 --board miniatmega328 tests/sketches/arduino/arduino.ino
       - name: build-esp
-        run: pio ci --board nodemcu-32s --board nodemcuv2 examples/esp/esp.ino
+        run: pio ci --board nodemcu-32s --board nodemcuv2 tests/sketches/esp/esp.ino

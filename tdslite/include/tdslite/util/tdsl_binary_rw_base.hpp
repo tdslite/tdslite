@@ -1,15 +1,16 @@
 /**
- * _________________________________________________
+ * ____________________________________________________
+ * Base class implementation for binary_<reader/writer>
  *
- * @file   tdsl_progressive_cursor_mixin.hpp
+ * @file   tdsl_binary_rw_base.hpp
  * @author Mustafa Kemal GILOR <mustafagilor@gmail.com>
  * @date   18.11.2022
  *
  * SPDX-License-Identifier:    MIT
- * _________________________________________________
+ * ____________________________________________________
  */
-#ifndef TDSL_UTIL_TDS_PROGRESSIVE_CURSOR_MIXIN_HPP
-#define TDSL_UTIL_TDS_PROGRESSIVE_CURSOR_MIXIN_HPP
+#ifndef TDSL_UTIL_TDSL_BINARY_RW_BASE_HPP
+#define TDSL_UTIL_TDSL_BINARY_RW_BASE_HPP
 
 #include <tdslite/util/tdsl_macrodef.hpp>
 #include <tdslite/util/tdsl_inttypes.hpp>
@@ -18,6 +19,12 @@
 #include <tdslite/util/tdsl_debug_print.hpp>
 
 namespace tdsl {
+
+    /**
+     * Binary R/W base class
+     *
+     * @tparam Derived Deriving binary R/W type
+     */
     template <typename Derived>
     struct binary_reader_writer_base {
 

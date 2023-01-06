@@ -137,11 +137,6 @@ namespace tdsl {
      */
     template <typename T = const tdsl::uint8_t>
     struct span : public detail::span_conditional_interface<span<T>, T> {
-
-        // select size type depending on pointer size?
-        // there is no point of having a size variable with 4 bytes
-        // if address space is only 2 bytes
-
         using element_type               = T;
         using value_type                 = typename traits::remove_cv<T>::type;
         using size_type                  = tdsl::size_t;

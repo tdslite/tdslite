@@ -42,46 +42,6 @@ static inline std::string u16str_as_ascii(tdsl::u16char_view span) noexcept {
     return r;
 }
 
-void field2str(const tdsl::tds_column_info & colinfo, const tdsl::tdsl_field & field,
-               tdsl::char_span buf,
-               int (*snprintf_fn)(char *, size_t n, const char *, ...) = std::snprintf) {
-
-    switch (colinfo.type) {
-        case tdsl::data_type::NULLTYPE:
-            snprintf_fn(buf.data(), buf.size_bytes(), "<NULL>");
-            break;
-        case tdsl::data_type::INT1TYPE:
-            snprintf_fn(buf.data(), buf.size_bytes(), "%d", field.as<tdsl::int8_t>());
-            break;
-        case tdsl::data_type::INTNTYPE:
-            switch (colinfo.typeprops.u8l.length) {
-                case 1:
-                    snprintf_fn(buf.data(), buf.size_bytes(), "%d", field.as<tdsl::int8_t>());
-                    break;
-                case 2:
-                    snprintf_fn(buf.data(), buf.size_bytes(), "%d", field.as<tdsl::int16_t>());
-                    break;
-                case 4:
-                    snprintf_fn(buf.data(), buf.size_bytes(), "%ld", field.as<tdsl::int32_t>());
-                    break;
-                case 8:
-                    snprintf_fn(buf.data(), buf.size_bytes(), "%lld", field.as<tdsl::int64_t>());
-                    break;
-                default:
-                    snprintf_fn(buf.data(), buf.size_bytes(), "<INVALID>");
-                    break;
-            }
-
-            break;
-        case tdsl::data_type::BITTYPE:
-            snprintf_fn(buf.data(), buf.size_bytes(),
-                        (field.as<tdsl::int8_t>() == 0 ? "FALSE" : "TRUE"));
-            break;
-        default:
-            break;
-    }
-}
-
 /**
  * Helper function to convert a field value to string
  *

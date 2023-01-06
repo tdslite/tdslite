@@ -160,9 +160,9 @@
 #define TDSL_CXX20_VER 202002L
 
 #if __cplusplus >= TDSL_CXX14_VER
-    #define TDSL_CXX14_CONSTEXPR constexpr
+#define TDSL_CXX14_CONSTEXPR constexpr
 #else
-    #define TDSL_CXX14_CONSTEXPR
+#define TDSL_CXX14_CONSTEXPR
 #endif
 
 #endif

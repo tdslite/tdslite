@@ -38,7 +38,7 @@ tdslite is a standalone library with no external dependencies, and it does not r
   ```bash
      bash tdslite/platform/arduino/prep-lib.sh
      pio lib --global install arduino-libraries/Ethernet
-     pip lib --global install build/arduino-libpack-root/tdslite.zip
+     pio lib --global install build/arduino-libpack-root/tdslite.zip
      pio boards --json-output | jq -c '.[] | select(.name|contains("Arduino")) | .id' | xargs printf -- '--board\0%s\0' | tr '\n' '\0' | xargs -0 pio ci examples/arduino/arduino.ino
   ```
   - For all boards with ESP MCU's : `pio boards --json-output | jq -c '.[] | select(.mcu|contains("ESP")) | .id' | xargs printf -- '--board\0%s\0' | tr '\n' '\0' | xargs -0 pio ci examples/esp/esp.ino` 

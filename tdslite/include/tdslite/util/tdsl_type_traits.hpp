@@ -2,11 +2,16 @@
  * ____________________________________________________
  * Common type traits needed by the library
  *
+ * These type traits are exactly same with the traditional
+ * C++ standard library implementation. Some of the platforms
+ * (e.g. Arduino) does not include the full C++ standard library
+ * so these are mostly here for cross-platform compatibility.
+ *
  * @file   tds_type_traits.hpp
  * @author Mustafa Kemal GILOR <mustafagilor@gmail.com>
  * @date   12.04.2022
  *
- * SPDX-License-Identifier:    MIT
+ * SPDX-License-Identifier: MIT
  * ____________________________________________________
  */
 
@@ -14,11 +19,6 @@
 #define TDSL_UTIL_TYPE_TRAITS_HPP
 
 namespace tdsl { namespace traits {
-
-    // These type traits are exactly same with the traditional
-    // C++ standard library implementation. Some of the platforms
-    // (e.g. Arduino) does not include the full C++ standard library
-    // so these are mostly here for cross-platform compatibility.
 
     template <class T, T V>
     struct integral_constant {

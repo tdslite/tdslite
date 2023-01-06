@@ -10,16 +10,16 @@
  */
 
 #ifndef TDSL_UTIL_TDS_BINARY_READER_HPP
-    #define TDSL_UTIL_TDS_BINARY_READER_HPP
+#define TDSL_UTIL_TDS_BINARY_READER_HPP
 
-    #include <tdslite/util/tdsl_byte_swap.hpp>
-    #include <tdslite/util/tdsl_inttypes.hpp>
-    #include <tdslite/util/tdsl_endian.hpp>
-    #include <tdslite/util/tdsl_span.hpp>
-    #include <tdslite/util/tdsl_macrodef.hpp>
-    #include <tdslite/util/tdsl_binary_rw_base.hpp>
+#include <tdslite/util/tdsl_byte_swap.hpp>
+#include <tdslite/util/tdsl_inttypes.hpp>
+#include <tdslite/util/tdsl_endian.hpp>
+#include <tdslite/util/tdsl_span.hpp>
+#include <tdslite/util/tdsl_macrodef.hpp>
+#include <tdslite/util/tdsl_binary_rw_base.hpp>
 
-    #include <string.h>
+#include <string.h>
 
 namespace tdsl {
 
@@ -156,16 +156,16 @@ namespace tdsl {
 
 } // namespace tdsl
 
-    /**
-     * shortcut macro to return N if READER does
-     * not have at least N bytes
-     */
-    #define TDSL_RETIF_LESS_BYTES(READER, N)                                                       \
-        do {                                                                                       \
-            if (not READER.has_bytes(N)) {                                                         \
-                return N - READER.remaining_bytes();                                               \
-            }                                                                                      \
-        } while (0)
+/**
+ * shortcut macro to return N if READER does
+ * not have at least N bytes
+ */
+#define TDSL_RETIF_LESS_BYTES(READER, N)                                                           \
+    do {                                                                                           \
+        if (not READER.has_bytes(N)) {                                                             \
+            return N - READER.remaining_bytes();                                                   \
+        }                                                                                          \
+    } while (0)
 
 #endif
 
