@@ -40,10 +40,10 @@
         "doxdocgen.generic.dateFormat": "DD.MM.YYYY",
         "doxdocgen.generic.dateTemplate": "@date   {date}",
         "clangd.arguments": [
-            "-log=verbose",
+            "-log=info",
             "-pretty",
             "--background-index",
-            "--compile-commands-dir=/workspace",
+            "--compile-commands-dir=${command:cmake.buildDirectory}",
             "-header-insertion=never"
         ],
         "clangd.serverCompletionRanking": true,

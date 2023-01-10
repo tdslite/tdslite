@@ -20,6 +20,8 @@
 #include <tdslite/detail/token/tds_done_token.hpp>
 #include <tdslite/detail/token/tds_info_token.hpp>
 #include <tdslite/detail/token/tds_colmetadata_token.hpp>
+#include <tdslite/detail/tdsl_data_type.hpp>
+#include <tdslite/detail/tdsl_sql_parameter.hpp>
 
 #include <tdslite/util/tdsl_span.hpp>
 #include <tdslite/util/tdsl_macrodef.hpp>
@@ -42,6 +44,13 @@ namespace tdsl { namespace detail {
         using row_cref             = const tdsl::tdsl_row &;
         using row_callback_fn_t    = void (*)(void *, column_metadata_cref, row_cref);
 
+        struct command_options {
+            struct {
+                tdsl::uint8_t read_colnames : 1;
+                tdsl::uint8_t reserved : 7;
+            } flags = {};
+        };
+
     private:
         using self_type                = command_context<NetImpl>;
         using string_writer_type       = string_parameter_writer<tds_context_type>;
@@ -50,11 +59,7 @@ namespace tdsl { namespace detail {
         // --------------------------------------------------------------------------------
 
         tds_context_type & tds_ctx;
-
-        struct {
-            tdsl::uint8_t read_colnames : 1;
-            tdsl::uint8_t reserved : 7;
-        } flags = {};
+        command_options options;
 
     public:
         // --------------------------------------------------------------------------------
@@ -64,9 +69,8 @@ namespace tdsl { namespace detail {
          *
          * @param [in] ctx The TDS context associated with the command
          */
-        command_context(tds_context_type & ctx) noexcept : tds_ctx(ctx) {
-            // Disabled by default
-            // this->flags.read_colnames           = {false};
+        command_context(tds_context_type & ctx, const command_options & opts = {}) noexcept :
+            tds_ctx(ctx), options(opts) {
 
             tds_ctx.callbacks.sub_token_handler = {this, &token_handler};
 
@@ -111,6 +115,157 @@ namespace tdsl { namespace detail {
             tds_ctx.receive_tds_pdu();
             // The state will be updated upon receiving the response
             return qstate.affected_rows;
+        }
+
+        // --------------------------------------------------------------------------------
+
+        enum class e_proc_id : tdsl::uint8_t
+        {
+            sp_cursor         = 1,
+            sp_cursoropen     = 2,
+            sp_cursorprepare  = 3,
+            sp_cursorexecute  = 4,
+            sp_cursorprepexec = 5,
+            sp_cursorfetch    = 7,
+            sp_cursoroption   = 8,
+            sp_cursorclose    = 9,
+            sp_executesql     = 10,
+            sp_prepare        = 11,
+            sp_execute        = 12,
+            sp_prepexec       = 13,
+            sp_prepexecrpc    = 14,
+            sp_unprepare      = 15
+        };
+
+        enum class e_rpc_mode : tdsl::uint8_t
+        {
+            executesql = static_cast<tdsl::uint8_t>(e_proc_id::sp_executesql),
+            prepexec   = static_cast<tdsl::uint8_t>(e_proc_id::sp_prepexec),
+        };
+
+        enum class e_rpc_error_code : tdsl::uint8_t
+        {
+            invalid_mode = 1,
+        };
+
+        using execute_rpc_result = tdsl::expected<tdsl::uint32_t, e_rpc_error_code>;
+
+        template <typename T, traits::enable_when::same_any_of<T, string_view, wstring_view,
+                                                               struct progmem_string_view> = true>
+        inline execute_rpc_result execute_rpc(
+            T command, tdsl::span<sql_parameter_binding> params = {},
+            e_rpc_mode mode = {e_rpc_mode::executesql}, void * rcb_uptr = nullptr,
+            row_callback_fn_t row_callback = +[](void *, const tds_colmetadata_token &,
+                                                 const tdsl_row &) -> void {}) noexcept {
+            // Validate mode
+            switch (mode) {
+                case e_rpc_mode::executesql:
+                case e_rpc_mode::prepexec:
+                    break;
+                default:
+                    return execute_rpc_result::unexpected(e_rpc_error_code::invalid_mode);
+            }
+
+            tds_ctx.write_le(static_cast<tdsl::uint16_t>(0xffff)); // procedure name length
+            tds_ctx.write_le(static_cast<tdsl::uint16_t>(mode));   // stored procedure id
+            tds_ctx.write_le(static_cast<tdsl::uint16_t>(0));      // option flags
+
+            for (const auto & param : params) {
+                tds_ctx.write_le(static_cast<tdsl::uint8_t>(0));          // name length
+                tds_ctx.write_le(static_cast<tdsl::uint8_t>(0));          // status flags
+                tds_ctx.write_le(static_cast<tdsl::uint8_t>(param.type)); // type
+                const auto & dprops        = get_data_type_props(param.type);
+
+                auto maybe_write_collation = [&]() {
+                    if (dprops.flags.has_collation) {
+                        // put collation data as well
+                        tds_ctx.write_le(tdsl::uint32_t{0});
+                        tds_ctx.write_le(tdsl::uint8_t{0});
+                    }
+                };
+                switch (dprops.size_type) {
+                    case e_tds_data_size_type::fixed:
+                        // Do nothing.
+                        break;
+                    case e_tds_data_size_type::var_u8:
+                        tds_ctx.write_le(static_cast<tdsl::uint8_t>(0xFF)); // max length - 1 byte
+                        maybe_write_collation();
+                        tds_ctx.write_le(static_cast<tdsl::uint8_t>(param.value.size_bytes()));
+                        break;
+                    case e_tds_data_size_type::var_u16:
+                        tds_ctx.write_le(
+                            static_cast<tdsl::uint16_t>(0xFFFF)); // max length - 2 bytes
+                        maybe_write_collation();
+                        tds_ctx.write_le(static_cast<tdsl::uint16_t>(param.value.size_bytes()));
+
+                        break;
+                    case e_tds_data_size_type::var_u32:
+                        tds_ctx.write_le(0xFFFFFFFF); // max length - 2 bytes
+                        maybe_write_collation();
+                        tds_ctx.write_le(static_cast<tdsl::uint32_t>(param.value.size_bytes()));
+                        break;
+                    case e_tds_data_size_type::var_precision:
+                        break;
+                    case e_tds_data_size_type::unknown:
+                        TDSL_TRAP;
+                        TDSL_UNREACHABLE;
+                        break;
+                }
+
+                tds_ctx.write(param.value);
+            }
+
+            // Parameter list
+
+            // for each parameter in parameter list
+            // name length - name
+            // status flags
+            // type info
+            //  type
+            //  maxlen??
+            // value
+            //  length
+            //  data
+
+            /**
+             *  TYPE_INFO=FIXEDLENTYPE
+                /
+                (VARLENTYPE TYPE_VARLEN [COLLATION])
+                /
+                (VARLENTYPE TYPE_VARLEN [PRECISION SCALE])
+                /
+                (VARLENTYPE SCALE) ; (introduced in TDS 7.3)
+                /
+                VARLENTYPE
+                ; (introduced in TDS 7.3)
+                /
+                (PARTLENTYPE
+                [USHORTMAXLEN]
+             *
+             */
+
+            // sp_execute format
+            // SELECT * FROM TEST WHERE A = @name, @name int, @name = 5
+
+            // SELECT * FROM TEST WHERE A = @name
+            // paramlist
+            //  name|int|AABBCCDD
+
+            // parameter* parameter_count;
+
+            // select * from q where x = @P1;
+
+            // Reset query state object & reassign row callback
+            qstate              = {};
+            qstate.row_callback = {rcb_uptr, row_callback};
+            // Write the SQL command
+            string_writer_type::write(tds_ctx, command);
+            // Send the command
+            tds_ctx.send_tds_pdu(e_tds_message_type::rpc);
+            // Receive the response
+            tds_ctx.receive_tds_pdu();
+            // The state will be updated upon receiving the response
+            return tdsl::uint32_t{qstate.affected_rows};
         }
 
         // --------------------------------------------------------------------------------
@@ -204,7 +359,7 @@ namespace tdsl { namespace detail {
             // allocate memory for the column name array.
             // Note that this just allocates memory for the pointers,
             // not the actual column names.
-            if (flags.read_colnames) {
+            if (options.flags.read_colnames) {
                 // Allocate column name array
                 if (not qstate.colmd.allocate_column_name_array(column_count)) {
                     result.status = token_handler_status::not_enough_memory;
@@ -327,7 +482,7 @@ namespace tdsl { namespace detail {
                     return result;
                 }
 
-                if (not flags.read_colnames) {
+                if (not options.flags.read_colnames) {
                     TDSL_EXPECT(rr.advance(colname_len_in_bytes));
                 }
                 else {

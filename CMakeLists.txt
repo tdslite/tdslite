@@ -53,3 +53,13 @@ add_subdirectory(tests/unit)
 add_subdirectory(tests/integration)
 add_subdirectory(tests/cxxcompat)
 add_subdirectory(examples/minimal-sql-shell)
+
+# Remove .gcda files. clang is having trouble merging
+# multiple .gcda files from different compilations and
+# causes executables to emit a long "corrupt arc tag"
+# message to console.
+add_custom_target(
+    remove_gcda_files ALL
+    COMMAND find "${PROJECT_BINARY_DIR}" -name "*.gcda" -exec rm {} "\;"
+    COMMENT "Removing .gcda files..."
+)

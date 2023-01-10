@@ -54,6 +54,14 @@ make_component(
             SUFFIX .progmem_string_view
             SOURCES ut_progmem_string_view.cpp
 
+    TARGET  TYPE UNIT_TEST
+            SUFFIX .tdsl_data_type
+            SOURCES ut_tdsl_data_type.cpp
+
+    TARGET  TYPE UNIT_TEST
+            SUFFIX .sql_parameter
+            SOURCES ut_sql_parameter.cpp
+
     ALL_NO_AUTO_COMPILATION_UNIT
     ALL_WITH_COVERAGE
     ALL_COVERAGE_TARGETS tdslite

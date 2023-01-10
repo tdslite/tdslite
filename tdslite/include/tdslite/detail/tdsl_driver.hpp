@@ -31,6 +31,7 @@ namespace tdsl { namespace detail {
         using pmem_login_parameters_type = typename login_context_type::pmem_login_parameters;
         using wlogin_parameters_type     = typename login_context_type::wlogin_parameters;
         using sql_command_type           = detail::command_context<NetImpl>;
+        using sql_command_options_type   = typename sql_command_type::command_options;
 
         enum class e_driver_error_code
         {
@@ -165,7 +166,8 @@ namespace tdsl { namespace detail {
                 +[](void *, const tds_colmetadata_token &, const tdsl_row &) -> void {}) noexcept
             -> tdsl::uint32_t {
             TDSL_ASSERT(tds_ctx.is_authenticated());
-            return sql_command_type{tds_ctx}.execute_query(command, uptr, row_callback);
+            return sql_command_type{tds_ctx, command_options}.execute_query(command, uptr,
+                                                                            row_callback);
         }
 
         // --------------------------------------------------------------------------------
@@ -192,12 +194,27 @@ namespace tdsl { namespace detail {
             return execute_query(tdsl::string_view{command}, uptr, row_callback);
         }
 
+        /**
+         * Enable/disable column name reading for the result
+         * set returned from the commands
+         *
+         * @param [in] value The value
+         */
+        inline void option_set_read_column_names(bool value) noexcept {
+            command_options.flags.read_colnames = value;
+        }
+
     private:
         /**
          * Driver's TDS context. All TDS related
          * operations are routed through this object.
          */
         tds_context_type tds_ctx;
+
+        /**
+         * Command options
+         */
+        sql_command_options_type command_options{};
     };
 
 }} // namespace tdsl::detail

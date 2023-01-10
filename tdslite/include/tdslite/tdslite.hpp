@@ -27,6 +27,13 @@ namespace tdsl {
 
     using data_type = detail::e_tds_data_type;
 
+    using detail::sql_parameter;
+    using detail::sql_parameter_bigint;
+    using detail::sql_parameter_binding;
+    using detail::sql_parameter_int;
+    using detail::sql_parameter_smallint;
+    using detail::sql_parameter_tinyint;
+
 } // namespace tdsl
 
 #endif

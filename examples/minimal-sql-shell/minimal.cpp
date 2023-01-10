@@ -147,7 +147,11 @@ static void row_callback(void * u, const tdsl::tds_colmetadata_token & colmd,
         // dump_colmetadata(colmd);
         table.table << fort::header;
         for (tdsl::uint32_t i = 0; i < colmd.columns.size(); i++) {
-            const auto colname = colmd.column_names [i];
+            tdsl::u16char_view colname{};
+            if (colmd.column_names) {
+                colname = colmd.column_names [i];
+            }
+
             const auto colinfo = colmd.columns [i];
             table.table << u16str_as_ascii(colname) + "\n" +
                                tdsl::detail::data_type_to_str(colinfo.type);
@@ -175,6 +179,8 @@ int main(void) {
     tdsl::driver<tdsl::net::tdsl_netimpl_asio> driver{};
     // Use info_callback function for printing user info
     driver.set_info_callback(/*user_ptr=*/nullptr, info_callback);
+    // Enable column name reading
+    driver.option_set_read_column_names(/*value=*/true);
 
     // Define the connection parameters
     decltype(driver)::connection_parameters conn_params;

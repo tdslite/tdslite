@@ -74,13 +74,13 @@ struct tdsl_command_ctx_ut_fixture : public ::testing::Test {
 
     tds_ctx_t tds_ctx;
 
-    uut_t command{tds_ctx};
+    uut_t command_ctx{tds_ctx};
 };
 
 // --------------------------------------------------------------------------------
 
 TEST_F(tdsl_command_ctx_ut_fixture, test_01) {
-    command.execute_query(tdsl::string_view{"SELECT * FROM FOO;"});
+    command_ctx.execute_query(tdsl::string_view{"SELECT * FROM FOO;"});
 
     constexpr std::array<tdsl::uint8_t, 36> expected_packet_bytes{
         0x53, 0x00, 0x45, 0x00, 0x4c, 0x00, 0x45, 0x00, 0x43, 0x00, 0x54, 0x00,
@@ -90,4 +90,25 @@ TEST_F(tdsl_command_ctx_ut_fixture, test_01) {
     ASSERT_EQ(sizeof(expected_packet_bytes), tds_ctx.send_buffer.size());
     ASSERT_EQ(sizeof(expected_packet_bytes), tds_ctx.send_buffer.size());
     ASSERT_THAT(tds_ctx.send_buffer, testing::ElementsAreArray(expected_packet_bytes));
+}
+
+// --------------------------------------------------------------------------------
+
+TEST_F(tdsl_command_ctx_ut_fixture, test_rpc) {
+
+    // declare variable
+    // params = {"@P1 TINYINT", "@P2 varchar(50)"}
+    // bind the value
+
+    tdsl::detail::sql_parameter_tinyint p1;
+    tdsl::detail::sql_parameter_smallint p2;
+    tdsl::detail::sql_parameter_int p3;
+    tdsl::detail::sql_parameter_bigint p4         = 5;
+    p4                                            = tdsl::int64_t{5};
+    tdsl::detail::sql_parameter_binding params [] = {p1, p2, p3, p4};
+    tdsl::uint8_t b                               = p1;
+    (void) b;
+
+    // params[0].value =
+    command_ctx.execute_rpc(tdsl::string_view{"SELECT * FROM TEST WHERE a=@P1"}, params);
 }
