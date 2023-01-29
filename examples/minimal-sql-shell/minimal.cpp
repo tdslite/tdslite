@@ -210,7 +210,7 @@ int main(void) {
             // Create a string view of line
             tdsl::string_view query{line.data(), static_cast<tdsl::uint32_t>(line.size())};
             // Run the query
-            rows_affected = driver.execute_query(query, &table, row_callback);
+            rows_affected = driver.execute_query(query, row_callback, &table);
         }
         printf("[[[Rows affected: %d]]]\n", rows_affected);
     }

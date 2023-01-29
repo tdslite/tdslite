@@ -137,12 +137,13 @@ struct tds_command_ctx_it_fixture : public ::testing::Test {
     }
 
     template <tdsl::uint32_t Times = 1>
-    inline tdsl::uint64_t exec(const owning_string_view & query, void * uptr = nullptr,
-                               uut_t::row_callback_fn_t rcb = default_row_callback) noexcept {
+    inline tdsl::uint64_t exec(const owning_string_view & query,
+                               uut_t::row_callback_fn_t rcb = default_row_callback,
+                               void * uptr                  = nullptr) noexcept {
         tdsl::uint64_t total_rows_affected = 0;
         for (tdsl::uint32_t i = 0; i < Times; i++) {
             total_rows_affected +=
-                command_ctx.execute_query(static_cast<tdsl::string_view>(query), uptr, rcb);
+                command_ctx.execute_query(static_cast<tdsl::string_view>(query), rcb, uptr);
         }
         return total_rows_affected;
     }
@@ -159,7 +160,7 @@ struct tds_command_ctx_it_fixture : public ::testing::Test {
         TDSL_DEBUG_PRINTLN("exec_as_one--query length %lu", q.length());
 
         return command_ctx.execute_query(
-            tdsl::string_view{q.data(), static_cast<tdsl::uint32_t>(q.size())}, uptr, rcb);
+            tdsl::string_view{q.data(), static_cast<tdsl::uint32_t>(q.size())}, rcb, uptr);
     }
 
     tds_ctx_t tds_ctx;
@@ -209,36 +210,36 @@ TEST_F(tds_command_ctx_it_fixture, ctis_10k_rows_multi_packet) {
     };
     ASSERT_EQ(0, exec(cq("q UNIQUEIDENTIFIER", "y varchar(512)", "z int")));
     ASSERT_EQ(10000, exec<10000>(iq("0x0", "'this is a test'", "0")));
-    ASSERT_EQ(10000, exec(sq(), nullptr, callback));
+    ASSERT_EQ(10000, exec(sq(), callback));
     ASSERT_EQ(callback_invoked, 10000);
-    ASSERT_EQ(500, exec(sq("TOP 500 q,y,z", nullptr, "z"), nullptr, callback));
+    ASSERT_EQ(500, exec(sq("TOP 500 q,y,z", nullptr, "z"), callback));
     ASSERT_EQ(callback_invoked, 10500);
 }
 
 TEST_F(tds_command_ctx_it_fixture, ctis_guid_varchar_int_null) {
     ASSERT_EQ(0, exec(cq("q UNIQUEIDENTIFIER", "y varchar(512)", "z int")));
     ASSERT_EQ(3, exec<3>(iq("NULL", "NULL", "NULL")));
-    ASSERT_EQ(3, exec(
-                     sq(), nullptr,
-                     +[](void *, uut_t::column_metadata_cref colmd, uut_t::row_cref row_data) {
-                         default_row_callback(nullptr, colmd, row_data);
-                         for (tdsl::uint32_t i = 0; i < row_data.size(); i++) {
-                             EXPECT_EQ(true, row_data [i].is_null());
-                         }
-                     }));
+    ASSERT_EQ(3,
+              exec(
+                  sq(), +[](void *, uut_t::column_metadata_cref colmd, uut_t::row_cref row_data) {
+                      default_row_callback(nullptr, colmd, row_data);
+                      for (tdsl::uint32_t i = 0; i < row_data.size(); i++) {
+                          EXPECT_EQ(true, row_data [i].is_null());
+                      }
+                  }));
 }
 
 TEST_F(tds_command_ctx_it_fixture, ctis_long_query_test) {
     ASSERT_EQ(0, exec(cq("q UNIQUEIDENTIFIER", "y varchar(512)", "z int")));
     ASSERT_EQ(1, exec_as_one<100>(iq("NULL", "NULL", "NULL")));
-    ASSERT_EQ(100, exec(
-                       sq(), nullptr,
-                       +[](void *, uut_t::column_metadata_cref colmd, uut_t::row_cref row_data) {
-                           default_row_callback(nullptr, colmd, row_data);
-                           for (tdsl::uint32_t i = 0; i < row_data.size(); i++) {
-                               EXPECT_EQ(true, row_data [i].is_null());
-                           }
-                       }));
+    ASSERT_EQ(100,
+              exec(
+                  sq(), +[](void *, uut_t::column_metadata_cref colmd, uut_t::row_cref row_data) {
+                      default_row_callback(nullptr, colmd, row_data);
+                      for (tdsl::uint32_t i = 0; i < row_data.size(); i++) {
+                          EXPECT_EQ(true, row_data [i].is_null());
+                      }
+                  }));
 }
 
 // ------------------------------
@@ -256,7 +257,7 @@ TEST_F(tds_command_ctx_it_fixture, exact_numerics_bit) {
     };
     ASSERT_EQ(0, exec(cq("q bit", "y bit")));
     ASSERT_EQ(1, exec(iq("'true'", "'false'")));
-    ASSERT_EQ(1, exec(sq(), nullptr, validator));
+    ASSERT_EQ(1, exec(sq(), validator));
 }
 
 // --------------------------------------------------------------------------------
@@ -269,7 +270,7 @@ TEST_F(tds_command_ctx_it_fixture, exact_numerics_tinyint) {
     };
     ASSERT_EQ(0, exec(cq("q tinyint", "y tinyint")));
     ASSERT_EQ(1, exec(iq("0", "255")));
-    ASSERT_EQ(1, exec(sq(), nullptr, validator));
+    ASSERT_EQ(1, exec(sq(), validator));
 }
 
 // --------------------------------------------------------------------------------
@@ -282,7 +283,7 @@ TEST_F(tds_command_ctx_it_fixture, exact_numerics_smallint) {
     };
     ASSERT_EQ(0, exec(cq("q smallint", "y smallint")));
     ASSERT_EQ(1, exec(iq("-32768", "32767")));
-    ASSERT_EQ(1, exec(sq(), nullptr, validator));
+    ASSERT_EQ(1, exec(sq(), validator));
 }
 
 // --------------------------------------------------------------------------------
@@ -295,7 +296,7 @@ TEST_F(tds_command_ctx_it_fixture, exact_numerics_int) {
     };
     ASSERT_EQ(0, exec(cq("q int", "y int")));
     ASSERT_EQ(1, exec(iq("-2147483648", "2147483647")));
-    ASSERT_EQ(1, exec(sq(), nullptr, validator));
+    ASSERT_EQ(1, exec(sq(), validator));
 }
 
 // --------------------------------------------------------------------------------
@@ -308,7 +309,7 @@ TEST_F(tds_command_ctx_it_fixture, exact_numerics_bigint) {
     };
     ASSERT_EQ(0, exec(cq("q bigint", "y bigint")));
     ASSERT_EQ(1, exec(iq("-9223372036854775808", "9223372036854775807")));
-    ASSERT_EQ(1, exec(sq(), nullptr, validator));
+    ASSERT_EQ(1, exec(sq(), validator));
 }
 
 // --------------------------------------------------------------------------------
@@ -409,7 +410,7 @@ TEST_F(tds_command_ctx_it_fixture, exact_numerics_numeric) {
         exec({"DROP TABLE #exact_numerics_numeric;"});
         ASSERT_EQ(0, exec(cq(c1.v.c_str(), c2.v.c_str())));
         ASSERT_EQ(1, exec(iq(current_constraint.values [0], current_constraint.values [1])));
-        ASSERT_EQ(1, exec(sq(), reinterpret_cast<void *>(&current_constraint), validator));
+        ASSERT_EQ(1, exec(sq(), validator, reinterpret_cast<void *>(&current_constraint)));
     }
 }
 
@@ -429,7 +430,7 @@ TEST_F(tds_command_ctx_it_fixture, exact_numerics_smallmoney) {
     // smallmoney	- 214,748.3648 to 214,748.3647
     ASSERT_EQ(0, exec(cq("q smallmoney", "y smallmoney")));
     ASSERT_EQ(1, exec(iq("-214748.3648", "214748.3647")));
-    ASSERT_EQ(1, exec(sq(), nullptr, validator));
+    ASSERT_EQ(1, exec(sq(), validator));
 }
 
 // --------------------------------------------------------------------------------
@@ -451,7 +452,7 @@ TEST_F(tds_command_ctx_it_fixture, exact_numerics_money) {
     // smallmoney	- 214,748.3648 to 214,748.3647
     ASSERT_EQ(0, exec(cq("q money", "y money")));
     ASSERT_EQ(1, exec(iq("-922337203685477.5808", "922337203685477.5807")));
-    ASSERT_EQ(1, exec(sq(), nullptr, validator));
+    ASSERT_EQ(1, exec(sq(), validator));
 }
 
 // // --------------------------------------------------------------------------------
@@ -509,7 +510,7 @@ TEST_F(tds_command_ctx_it_fixture, test_rpc) {
 
     command_ctx.execute_rpc(
         tdsl::string_view{"SELECT * FROM #test_rpc WHERE a=@p0 AND b=@p1 AND c=@p2 and d=@p3"},
-        params, tdsl::detail::e_rpc_mode::executesql, nullptr, validator);
+        params, tdsl::detail::e_rpc_mode::executesql, validator);
 }
 
 // --------------------------------------------------------------------------------
@@ -539,7 +540,7 @@ TEST_F(tds_command_ctx_it_fixture, test_rpc_varchar) {
     command_ctx.execute_query(tdsl::string_view{"INSERT INTO #test_rpc VALUES('abc')"});
 
     command_ctx.execute_rpc(tdsl::string_view{"SELECT * FROM #test_rpc WHERE a=@p0"}, params,
-                            tdsl::detail::e_rpc_mode::executesql, nullptr, validator);
+                            tdsl::detail::e_rpc_mode::executesql, validator);
 }
 
 // --------------------------------------------------------------------------------
@@ -569,5 +570,5 @@ TEST_F(tds_command_ctx_it_fixture, test_rpc_nvarchar) {
     command_ctx.execute_query(tdsl::string_view{"INSERT INTO #test_rpc VALUES(N'abc')"});
 
     command_ctx.execute_rpc(tdsl::string_view{"SELECT * FROM #test_rpc WHERE a=@p0"}, params,
-                            tdsl::detail::e_rpc_mode::executesql, nullptr, validator);
+                            tdsl::detail::e_rpc_mode::executesql, validator);
 }

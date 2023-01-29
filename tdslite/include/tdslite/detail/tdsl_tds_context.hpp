@@ -108,7 +108,7 @@ namespace tdsl { namespace detail {
         template <typename... Args>
         tds_context(Args &&... args) noexcept : NetworkImplementation(TDSL_FORWARD(args)...) {
             // Register tds_context message handler to network implementation
-            this->register_packet_data_callback(this, &handle_packet_data);
+            this->register_packet_data_callback(&handle_packet_data, this);
         }
 
     private:
@@ -420,7 +420,7 @@ namespace tdsl { namespace detail {
          * any. The return value would be non-zero only if the reader has partial token data.
          */
         inline tdsl::uint32_t handle_info_token(tdsl::binary_reader<tdsl::endian::little> & rr) {
-            constexpr static auto k_min_info_bytes = 14;
+            static constexpr auto k_min_info_bytes = 14;
             if (not rr.has_bytes(k_min_info_bytes)) {
                 return k_min_info_bytes - rr.remaining_bytes();
             }
@@ -479,8 +479,8 @@ namespace tdsl { namespace detail {
          */
         inline tdsl::uint32_t
         handle_loginack_token(tdsl::binary_reader<tdsl::endian::little> & rr) {
-            constexpr static auto k_min_loginack_bytes = 10;
-            constexpr static auto k_progver_bytes      = 4;
+            static constexpr auto k_min_loginack_bytes = 10;
+            static constexpr auto k_progver_bytes      = 4;
             if (not rr.has_bytes(k_min_loginack_bytes)) {
                 return k_min_loginack_bytes - rr.remaining_bytes();
             }
@@ -530,7 +530,7 @@ namespace tdsl { namespace detail {
         inline tdsl::uint32_t handle_done_token(tdsl::binary_reader<tdsl::endian::little> & rr) {
             // fe
             // 02 00 e0 00 00 00 00 00
-            constexpr static auto k_min_done_bytes = 8;
+            static constexpr auto k_min_done_bytes = 8;
             if (not rr.has_bytes(k_min_done_bytes)) {
                 return k_min_done_bytes - rr.remaining_bytes();
             }

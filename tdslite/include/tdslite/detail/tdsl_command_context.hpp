@@ -75,14 +75,15 @@ namespace tdsl { namespace detail {
         command_context(tds_context_type & ctx, const command_options & opts = {}) noexcept :
             tds_ctx(ctx), options(opts) {
 
-            tds_ctx.callbacks.sub_token_handler = {this, &token_handler};
+            tds_ctx.callbacks.sub_token_handler = {&token_handler, this};
 
             tds_ctx.callbacks.done              = {
-                this, [](void * uptr, const tds_done_token & dt) noexcept -> void {
+                [](void * uptr, const tds_done_token & dt) noexcept -> void {
                     command_context & ctx    = *static_cast<command_context *>(uptr);
                     ctx.qstate.affected_rows = dt.done_row_count;
                     TDSL_DEBUG_PRINT("cc: done token -- affected rows(%d)\n", dt.done_row_count);
-                }};
+                },
+                this};
         }
 
         // --------------------------------------------------------------------------------
@@ -93,8 +94,8 @@ namespace tdsl { namespace detail {
          * @tparam T Auto-deduced string type (char_span or u16char_span)
          *
          * @param [in] command SQL command to execute
-         * @param [in] rcb_uptr Row callback user pointer (optional)
          * @param [in] row_callback Row callback function (optional)
+         * @param [in] rcb_uptr Row callback user pointer (optional)
          *
          * The result set returned by query @p command can be read by providing
          * a row callback function
@@ -104,12 +105,13 @@ namespace tdsl { namespace detail {
         template <typename T, traits::enable_when::same_any_of<T, string_view, wstring_view,
                                                                struct progmem_string_view> = true>
         inline tdsl::uint32_t execute_query(
-            T command, void * rcb_uptr = nullptr,
+            T command,
             row_callback_fn_t row_callback = +[](void *, const tds_colmetadata_token &,
-                                                 const tdsl_row &) -> void {}) noexcept {
+                                                 const tdsl_row &) -> void {},
+            void * rcb_uptr                = nullptr) noexcept {
             // Reset query state object & reassign row callback
             qstate              = {};
-            qstate.row_callback = {rcb_uptr, row_callback};
+            qstate.row_callback = {row_callback, rcb_uptr};
             // Write the SQL command
             string_writer_type::write(tds_ctx, command);
             // Send the command
@@ -131,8 +133,8 @@ namespace tdsl { namespace detail {
          * @param [in] command Command to execute
          * @param [in] params Parameters of the command, if any
          * @param [in] mode RPC execution mode
-         * @param [in] rcb_uptr Row callback user pointer (optional)
          * @param [in] row_callback Row callback function (optional)
+         * @param [in] rcb_uptr Row callback user pointer (optional)
          *
          * The result set returned by query @p command can be read by providing
          * a row callback function
@@ -145,9 +147,10 @@ namespace tdsl { namespace detail {
                                                                struct progmem_string_view> = true>
         inline execute_rpc_result execute_rpc(
             T command, tdsl::span<sql_parameter_binding> params = {},
-            e_rpc_mode mode = {e_rpc_mode::executesql}, void * rcb_uptr = nullptr,
+            e_rpc_mode mode                = {e_rpc_mode::executesql},
             row_callback_fn_t row_callback = +[](void *, const tds_colmetadata_token &,
-                                                 const tdsl_row &) -> void {}) noexcept {
+                                                 const tdsl_row &) -> void {},
+            void * rcb_uptr                = nullptr) noexcept {
             // Validate mode
             switch (mode) {
                 // Allowed & supported modes
@@ -341,7 +344,7 @@ namespace tdsl { namespace detail {
 
             // Reset query state object & reassign row callback
             qstate              = {};
-            qstate.row_callback = {rcb_uptr, row_callback};
+            qstate.row_callback = {row_callback, rcb_uptr};
 
             // Send the command
             tds_ctx.send_tds_pdu(e_tds_message_type::rpc);
@@ -456,7 +459,7 @@ namespace tdsl { namespace detail {
             // Absolute minimum COLMETADATA bytes, regardless of data type
             static constexpr auto k_colinfo_min_bytes = 6; // user_type + flags + type + colname len
 
-            auto colindex                             = 0;
+            tdsl::uint16_t colindex                   = 0;
 
             // Main column metadata read loop
             while (colindex < column_count && rr.has_bytes(k_colinfo_min_bytes)) {

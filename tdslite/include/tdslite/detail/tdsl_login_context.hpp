@@ -89,11 +89,12 @@ namespace tdsl {
              */
             inline login_context(tds_context_type & tc) noexcept : tds_ctx(tc) {
                 tds_ctx.callbacks.loginack = {
-                    this, +[](void * uptr, const tds_login_ack_token &) noexcept -> void {
+                    +[](void * uptr, const tds_login_ack_token &) noexcept -> void {
                         auto self                         = reinterpret_cast<self_type *>(uptr);
                         // Mark current context as `authenticated`
                         self->tds_ctx.flags.authenticated = {true};
-                    }};
+                    },
+                    this};
             }
 
             inline ~login_context() = default;
@@ -164,7 +165,7 @@ namespace tdsl {
 
             // 14 bytes? 8 = 4
 
-            constexpr static tdsl::uint16_t calc_sizeof_offset_size_section() noexcept {
+            static constexpr tdsl::uint16_t calc_sizeof_offset_size_section() noexcept {
                 return ((static_cast<tdsl::uint16_t>(e_tds_login_parameter_idx::end) - 1) *
                         sizeof(tdsl::uint32_t)) +
                        6 /*client id size*/;

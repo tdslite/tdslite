@@ -254,7 +254,7 @@ void loop() {
         SERIAL_PRINTF("Executing query: ");
         SERIAL_PRINTLNF_PROGMEM(query.raw_data());
         // We're using the row
-        int ra = driver.execute_query(query, nullptr, row_callback);
+        int ra = driver.execute_query(query, row_callback);
         SERIAL_PRINTLNF("Result: %d", ra);
     }
 

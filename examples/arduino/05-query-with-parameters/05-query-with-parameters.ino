@@ -258,7 +258,7 @@ void loop() {
         tdsl::sql_parameter_varchar a{"test"};
         tdsl::sql_parameter_int b{1};
         tdsl::sql_parameter_binding params []{a, b};
-        driver.execute_rpc(query, params, tdsl::rpc_mode::executesql, nullptr, row_callback);
+        driver.execute_rpc(query, params, tdsl::rpc_mode::executesql, row_callback);
         // SERIAL_PRINTLNF("Result: %d", ra);
     }
 

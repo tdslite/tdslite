@@ -150,8 +150,7 @@ inline void tdslite_loop() noexcept {
         "incididunt ut labore et dolore magna aliqua. Semper viverra nam libero justo laoreet sit "
         "amet. Fringilla ut morbi tincidunt augue interdum velit.')");
     if (i++ % 10 == 0) {
-        const auto row_count =
-            driver.execute_query("SELECT * FROM #hello_world;", nullptr, row_callback);
+        const auto row_count = driver.execute_query("SELECT * FROM #hello_world;", row_callback);
         SERIAL_PRINTLNF(">> Report: row count [%d] <<", row_count);
     }
 }

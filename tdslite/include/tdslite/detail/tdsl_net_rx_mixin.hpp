@@ -26,9 +26,9 @@ namespace tdsl { namespace detail {
     template <typename T>
     using register_packet_data_callback_member_fn_t =
         decltype(traits::declval<T>().register_packet_data_callback(
-            static_cast<void *>(0),
             static_cast<tdsl::uint32_t (*)(void *, tdsl::detail::e_tds_message_type,
-                                           tdsl::binary_reader<tdsl::endian::little> &)>(0)));
+                                           tdsl::binary_reader<tdsl::endian::little> &)>(0),
+            static_cast<void *>(0)));
 
     template <typename T>
     using has_register_packet_data_callback_member_fn =
@@ -62,12 +62,12 @@ namespace tdsl { namespace detail {
             static_assert(
                 traits::dependent_bool<
                     detail::has_register_packet_data_callback_member_fn<Derived>::value>::value,
-                "The type NetImpl must implement void register_msg_recv_callback(void*, "
+                "The type NetImpl must implement void register_msg_recv_callback("
                 "tdsl::uint32_t (*)(void *, "
-                "tdsl::detail::e_tds_message_type, byte_view)) function!");
+                "tdsl::detail::e_tds_message_type, byte_view), void*) function!");
             static_assert(traits::dependent_bool<
                               detail::has_do_receive_tds_pdu_member_fn<Derived>::value>::value,
-                          "The type NetImpl must implement void do_receive_tds_pdu( function!");
+                          "The type NetImpl must implement void do_receive_tds_pdu() function!");
         } // namespace detail
 
         /**

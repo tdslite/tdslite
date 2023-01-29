@@ -44,17 +44,17 @@ namespace tdsl {
         // --------------------------------------------------------------------------------
 
         /**
-         * User-supplied opaque pointer.
-         * Will be passed as first argument to the callback function.
+         * Pointer to the  callback function
          */
-        void * user_ptr        = {nullptr};
+        FNTYPE callback_fn_ptr = {nullptr};
 
         // --------------------------------------------------------------------------------
 
         /**
-         * Pointer to the  callback function
+         * User-supplied opaque pointer.
+         * Will be passed as first argument to the callback function.
          */
-        FNTYPE callback_fn_ptr = {nullptr};
+        void * user_ptr        = {nullptr};
 
         // --------------------------------------------------------------------------------
 
@@ -65,14 +65,14 @@ namespace tdsl {
         /**
          * Construct callback
          *
-         * @param [in] user_ptr User pointer
          * @param [in] callback Callback function
+         * @param [in] user_ptr User pointer
          *
          * The @p user_ptr will be passed as first argument to
          * @p callback on every invocation.
          */
-        callback(void * user_ptr, FNTYPE callback) noexcept :
-            user_ptr(user_ptr), callback_fn_ptr(callback){};
+        callback(FNTYPE callback, void * user_ptr) noexcept :
+            callback_fn_ptr(callback), user_ptr(user_ptr){};
 
         // --------------------------------------------------------------------------------
 
