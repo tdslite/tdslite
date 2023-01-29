@@ -1,6 +1,6 @@
-The output below is compilation result of `examples/esp/esp.ino` in all platform io supported boards that has ESP* MCU (@01/12/2022).
+The output below is compilation result of `examples/esp/esp.cpp` in all platform io supported boards that has ESP* MCU (@01/12/2022).
 
-`pio boards --json-output | jq -c '.[] | select(.mcu|contains("ESP")) | .id' | xargs printf -- '--board\0%s\0' | tr '\n' '\0' | xargs -0 pio ci examples/esp/esp.ino`
+`pio boards --json-output | jq -c '.[] | select(.mcu|contains("ESP")) | .id' | xargs printf -- '--board\0%s\0' | tr '\n' '\0' | xargs -0 pio ci examples/esp/esp.cpp`
 
 ```bash
 Environment                       Status    Duration
@@ -231,6 +231,7 @@ unphone8                          SUCCESS   00:00:05.474
 unphone9                          SUCCESS   00:00:05.382
 ```
 
+`pio boards --json-output | jq -c '.[] | select(.mcu|contains("AVR")) | .id' | xargs printf -- '--board\0%s\0' | tr '\n' '\0' | xargs -0 env PLATFORMIO_BUILD_FLAGS=-DCI_BUILD pio ci --project-option="lib_ignore=CrashMonitor" tests/sketches/arduino/arduino.cpp`
 
 ```bash
 Environment         Status    Duration

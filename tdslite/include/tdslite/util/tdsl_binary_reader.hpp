@@ -55,16 +55,22 @@ namespace tdsl {
         using span_type::end;
         using span_type::size_bytes;
 
+        // --------------------------------------------------------------------------------
+
         /**
          * Copy constructor
          */
         explicit constexpr binary_reader(const span_type & other) noexcept : span_type(other) {}
+
+        // --------------------------------------------------------------------------------
 
         /**
          * Move constructor
          */
         explicit constexpr binary_reader(span_type && other) noexcept :
             span_type(TDSL_MOVE(other)) {}
+
+        // --------------------------------------------------------------------------------
 
         /**
          * Read a value with type T from current reader position.
@@ -83,6 +89,8 @@ namespace tdsl {
             return tdsl::swap_endianness<ReadEndianness, tdsl::endian::native>(read_raw<T>());
         }
 
+        // --------------------------------------------------------------------------------
+
         /**
          * Make a subreader with @p size at current position.
          *
@@ -100,6 +108,8 @@ namespace tdsl {
             return binary_reader<SubreaderEndianness>(this->current(), size);
         }
 
+        // --------------------------------------------------------------------------------
+
         /**
          * Read `number_of_elements` elements from current reader position and progress
          * reader position by size of read.
@@ -116,6 +126,8 @@ namespace tdsl {
             return span_type(/*begin=*/nullptr, /*end=*/nullptr);
         }
 
+        // --------------------------------------------------------------------------------
+
         /**
          * Read a value with type T from current reader position,
          * without converting its' endianness and then advance the
@@ -130,6 +142,8 @@ namespace tdsl {
             this->do_advance(sizeof(T));
             return result;
         }
+
+        // --------------------------------------------------------------------------------
 
         /**
          * Read a value with type T from current reader position,
@@ -156,6 +170,8 @@ namespace tdsl {
 
 } // namespace tdsl
 
+// --------------------------------------------------------------------------------
+
 /**
  * shortcut macro to return N if READER does
  * not have at least N bytes
@@ -169,6 +185,8 @@ namespace tdsl {
 
 #endif
 
+// --------------------------------------------------------------------------------
+
 #define TDSL_TRY_READ_VARCHAR(TYPE, VARNAME, READER)                                               \
     const auto VARNAME##_octets = (READER.read<TYPE>() * 2);                                       \
     if (not READER.has_bytes(VARNAME##_octets)) {                                                  \
@@ -176,8 +194,12 @@ namespace tdsl {
     }                                                                                              \
     const auto VARNAME = READER.read(VARNAME##_octets)
 
+// --------------------------------------------------------------------------------
+
 #define TDSL_TRY_READ_U16_VARCHAR(VARNAME, READER)                                                 \
     TDSL_TRY_READ_VARCHAR(tdsl::uint16_t, VARNAME, READER)
+
+// --------------------------------------------------------------------------------
 
 #define TDSL_TRY_READ_U8_VARCHAR(VARNAME, READER)                                                  \
     TDSL_TRY_READ_VARCHAR(tdsl::uint8_t, VARNAME, READER)

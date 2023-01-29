@@ -171,7 +171,7 @@ namespace tdsl {
                     // negotiated packet size when sending a packet from client to server, unless it
                     // is the last packet of a request (that is, the EOM bit in Status is ON) or the
                     // client has not logged in.
-                    constexpr static auto k_max_length = 32767;
+                    static constexpr auto k_max_length = 32767;
                     const auto length                  = thdr_rdr.read<tdsl::uint16_t>();
                     if (length < sizeof(detail::tds_header) || length > k_max_length) {
                         // invalid length
@@ -353,13 +353,13 @@ namespace tdsl {
             /**
              * Set TDS packet data callback
              *
-             * @param [in] user_ptr uptr
              * @param [in] cb New callback
+             * @param [in] user_ptr uptr
              */
             TDSL_SYMBOL_VISIBLE inline void
-            register_packet_data_callback(void * user_ptr,
-                                          tds_packet_data_callback::function_type cb) noexcept {
-                packet_data_cb = {user_ptr, cb};
+            register_packet_data_callback(tds_packet_data_callback::function_type cb,
+                                          void * user_ptr) noexcept {
+                packet_data_cb = {cb, user_ptr};
             }
 
             /**

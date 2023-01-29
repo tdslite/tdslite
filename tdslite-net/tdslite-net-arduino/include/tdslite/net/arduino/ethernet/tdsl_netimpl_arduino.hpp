@@ -105,7 +105,8 @@ namespace tdsl { namespace net {
 
                 auto w = this->network_buffer.get_writer();
                 for (auto c : target) {
-                    w->write(c);
+                    auto wr = w->write(c);
+                    (void) wr;
                 }
                 destination_host = w->inuse_span().template rebind_cast<const char>();
             }
@@ -225,13 +226,18 @@ namespace tdsl { namespace net {
         inline network_io_result wait_for_bytes(tdsl::size_t bytes_need,
                                                 tdsl::uint32_t poll_interval = 300,
                                                 tdsl::uint32_t timeout       = 30000) noexcept {
-            const long wait_till = millis() + timeout;
+            const tdsl::uint32_t wait_till = millis() + timeout;
 
             while (client.connected()) {
                 delay(poll_interval / 2);
                 const auto bytes_avail = client.available();
-                if (bytes_avail >= bytes_need) {
-                    return bytes_avail;
+
+                if (bytes_avail < 0) {
+                    return -1;
+                }
+
+                if (static_cast<tdsl::size_t>(bytes_avail) >= bytes_need) {
+                    return static_cast<tdsl::size_t>(bytes_avail);
                 }
                 if (millis() >= wait_till) {
                     // timeout

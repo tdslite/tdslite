@@ -127,7 +127,7 @@ bool tdslite_setup() noexcept {
     // TDS packet size
     // Recommendation: Half of the network buffer.
     params.packet_size = {SKETCH_TDSL_PACKET_SIZE};
-    driver.set_info_callback(nullptr, &info_callback);
+    driver.set_info_callback(&info_callback, nullptr);
     auto cr = driver.connect(params);
     if (not(decltype(driver)::e_driver_error_code::success == cr)) {
         SERIAL_PRINTLNF("... tdslite init failed, connection failed %d ...",

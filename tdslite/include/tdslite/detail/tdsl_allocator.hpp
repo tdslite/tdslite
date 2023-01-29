@@ -17,7 +17,26 @@
 #include <tdslite/util/tdsl_macrodef.hpp>
 #include <tdslite/detail/tdsl_default_allocator.hpp>
 
-#include <new>
+#include <tdslite/util/tdsl_type_traits.hpp>
+
+namespace tdsl {
+    struct placement_new_tag {};
+} // namespace tdsl
+
+/**
+ * tdslite placement new
+ *
+ * Some platforms do not have <new> header in their standard libraries.
+ * In order to avoid including <new>, we're providing a placement new
+ * overload of our own. We're `overloading` the placement new because
+ * the standard prohibits overriding the original placement new functions.
+ *
+ * @param [in] p Object
+ * @return p
+ */
+inline void * operator new(tdsl::size_t, void * p, tdsl::placement_new_tag) noexcept {
+    return p;
+}
 
 namespace tdsl {
 
@@ -115,9 +134,9 @@ namespace tdsl {
                 return nullptr;
             }
 
-            // Invoke placement new for each element
             T * storage = static_cast<T *>(mem);
 
+            // Invoke placement new for each element
             construct(storage, n_elems, TDSL_FORWARD(args)...);
 
             return storage;
@@ -133,7 +152,7 @@ namespace tdsl {
         static void construct(Q * storage, tdsl::uint32_t n_elems, Args &&... args) {
             for (tdsl::uint32_t i = 0; i < n_elems; i++) {
                 // placement new
-                new (storage + i) Q(TDSL_FORWARD(args)...);
+                new (storage + i, placement_new_tag{}) Q(TDSL_FORWARD(args)...);
             }
         }
 

@@ -29,8 +29,8 @@ tdslite is a standalone library with no external dependencies, and it does not r
 
 - In order to serial port passthrough to work in vscode dev container, you will need to add your user to the dialout group, e.g. `sudo usermod -a -G dialout <your-user-name>`. Requires re-login to take effect.
 - Helpful commands to diagnose global memory:
-  - `size /workspace/build/arduino-build/arduino.ino.elf`
-  - `readelf --demangle -a --wide /workspace/build/arduino-build/arduino.ino.elf`
+  - `size /workspace/build/arduino-build/arduino.cpp.elf`
+  - `readelf --demangle -a --wide /workspace/build/arduino-build/arduino.cpp.elf`
 - If you are not seeing your device under /dev/tty* after plugging:
   - Remove `brltty` package: `sudo apt purge brltty`
 - PlatformIO CI try to compile for all Arduino boards:
@@ -39,6 +39,7 @@ tdslite is a standalone library with no external dependencies, and it does not r
      bash tdslite/platform/arduino/prep-lib.sh
      pio lib --global install arduino-libraries/Ethernet
      pio lib --global install build/arduino-libpack-root/tdslite.zip
-     pio boards --json-output | jq -c '.[] | select(.name|contains("Arduino")) | .id' | xargs printf -- '--board\0%s\0' | tr '\n' '\0' | xargs -0 pio ci examples/arduino/arduino.ino
+     pio boards --json-output | jq -c '.[] | select(.name|contains("Arduino")) | .id' | xargs printf -- '--board\0%s\0' | tr '\n' '\0' | xargs -0 pio ci examples/arduino/arduino.cpp
   ```
-  - For all boards with ESP MCU's : `pio boards --json-output | jq -c '.[] | select(.mcu|contains("ESP")) | .id' | xargs printf -- '--board\0%s\0' | tr '\n' '\0' | xargs -0 pio ci examples/esp/esp.ino` 
+
+  - For all boards with ESP MCU's : `pio boards --json-output | jq -c '.[] | select(.mcu|contains("ESP")) | .id' | xargs printf -- '--board\0%s\0' | tr '\n' '\0' | xargs -0 pio ci examples/esp/esp.cpp`

@@ -18,6 +18,8 @@
 
 namespace tdsl { namespace detail {
 
+    // --------------------------------------------------------------------------------
+
     enum class e_tds_data_type : tdsl::uint8_t
     {
     // clang-format off
@@ -27,6 +29,8 @@ namespace tdsl { namespace detail {
         // clang-format on
     };
 
+    // --------------------------------------------------------------------------------
+
     /**
      * Translate data type value @type to string
      *
@@ -34,7 +38,7 @@ namespace tdsl { namespace detail {
      * @return Token type as string if @p type has a corresponding string representation,
      * "UNDEFINED" otherwise.
      */
-    TDSL_NODISCARD inline static TDSL_CXX14_CONSTEXPR const char *
+    TDSL_NODISCARD static inline TDSL_CXX14_CONSTEXPR const char *
     data_type_to_str(e_tds_data_type type) noexcept {
 
         switch (type) {
@@ -50,6 +54,8 @@ namespace tdsl { namespace detail {
         return "UNDEFINED";
     }
 
+    // --------------------------------------------------------------------------------
+
     enum class e_tds_data_size_type : tdsl::uint16_t
     {
         fixed,
@@ -59,6 +65,8 @@ namespace tdsl { namespace detail {
         var_precision,
         unknown
     };
+
+    // --------------------------------------------------------------------------------
 
     /**
      * Data type properties
@@ -119,6 +127,8 @@ namespace tdsl { namespace detail {
         // Money4       MoneyN      [+]
         e_tds_data_type corresponding_varsize_type;
 
+        // --------------------------------------------------------------------------------
+
         /**
          * Returns true if data type is a variable size type
          */
@@ -134,6 +144,8 @@ namespace tdsl { namespace detail {
             }
             TDSL_UNREACHABLE;
         }
+
+        // --------------------------------------------------------------------------------
 
         /**
          * Calculate minimum COLMETADATA bytes needed for
@@ -162,6 +174,8 @@ namespace tdsl { namespace detail {
         }
     };
 
+    // --------------------------------------------------------------------------------
+
     /**
      * Retrieve data type properties
      *
@@ -173,7 +187,7 @@ namespace tdsl { namespace detail {
      * @returns varu32_prop if @p type is a variable data type in u32-size boundary
      * @returns varprec_prop if @p type is variable data type with precision and scale
      */
-    TDSL_NODISCARD inline static tds_data_type_properties
+    TDSL_NODISCARD static inline tds_data_type_properties
     get_data_type_props(e_tds_data_type type) {
         tds_data_type_properties result{};
         switch (type) {
@@ -301,6 +315,8 @@ namespace tdsl { namespace detail {
         }
         return result;
     }
+
+    // --------------------------------------------------------------------------------
 
     TDSL_NODISCARD static inline bool
     is_valid_variable_length_for_type(e_tds_data_type type, tdsl::uint32_t length) noexcept {

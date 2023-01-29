@@ -178,7 +178,7 @@ void handle_command(const std::string & cmd) {
 int main(void) {
     tdsl::driver<tdsl::net::tdsl_netimpl_asio> driver{};
     // Use info_callback function for printing user info
-    driver.set_info_callback(/*user_ptr=*/nullptr, info_callback);
+    driver.set_info_callback(info_callback);
     // Enable column name reading
     driver.option_set_read_column_names(/*value=*/true);
 

@@ -1,10 +1,14 @@
 
 // Sketch options
+
+#ifndef CI_BUILD
 #define SKETCH_ENABLE_WATCHDOG_TIMER
 #define SKETCH_ENABLE_SERIAL_OUTPUT
-// #define SKETCH_ENABLE_TDSL_DEBUG_LOG
-//  #define SKETCH_USE_DHCP // Increases memory usage
-#define SKETCH_TDSL_NETBUF_SIZE 512 + 256
+#endif
+
+//  #define SKETCH_ENABLE_TDSL_DEBUG_LOG
+//   #define SKETCH_USE_DHCP // Increases memory usage
+#define SKETCH_TDSL_NETBUF_SIZE 512
 #define SKETCH_TDSL_PACKET_SIZE 512
 // tdslite options
 #define TDSL_DISABLE_DEFAULT_ALLOCATOR 1
@@ -49,6 +53,9 @@
 #endif
 
 #else
+#undef SERIAL_PRINTF
+#undef SERIAL_PRINTLNF
+#undef SERIAL_PRINT_U16_AS_MB
 #define SERIAL_PRINTF(FMTSTR, ...)
 #define SERIAL_PRINTLNF(FMTSTR, ...)
 #define SERIAL_PRINT_U16_AS_MB(U16SPAN)
@@ -90,9 +97,12 @@ static void info_callback(void *, const tdsl::tds_info_token & token) noexcept {
 static void row_callback(void * u, const tdsl::tds_colmetadata_token & colmd,
                          const tdsl::tdsl_row & row) {
     digitalWrite(5, HIGH);
+#if defined SKETCH_ENABLE_WATCHDOG_TIMER
     ApplicationMonitor.IAmAlive();
+#endif
     SERIAL_PRINTF("row: ");
     for (const auto & field : row) {
+        (void) field;
         SERIAL_PRINTF("%d\t", field.as<tdsl::uint32_t>());
     }
     SERIAL_PRINTLNF("");
@@ -148,8 +158,9 @@ void initTdsliteDriver() {
     // TDS packet size
     // Recommendation: Half of the network buffer.
     params.packet_size = {SKETCH_TDSL_PACKET_SIZE};
-    driver.set_info_callback(nullptr, &info_callback);
+    driver.set_info_callback(&info_callback, nullptr);
     auto result = driver.connect(params);
+    (void) result;
     SERIAL_PRINTLNF("... init tdslite end, %d...", result);
 }
 
@@ -170,6 +181,7 @@ inline void tdslite_loop() {
     if (i++ % 10 == 0) {
         const auto row_count =
             driver.execute_query(TDSL_PMEMSTR("SELECT * FROM #hello_world;"), row_callback);
+        (void) row_count;
         SERIAL_PRINTLNF(">> Report: row count [%d], free RAM [%d] <<", row_count, freeMemory());
         SERIAL_PRINTLNF("%d", freeMemory());
     }
@@ -271,7 +283,9 @@ void setup() {
 // --------------------------------------------------------------------------------
 
 void loop() {
+#if defined SKETCH_ENABLE_WATCHDOG_TIMER
     ApplicationMonitor.IAmAlive();
+#endif
     tdslite_loop();
 #ifdef SKETCH_USE_DHCP
     Ethernet.maintain();

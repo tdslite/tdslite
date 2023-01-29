@@ -12,7 +12,7 @@
 
 #include <tdslite.h>
 
-#define SKETCH_TDSL_NETBUF_SIZE 512 + 256
+#define SKETCH_TDSL_NETBUF_SIZE 512
 #define SKETCH_TDSL_PACKET_SIZE 512
 
 struct EthernetClient {
@@ -36,7 +36,7 @@ struct EthernetClient {
     }
 };
 
-tdsl::uint8_t net_buf [1] = {};
+tdsl::uint8_t net_buf [SKETCH_TDSL_NETBUF_SIZE] = {};
 tdsl::arduino_driver<EthernetClient> driver{net_buf};
 
 void setup() {

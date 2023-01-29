@@ -85,6 +85,16 @@ namespace tdsl {
 
 #if defined(PROGMEM) && !defined(TDSL_FORCE_DISABLE_PROGMEM_STRING_VIEW)
 
+#if !defined(__AVR__) && defined(memcpy_P)
+
+#undef memcpy_P
+
+inline void * memcpy_P(void * dest, const void * src, size_t n) noexcept {
+    return memcpy(dest, src, n);
+}
+
+#endif
+
 #include <tdslite/util/tdsl_binary_reader.hpp>
 #include <tdslite/util/tdsl_type_traits.hpp>
 
@@ -296,11 +306,11 @@ inline bool operator!=(const tdsl::progmem_forward_iterator & a,
 #endif
 
 inline tdsl::string_view operator"" _tsv(const char * val, tdsl::size_t len) noexcept {
-    return tdsl::string_view{val, static_cast<tdsl::uint32_t>(len)};
+    return tdsl::string_view{val, len};
 }
 
 inline tdsl::wstring_view operator"" _twsv(const char16_t * val, tdsl::size_t len) noexcept {
-    return tdsl::wstring_view{val, static_cast<tdsl::uint32_t>(len)};
+    return tdsl::wstring_view{val, len};
 }
 
 #endif
