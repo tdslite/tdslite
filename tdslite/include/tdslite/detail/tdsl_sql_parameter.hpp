@@ -15,6 +15,8 @@
 #include <tdslite/detail/tdsl_data_type.hpp>
 #include <tdslite/util/tdsl_span.hpp>
 #include <tdslite/util/tdsl_byte_swap.hpp>
+#include <tdslite/util/tdsl_string_view.hpp>
+#include <tdslite/util/tdsl_type_traits.hpp>
 
 namespace tdsl { namespace detail {
 
@@ -26,6 +28,16 @@ namespace tdsl { namespace detail {
 
     // --------------------------------------------------------------------------------
 
+    // Tag type to enable sql parameter implementation for integral types
+    struct integral_tag {};
+
+    // --------------------------------------------------------------------------------
+
+    // Tag type to enable sql parameter implementation for string types
+    struct string_view_tag {};
+
+    // --------------------------------------------------------------------------------
+
     template <e_tds_data_type>
     struct sql_param_traits;
 
@@ -34,6 +46,7 @@ namespace tdsl { namespace detail {
     template <>
     struct sql_param_traits<e_tds_data_type::BITTYPE> {
         using type = bool;
+        using tag  = integral_tag;
     };
 
     // --------------------------------------------------------------------------------
@@ -41,6 +54,7 @@ namespace tdsl { namespace detail {
     template <>
     struct sql_param_traits<e_tds_data_type::INT1TYPE> {
         using type = tdsl::uint8_t;
+        using tag  = integral_tag;
     };
 
     // --------------------------------------------------------------------------------
@@ -48,6 +62,7 @@ namespace tdsl { namespace detail {
     template <>
     struct sql_param_traits<e_tds_data_type::INT2TYPE> {
         using type = tdsl::int16_t;
+        using tag  = integral_tag;
     };
 
     // --------------------------------------------------------------------------------
@@ -55,6 +70,7 @@ namespace tdsl { namespace detail {
     template <>
     struct sql_param_traits<e_tds_data_type::INT4TYPE> {
         using type = tdsl::int32_t;
+        using tag  = integral_tag;
     };
 
     // --------------------------------------------------------------------------------
@@ -62,22 +78,45 @@ namespace tdsl { namespace detail {
     template <>
     struct sql_param_traits<e_tds_data_type::INT8TYPE> {
         using type = tdsl::int64_t;
+        using tag  = integral_tag;
     };
 
     // --------------------------------------------------------------------------------
 
+    template <>
+    struct sql_param_traits<e_tds_data_type::NVARCHARTYPE> {
+        using type = tdsl::wstring_view;
+        using tag  = string_view_tag;
+    };
+
+    // --------------------------------------------------------------------------------
+
+    template <>
+    struct sql_param_traits<e_tds_data_type::BIGVARCHRTYPE> {
+        using type = tdsl::string_view;
+        using tag  = string_view_tag;
+    };
+
+    // --------------------------------------------------------------------------------
+
+    template <e_tds_data_type DTYPE, typename T>
+    struct sql_parameter_impl;
+
+    // --------------------------------------------------------------------------------
+
+    /**
+     * SQL parameter implementation
+     * (integral)
+     *
+     * @tparam DTYPE Integral type
+     */
     template <e_tds_data_type DTYPE>
-    struct sql_parameter {
+    struct sql_parameter_impl<DTYPE, integral_tag> {
+        using BackingType = typename sql_param_traits<DTYPE>::type;
 
-        // All integer types are represented in reverse byte order (little-endian) unless otherwise
-        // specified.
+        inline sql_parameter_impl() : value{} {}
 
-        using param_traits = sql_param_traits<DTYPE>;
-        using backing_type = typename param_traits::type;
-
-        inline sql_parameter() : value{} {}
-
-        inline sql_parameter(backing_type value) : value(native_to_le(value)) {}
+        inline sql_parameter_impl(BackingType value) : value(native_to_le(value)) {}
 
         /**
          * Act as backing type for const operations.
@@ -85,7 +124,7 @@ namespace tdsl { namespace detail {
          * @return backing_type backing type value in native
          *         byte order
          */
-        inline operator backing_type() const noexcept {
+        inline operator BackingType() const noexcept {
             return le_to_native(value);
         }
 
@@ -95,7 +134,54 @@ namespace tdsl { namespace detail {
         inline operator sql_parameter_binding() const noexcept {
             sql_parameter_binding param{};
             param.type      = DTYPE;
-            param.type_size = sizeof(backing_type); // this might be wrong
+            param.type_size = sizeof(BackingType);
+            param.value     = to_bytes();
+            return param;
+        }
+
+    private:
+        /**
+         * Get @ref value as bytes
+         * (integral)
+         */
+        inline tdsl::byte_view to_bytes() const noexcept {
+            return tdsl::byte_view{reinterpret_cast<const tdsl::uint8_t *>(&value),
+                                   sizeof(BackingType)};
+        }
+
+        // backing type for parameter, stored as
+        // little-endian byte order regardless of
+        // native byte order.
+        BackingType value;
+    };
+
+    // --------------------------------------------------------------------------------
+
+    template <e_tds_data_type DTYPE>
+    struct sql_parameter_impl<DTYPE, string_view_tag> {
+        using BackingType = typename sql_param_traits<DTYPE>::type;
+
+        inline sql_parameter_impl() : value{} {}
+
+        inline sql_parameter_impl(BackingType value) : value(value) {}
+
+        /**
+         * Act as backing type for const operations.
+         *
+         * @return backing_type backing type value in native
+         *         byte order
+         */
+        inline operator BackingType() const noexcept {
+            return value;
+        }
+
+        /**
+         * Cast operator to sql_paramater_binding
+         */
+        inline operator sql_parameter_binding() const noexcept {
+            sql_parameter_binding param{};
+            param.type      = DTYPE;
+            param.type_size = value.size_bytes(); // FIXME: Probably wrong
             param.value     = to_bytes();
             return param;
         }
@@ -105,20 +191,32 @@ namespace tdsl { namespace detail {
          * Get @ref value as bytes
          */
         inline tdsl::byte_view to_bytes() const noexcept {
-            return tdsl::byte_view{reinterpret_cast<const tdsl::uint8_t *>(&value),
-                                   sizeof(backing_type)};
+            return value.template rebind_cast<const tdsl::uint8_t>();
         }
 
         // backing type for parameter, stored as
         // little-endian byte order regardless of
         // native byte order.
-        backing_type value;
+        BackingType value;
     };
+
+    // --------------------------------------------------------------------------------
+
+    template <e_tds_data_type DTYPE,
+              typename Impl = sql_parameter_impl<DTYPE, typename sql_param_traits<DTYPE>::tag>>
+    struct sql_parameter : public Impl {
+        // Inherit constructors
+        using Impl::Impl;
+    };
+
+    // --------------------------------------------------------------------------------
 
     using sql_parameter_tinyint  = sql_parameter<e_tds_data_type::INT1TYPE>;
     using sql_parameter_smallint = sql_parameter<e_tds_data_type::INT2TYPE>;
     using sql_parameter_int      = sql_parameter<e_tds_data_type::INT4TYPE>;
     using sql_parameter_bigint   = sql_parameter<e_tds_data_type::INT8TYPE>;
+    using sql_parameter_varchar  = sql_parameter<e_tds_data_type::BIGVARCHRTYPE>;
+    using sql_parameter_nvarchar = sql_parameter<e_tds_data_type::NVARCHARTYPE>;
 
 }} // namespace tdsl::detail
 

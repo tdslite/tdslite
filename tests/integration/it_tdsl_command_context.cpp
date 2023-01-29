@@ -53,7 +53,7 @@ static void default_row_callback(void *, uut_t::column_metadata_cref colmd,
  *
  * @return const login_ctx_t::login_parameters&
  */
-inline static auto mssql_2017_creds() -> const login_ctx_t::login_parameters & {
+static inline auto mssql_2017_creds() -> const login_ctx_t::login_parameters & {
     static login_ctx_t::login_parameters params = [] {
         login_ctx_t::login_parameters p;
         p.server_name  = "mssql-2017";
@@ -96,7 +96,7 @@ struct tds_command_ctx_it_fixture : public ::testing::Test {
     };
 
     template <typename... Args>
-    inline static owning_string_view cq(Args... args) noexcept {
+    static inline owning_string_view cq(Args... args) noexcept {
         std::string result{"CREATE TABLE #"};
         result +=
             std::string(::testing::UnitTest::GetInstance()->current_test_info()->name()) + " (";
@@ -108,7 +108,7 @@ struct tds_command_ctx_it_fixture : public ::testing::Test {
     }
 
     template <typename... Args>
-    inline static owning_string_view iq(Args... args) noexcept {
+    static inline owning_string_view iq(Args... args) noexcept {
         std::string result{"INSERT INTO #"};
         result += std::string(::testing::UnitTest::GetInstance()->current_test_info()->name()) +
                   " VALUES(";
@@ -120,7 +120,7 @@ struct tds_command_ctx_it_fixture : public ::testing::Test {
     }
 
     // template <typename... Args>
-    inline static owning_string_view sq(const char * s = "*", const char * w = nullptr,
+    static inline owning_string_view sq(const char * s = "*", const char * w = nullptr,
                                         const char * o = nullptr) noexcept {
         std::string result{"SELECT "};
         result += s;
@@ -466,3 +466,108 @@ TEST_F(tds_command_ctx_it_fixture, exact_numerics_money) {
 //     ASSERT_EQ(1, exec(iq("-9223372036854775808", "9223372036854775807")));
 //     ASSERT_EQ(1, exec(sq(), nullptr, validator));
 // }
+
+// --------------------------------------------------------------------------------
+
+TEST_F(tds_command_ctx_it_fixture, test_rpc) {
+    tdsl::detail::sql_parameter_tinyint p1{};
+    tdsl::detail::sql_parameter_smallint p2{};
+    tdsl::detail::sql_parameter_int p3{};
+    tdsl::detail::sql_parameter_bigint p4{};
+
+    // The binding order determines the variable name, e.g. bound parameter 0 is p0
+    // and bound parameter 1 is p1 and so on.
+    tdsl::detail::sql_parameter_binding params [] = {p1, p2, p3, p4};
+
+    auto validator = +[](void *, uut_t::column_metadata_cref c, uut_t::row_cref r) {
+        ASSERT_EQ(c.columns.size(), 4);
+        ASSERT_EQ(r.size(), 4);
+        ASSERT_EQ(r [0].size_bytes(), 1);
+        ASSERT_EQ(r [1].size_bytes(), 2);
+        ASSERT_EQ(r [2].size_bytes(), 4);
+        ASSERT_EQ(r [3].size_bytes(), 8);
+
+        EXPECT_EQ(r [0].as<tdsl::sqltypes::s_tinyint>(), 255);
+        EXPECT_EQ(r [1].as<tdsl::sqltypes::s_smallint>(), 32767);
+        EXPECT_EQ(r [2].as<tdsl::sqltypes::s_int>(), 2100000000);
+        EXPECT_EQ(r [3].as<tdsl::sqltypes::s_bigint>(), 42);
+    };
+
+    // Create the table
+    command_ctx.execute_query(
+        tdsl::string_view{"CREATE TABLE #test_rpc(a tinyint, b smallint, c int, d bigint)"});
+    // Fill some data
+    command_ctx.execute_query(
+        tdsl::string_view{"INSERT INTO #test_rpc VALUES(255, 32767, 2100000000, 42)"});
+
+    command_ctx.execute_rpc(
+        tdsl::string_view{"SELECT * FROM #test_rpc WHERE a=@p0 AND b=@p1 AND c=@p2 and d=@p3"},
+        params, tdsl::detail::e_rpc_mode::executesql);
+
+    // Update the parameters and execute the query again
+    p1 = 255, p2 = 32767, p3 = 2100000000, p4 = 42;
+
+    command_ctx.execute_rpc(
+        tdsl::string_view{"SELECT * FROM #test_rpc WHERE a=@p0 AND b=@p1 AND c=@p2 and d=@p3"},
+        params, tdsl::detail::e_rpc_mode::executesql, nullptr, validator);
+}
+
+// --------------------------------------------------------------------------------
+
+TEST_F(tds_command_ctx_it_fixture, test_rpc_varchar) {
+    tdsl::detail::sql_parameter_varchar p1{};
+    p1                                            = tdsl::string_view{"abc"};
+
+    // Text types does not support variable update and must be rebound
+    // to parameter binding again.
+
+    // The binding order determines the variable name, e.g. bound parameter 0 is p0
+    // and bound parameter 1 is p1 and so on.
+    tdsl::detail::sql_parameter_binding params [] = {p1};
+
+    auto validator = +[](void *, uut_t::column_metadata_cref c, uut_t::row_cref r) {
+        ASSERT_EQ(c.columns.size(), 1);
+        ASSERT_EQ(r.size(), 1);
+        ASSERT_EQ(c.columns [0].type, tdsl::detail::e_tds_data_type::BIGVARCHRTYPE);
+        ASSERT_EQ(r [0].as<tdsl::char_view>().size(), 3);
+        ASSERT_EQ(r [0].as<tdsl::char_view>().size_bytes(), 3);
+    };
+
+    // Create the table
+    command_ctx.execute_query(tdsl::string_view{"CREATE TABLE #test_rpc(a varchar(255))"});
+    // Fill some data
+    command_ctx.execute_query(tdsl::string_view{"INSERT INTO #test_rpc VALUES('abc')"});
+
+    command_ctx.execute_rpc(tdsl::string_view{"SELECT * FROM #test_rpc WHERE a=@p0"}, params,
+                            tdsl::detail::e_rpc_mode::executesql, nullptr, validator);
+}
+
+// --------------------------------------------------------------------------------
+
+TEST_F(tds_command_ctx_it_fixture, test_rpc_nvarchar) {
+    tdsl::detail::sql_parameter_nvarchar p1{};
+    p1                                            = tdsl::wstring_view{u"abc"};
+
+    // Text types does not support variable update and must be rebound
+    // to parameter binding again.
+
+    // The binding order determines the variable name, e.g. bound parameter 0 is p0
+    // and bound parameter 1 is p1 and so on.
+    tdsl::detail::sql_parameter_binding params [] = {p1};
+
+    auto validator = +[](void *, uut_t::column_metadata_cref c, uut_t::row_cref r) {
+        ASSERT_EQ(c.columns.size(), 1);
+        ASSERT_EQ(r.size(), 1);
+        ASSERT_EQ(c.columns [0].type, tdsl::detail::e_tds_data_type::NVARCHARTYPE);
+        ASSERT_EQ(r [0].as<tdsl::u16char_view>().size(), 3);
+        ASSERT_EQ(r [0].as<tdsl::u16char_view>().size_bytes(), 6);
+    };
+
+    // Create the table
+    command_ctx.execute_query(tdsl::string_view{"CREATE TABLE #test_rpc(a nvarchar(255))"});
+    // Fill some data
+    command_ctx.execute_query(tdsl::string_view{"INSERT INTO #test_rpc VALUES(N'abc')"});
+
+    command_ctx.execute_rpc(tdsl::string_view{"SELECT * FROM #test_rpc WHERE a=@p0"}, params,
+                            tdsl::detail::e_rpc_mode::executesql, nullptr, validator);
+}

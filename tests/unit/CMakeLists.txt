@@ -62,6 +62,10 @@ make_component(
             SUFFIX .sql_parameter
             SOURCES ut_sql_parameter.cpp
 
+    TARGET  TYPE UNIT_TEST
+            SUFFIX .string_view
+            SOURCES ut_string_view.cpp
+
     ALL_NO_AUTO_COMPILATION_UNIT
     ALL_WITH_COVERAGE
     ALL_COVERAGE_TARGETS tdslite

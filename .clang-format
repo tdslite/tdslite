@@ -275,3 +275,7 @@ LambdaBodyIndentation: Signature
 #     { 7,     5,    "!!"}
 # };
 AlignArrayOfStructures: Left
+
+QualifierAlignment: Custom
+
+QualifierOrder: ["static", "inline", "const", "constexpr", "volatile", "type"]

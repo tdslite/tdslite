@@ -505,10 +505,10 @@ namespace tdsl { namespace detail {
                              +token.interface, token.tds_version);
             TDSL_DEBUG_PRINT("prog_name: [");
             TDSL_DEBUG_PRINT_U16_AS_MB(token.prog_name);
-            // TDSL_DEBUG_PRINT("] | ");
-            // TDSL_DEBUG_PRINTLN("prog_version: [%d.%d.%d.%d]", token.prog_version.maj,
-            //                    token.prog_version.min, token.prog_version.buildnum_hi,
-            //                    token.prog_version.buildnum_lo);
+            TDSL_DEBUG_PRINT("] | ");
+            TDSL_DEBUG_PRINTLN("prog_version: [%d.%d.%d.%d]", token.prog_version.maj,
+                               token.prog_version.min, token.prog_version.buildnum_hi,
+                               token.prog_version.buildnum_lo);
             callbacks.loginack(token);
             return 0;
         }

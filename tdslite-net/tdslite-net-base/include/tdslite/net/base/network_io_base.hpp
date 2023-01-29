@@ -326,6 +326,15 @@ namespace tdsl {
             // --------------------------------------------------------------------------------
 
             /**
+             * Get current write offset
+             */
+            inline tdsl::size_t do_get_write_offset() noexcept {
+                return network_buffer.get_writer()->offset();
+            }
+
+            // --------------------------------------------------------------------------------
+
+            /**
              * Append @p data to network buffer,
              * starting from @p offset
              *
@@ -333,7 +342,7 @@ namespace tdsl {
              * @param [in] data Data to append
              */
             template <typename T>
-            inline void do_write(tdsl::uint32_t offset, tdsl::span<T> data) noexcept {
+            inline void do_write(tdsl::size_t offset, tdsl::span<T> data) noexcept {
                 const auto r = network_buffer.get_writer()->write(offset, data);
                 TDSL_ASSERT(r);
                 (void) r;

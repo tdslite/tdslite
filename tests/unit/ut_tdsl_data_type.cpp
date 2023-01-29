@@ -15,6 +15,7 @@
 #include <gmock/gmock.h>
 
 #include <utility>
+#include <tuple>
 
 using dtype = tdsl::detail::e_tds_data_type;
 using stype = tdsl::detail::e_tds_data_size_type;
@@ -25,9 +26,9 @@ struct dtype_fixture : public ::testing::Test {};
 
 // --------------------------------------------------------------------------------
 
-struct dtype_fixed_len_fixture : public dtype_fixture,
-                                 public testing::WithParamInterface<std::pair<dtype, std::size_t>> {
-};
+struct dtype_fixed_len_fixture
+    : public dtype_fixture,
+      public testing::WithParamInterface<std::tuple<dtype, std::size_t, dtype>> {};
 
 // --------------------------------------------------------------------------------
 
@@ -60,7 +61,9 @@ struct dtype_str_fixture : public dtype_fixture,
 TEST_P(dtype_fixed_len_fixture, props) {
     const auto & prop = tdsl::detail::get_data_type_props(std::get<0>(GetParam()));
     ASSERT_EQ(stype::fixed, prop.size_type);
+
     EXPECT_EQ(std::get<1>(GetParam()), prop.length.fixed);
+    EXPECT_EQ(std::get<2>(GetParam()), prop.corresponding_varsize_type);
     EXPECT_FALSE(prop.is_variable_size());
     EXPECT_FALSE(prop.flags.has_collation);
     EXPECT_FALSE(prop.flags.has_precision);
@@ -75,6 +78,7 @@ TEST_P(dtype_fixed_len_fixture, props) {
 TEST_P(dtype_var_precision_len_fixture, props) {
     const auto & prop = tdsl::detail::get_data_type_props(std::get<0>(GetParam()));
     EXPECT_EQ(std::get<1>(GetParam()), prop.length.variable.length_size);
+    EXPECT_EQ(std::get<0>(GetParam()), prop.corresponding_varsize_type);
     ASSERT_EQ(stype::var_precision, prop.size_type);
     EXPECT_TRUE(prop.is_variable_size());
     EXPECT_TRUE(prop.flags.has_precision);
@@ -90,6 +94,7 @@ TEST_P(dtype_var_precision_len_fixture, props) {
 TEST_P(dtype_var_u8_len_fixture, props) {
     const auto & prop = tdsl::detail::get_data_type_props(GetParam());
     EXPECT_EQ(sizeof(tdsl::uint8_t), prop.length.variable.length_size);
+    EXPECT_EQ(GetParam(), prop.corresponding_varsize_type);
     ASSERT_EQ(stype::var_u8, prop.size_type);
     EXPECT_TRUE(prop.is_variable_size());
     EXPECT_FALSE(prop.flags.has_precision);
@@ -105,6 +110,7 @@ TEST_P(dtype_var_u8_len_fixture, props) {
 TEST_P(dtype_var_u16_len_fixture, props) {
     const auto & prop = tdsl::detail::get_data_type_props(std::get<0>(GetParam()));
     EXPECT_EQ(sizeof(tdsl::uint16_t), prop.length.variable.length_size);
+    EXPECT_EQ(std::get<0>(GetParam()), prop.corresponding_varsize_type);
     EXPECT_EQ(std::get<1>(GetParam()), prop.flags.has_collation);
     ASSERT_EQ(stype::var_u16, prop.size_type);
     EXPECT_TRUE(prop.is_variable_size());
@@ -120,6 +126,7 @@ TEST_P(dtype_var_u16_len_fixture, props) {
 TEST_P(dtype_var_u32_len_fixture, props) {
     const auto & prop = tdsl::detail::get_data_type_props(std::get<0>(GetParam()));
     EXPECT_EQ(sizeof(tdsl::uint32_t), prop.length.variable.length_size);
+    EXPECT_EQ(std::get<0>(GetParam()), prop.corresponding_varsize_type);
     EXPECT_EQ(std::get<1>(GetParam()), prop.flags.has_collation);
     ASSERT_EQ(stype::var_u32, prop.size_type);
     EXPECT_TRUE(prop.is_variable_size());
@@ -140,12 +147,18 @@ TEST_P(dtype_str_fixture, to_str) {
 
 INSTANTIATE_TEST_SUITE_P(
     cf, dtype_fixed_len_fixture,
-    testing::Values(std::make_pair(dtype::NULLTYPE, 0), std::make_pair(dtype::INT1TYPE, 1),
-                    std::make_pair(dtype::BITTYPE, 1), std::make_pair(dtype::INT2TYPE, 2),
-                    std::make_pair(dtype::INT4TYPE, 4), std::make_pair(dtype::INT8TYPE, 8),
-                    std::make_pair(dtype::DATETIM4TYPE, 4), std::make_pair(dtype::FLT4TYPE, 4),
-                    std::make_pair(dtype::DATETIMETYPE, 8), std::make_pair(dtype::FLT8TYPE, 8),
-                    std::make_pair(dtype::MONEYTYPE, 8), std::make_pair(dtype::MONEY4TYPE, 4)));
+    testing::Values(std::make_tuple(dtype::NULLTYPE, 0, dtype::NULLTYPE),
+                    std::make_tuple(dtype::INT1TYPE, 1, dtype::INTNTYPE),
+                    std::make_tuple(dtype::BITTYPE, 1, dtype::BITNTYPE),
+                    std::make_tuple(dtype::INT2TYPE, 2, dtype::INTNTYPE),
+                    std::make_tuple(dtype::INT4TYPE, 4, dtype::INTNTYPE),
+                    std::make_tuple(dtype::INT8TYPE, 8, dtype::INTNTYPE),
+                    std::make_tuple(dtype::DATETIM4TYPE, 4, dtype::DATETIMNTYPE),
+                    std::make_tuple(dtype::FLT4TYPE, 4, dtype::FLTNTYPE),
+                    std::make_tuple(dtype::DATETIMETYPE, 8, dtype::DATETIMNTYPE),
+                    std::make_tuple(dtype::FLT8TYPE, 8, dtype::FLTNTYPE),
+                    std::make_tuple(dtype::MONEYTYPE, 8, dtype::MONEYNTYPE),
+                    std::make_tuple(dtype::MONEY4TYPE, 4, dtype::MONEYNTYPE)));
 
 // --------------------------------------------------------------------------------
 

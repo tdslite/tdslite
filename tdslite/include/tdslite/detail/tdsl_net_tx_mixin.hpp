@@ -48,23 +48,23 @@ namespace tdsl { namespace detail {
         }
 
         template <typename T, traits::enable_when::integral<T> = true>
-        inline auto write(tdsl::uint32_t offset, T v) noexcept -> void {
+        inline auto write(tdsl::size_t offset, T v) noexcept -> void {
             byte_view data(reinterpret_cast<const tdsl::uint8_t *>(&v), sizeof(T));
             write(offset, data);
         }
 
         template <typename T, traits::enable_when::integral<T> = true>
-        inline auto write_be(tdsl::uint32_t offset, T v) noexcept -> void {
+        inline auto write_be(tdsl::size_t offset, T v) noexcept -> void {
             write(offset, native_to_be(v));
         }
 
         template <typename T, traits::enable_when::integral<T> = true>
-        inline auto write_le(tdsl::uint32_t offset, T v) noexcept -> void {
+        inline auto write_le(tdsl::size_t offset, T v) noexcept -> void {
             write(offset, native_to_le(v));
         }
 
         template <typename T>
-        inline void write(tdsl::uint32_t offset, tdsl::span<T> data) noexcept {
+        inline void write(tdsl::size_t offset, tdsl::span<T> data) noexcept {
             static_cast<Derived &>(*this).do_write(offset, data);
         }
 
@@ -80,6 +80,44 @@ namespace tdsl { namespace detail {
 
         inline void send_tds_pdu(detail::e_tds_message_type mtype) noexcept {
             static_cast<Derived &>(*this).do_send_tds_pdu(mtype);
+        }
+
+        template <typename T>
+        struct placeholder {
+
+            inline placeholder(net_tx_mixin<Derived> & tx, tdsl::size_t offset) :
+                tx(tx), offset(offset) {}
+
+            inline void write_be(T v) noexcept {
+                tx.write_be(offset, v);
+            }
+
+            inline void write_le(T v) noexcept {
+                tx.write_le(offset, v);
+            }
+
+        private:
+            net_tx_mixin<Derived> & tx;
+            tdsl::size_t offset;
+        };
+
+        /**
+         * Put a placeholder value to current offset in order
+         * to be filled later. Use returned placeholder object
+         * to substitute the real value.
+         *
+         * @tparam T Placeholder value type
+         *
+         * @param [in] v Placeholder value. The actual value is ,
+         *               not important, but the type is.
+         *
+         * @return placeholder<T> Placeholder object
+         */
+        template <typename T, traits::enable_when::integral<T> = true>
+        inline placeholder<T> put_placeholder(T v) noexcept {
+            auto beg = static_cast<Derived &>(*this).do_get_write_offset();
+            write(v);
+            return placeholder<T>{*this, beg};
         }
     };
 

@@ -31,7 +31,7 @@ namespace {
         }
 
         template <typename T>
-        inline void do_write(tdsl::uint32_t offset, tdsl::span<T> data) noexcept {
+        inline void do_write(tdsl::size_t offset, tdsl::span<T> data) noexcept {
 
             auto beg = std::next(buffer.begin(), offset);
             auto end = std::next(beg, data.size_bytes());
@@ -40,6 +40,13 @@ namespace {
             }
 
             std::copy(data.begin(), data.end(), beg);
+        }
+
+        /**
+         * Get current write offset
+         */
+        inline tdsl::size_t do_get_write_offset() noexcept {
+            return buffer.size();
         }
 
         inline void do_send(void) noexcept {}

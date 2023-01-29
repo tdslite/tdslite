@@ -24,15 +24,31 @@ namespace tdsl {
      */
     struct wstring_view : public tdsl::u16char_view {
 
-        using ::tdsl::u16char_view::span;
+        using base_type = tdsl::u16char_view;
+        // this does not inherit copy&move constructors
+        // so we have to do it ourselves.
+        using base_type::span;
+
+        wstring_view(const base_type & other) : base_type::span(other) {}
+
+        wstring_view(base_type && other) : base_type::span(other) {}
 
         wstring_view() : span() {}
 
-        template <tdsl::uint32_t N>
-        wstring_view(const char (&str) [N]) : span(str, N) {
+        // byte constructor
+        wstring_view(tdsl::byte_view bv) : span(bv.rebind_cast<char16_t>()) {
             // If the string is NUL-terminated, omit the NUL terminator.
-            if (N > 1 && str [N - 2] == '\0' && str [N - 1] == '\0') {
-                element_count -= 2;
+
+            if (bv.size() > 1 && bv [bv.size() - 2] == '\0' && bv [bv.size() - 1] == '\0') {
+                element_count -= 1;
+            }
+        }
+
+        template <tdsl::uint32_t N>
+        wstring_view(const char16_t (&str) [N]) : span(str, N) {
+            // If the string is NUL-terminated, omit the NUL terminator.
+            if (N > 0 && str [N - 1] == u'\0') {
+                element_count -= 1;
             }
         }
     };
@@ -44,7 +60,15 @@ namespace tdsl {
      * will omit the nul terminator from span range.
      */
     struct string_view : public tdsl::char_view {
-        using ::tdsl::char_view::span;
+
+        using base_type = tdsl::char_view;
+        // this does not inherit copy&move constructors
+        // so we have to do it ourselves.
+        using base_type::span;
+
+        string_view(const base_type & other) : base_type::span(other) {}
+
+        string_view(base_type && other) : base_type::span(other) {}
 
         string_view() : span() {}
 

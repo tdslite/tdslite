@@ -1,5 +1,6 @@
 /**
  * _________________________________________________
+ * FIXME: Description?
  *
  * @file   tdsl_command_context.hpp
  * @author Mustafa Kemal GILOR <mustafagilor@gmail.com>
@@ -22,11 +23,13 @@
 #include <tdslite/detail/token/tds_colmetadata_token.hpp>
 #include <tdslite/detail/tdsl_data_type.hpp>
 #include <tdslite/detail/tdsl_sql_parameter.hpp>
+#include <tdslite/detail/tdsl_tds_procedure_id.hpp>
 
 #include <tdslite/util/tdsl_span.hpp>
 #include <tdslite/util/tdsl_macrodef.hpp>
 #include <tdslite/util/tdsl_string_view.hpp>
 #include <tdslite/util/tdsl_type_traits.hpp>
+#include <tdslite/util/tdsl_utos.hpp>
 
 namespace tdsl { namespace detail {
 
@@ -117,39 +120,27 @@ namespace tdsl { namespace detail {
             return qstate.affected_rows;
         }
 
-        // --------------------------------------------------------------------------------
-
-        enum class e_proc_id : tdsl::uint8_t
-        {
-            sp_cursor         = 1,
-            sp_cursoropen     = 2,
-            sp_cursorprepare  = 3,
-            sp_cursorexecute  = 4,
-            sp_cursorprepexec = 5,
-            sp_cursorfetch    = 7,
-            sp_cursoroption   = 8,
-            sp_cursorclose    = 9,
-            sp_executesql     = 10,
-            sp_prepare        = 11,
-            sp_execute        = 12,
-            sp_prepexec       = 13,
-            sp_prepexecrpc    = 14,
-            sp_unprepare      = 15
-        };
-
-        enum class e_rpc_mode : tdsl::uint8_t
-        {
-            executesql = static_cast<tdsl::uint8_t>(e_proc_id::sp_executesql),
-            prepexec   = static_cast<tdsl::uint8_t>(e_proc_id::sp_prepexec),
-        };
-
-        enum class e_rpc_error_code : tdsl::uint8_t
-        {
-            invalid_mode = 1,
-        };
-
         using execute_rpc_result = tdsl::expected<tdsl::uint32_t, e_rpc_error_code>;
 
+        /**
+         * Perform a remote procedure call (e.g. execute a stored procedure or
+         * a parameterized query)
+         *
+         * @tparam T String view type
+         *
+         * @param [in] command Command to execute
+         * @param [in] params Parameters of the command, if any
+         * @param [in] mode RPC execution mode
+         * @param [in] rcb_uptr Row callback user pointer (optional)
+         * @param [in] row_callback Row callback function (optional)
+         *
+         * The result set returned by query @p command can be read by providing
+         * a row callback function
+         *
+         * @returns execute_rpc_result::unexpected(e_rpc_error_code::invalid_mode) if @p mode
+         *          value is invalid
+         * @returns rows_affected if successful
+         */
         template <typename T, traits::enable_when::same_any_of<T, string_view, wstring_view,
                                                                struct progmem_string_view> = true>
         inline execute_rpc_result execute_rpc(
@@ -159,22 +150,151 @@ namespace tdsl { namespace detail {
                                                  const tdsl_row &) -> void {}) noexcept {
             // Validate mode
             switch (mode) {
+                // Allowed & supported modes
                 case e_rpc_mode::executesql:
+                    break;
                 case e_rpc_mode::prepexec:
+                    TDSL_NOT_YET_IMPLEMENTED;
                     break;
                 default:
                     return execute_rpc_result::unexpected(e_rpc_error_code::invalid_mode);
             }
 
-            tds_ctx.write_le(static_cast<tdsl::uint16_t>(0xffff)); // procedure name length
-            tds_ctx.write_le(static_cast<tdsl::uint16_t>(mode));   // stored procedure id
-            tds_ctx.write_le(static_cast<tdsl::uint16_t>(0));      // option flags
+            tds_ctx.write_le(tdsl::uint16_t{0xffff});            // procedure name length
+            tds_ctx.write_le(static_cast<tdsl::uint16_t>(mode)); // stored procedure id
+            tds_ctx.write_le(tdsl::uint16_t{0});                 // option flags
 
+            // sp_executesql expects @statement, @params and param values in order
+
+            // Step 1:
+            // Write the SQL command
+            {
+                tds_ctx.write(tdsl::uint8_t{0}); // name len
+                tds_ctx.write(tdsl::uint8_t{0}); // status flags
+                tds_ctx.write(static_cast<tdsl::uint8_t>(e_tds_data_type::NVARCHARTYPE)); // type
+                tds_ctx.write(tdsl::uint16_t{8000});                                      // maxlen
+                tds_ctx.write(tdsl::uint8_t{0});  // collation
+                tds_ctx.write(tdsl::uint32_t{0}); // collation
+
+                // write_type_info
+
+                tds_ctx.write(
+                    static_cast<tdsl::uint16_t>(string_writer_type::calculate_write_size(command)));
+                string_writer_type::write(tds_ctx, command);
+            }
+
+            // Step 2:
+            // Write parameter decls
+            {
+                tds_ctx.write(tdsl::uint8_t{0}); // name len
+                tds_ctx.write(tdsl::uint8_t{0}); // status flags
+                tds_ctx.write(static_cast<tdsl::uint8_t>(e_tds_data_type::NVARCHARTYPE)); // type
+                tds_ctx.write(tdsl::uint16_t{8000});                                      // maxlen
+                tds_ctx.write(tdsl::uint8_t{0});  // collation
+                tds_ctx.write(tdsl::uint32_t{0}); // collation
+
+                // put a placeholder
+                auto param_decl_sz_ph = tds_ctx.put_placeholder(tdsl::uint16_t{0});
+
+                auto write_binding_data_type_text =
+                    [](const sql_parameter_binding & pb,
+                       typename string_writer_type::write_counter & wc) {
+                        auto type = pb.type;
+
+                        // Translate INTNTYPE decls to corresponding
+                        // fixed length decls
+                        if (type == e_tds_data_type::INTNTYPE) {
+                            switch (pb.type_size) {
+                                case 1:
+                                    type = e_tds_data_type::INT1TYPE;
+                                    break;
+                                case 2:
+                                    type = e_tds_data_type::INT2TYPE;
+                                    break;
+                                case 4:
+                                    type = e_tds_data_type::INT4TYPE;
+                                    break;
+                                case 8:
+                                    type = e_tds_data_type::INT8TYPE;
+                                    break;
+                            }
+                        }
+
+                        switch (type) {
+                            case e_tds_data_type::INT1TYPE:
+                                wc.write("TINYINT");
+                                break;
+                            case e_tds_data_type::INT2TYPE:
+                                wc.write("SMALLINT");
+                                break;
+                            case e_tds_data_type::INT4TYPE:
+                                wc.write("INT");
+                                break;
+                            case e_tds_data_type::INT8TYPE:
+                                wc.write("BIGINT");
+                                break;
+                            case e_tds_data_type::NVARCHARTYPE:
+                                wc.write("NVARCHAR(MAX)");
+                                break;
+                            case e_tds_data_type::BIGVARCHRTYPE:
+                                wc.write("VARCHAR(MAX)");
+                                break;
+                            default:
+                                TDSL_NOT_YET_IMPLEMENTED;
+                                break;
+                        }
+                    };
+
+                auto cw                = string_writer_type::make_counted_writer(tds_ctx);
+                tdsl::size_t param_idx = {0};
+                for (const auto & param : params) {
+                    char utos_buf [10] = {0};
+                    // written output should look like this
+                    // @p1 int, @p2 varchar(30), @p3 int
+                    tdsl::string_view param_decl{/*str=*/"@p"};
+                    cw.write(param_decl);
+                    cw.write(tdsl::string_view{tdsl::utos(param_idx++, utos_buf)});
+                    cw.write(" ");
+                    write_binding_data_type_text(param, cw);
+                    // TODO: Handle data types with variable length (e.g. varchar(30))
+                    if (param_idx == params.size()) {
+                        break;
+                    }
+                    cw.write(",");
+                }
+
+                // Write parameter declaration string length (in bytes)
+                param_decl_sz_ph.write_le(static_cast<tdsl::uint16_t>(cw.get()));
+            }
+
+            // Write the parameter list
             for (const auto & param : params) {
-                tds_ctx.write_le(static_cast<tdsl::uint8_t>(0));          // name length
-                tds_ctx.write_le(static_cast<tdsl::uint8_t>(0));          // status flags
-                tds_ctx.write_le(static_cast<tdsl::uint8_t>(param.type)); // type
-                const auto & dprops        = get_data_type_props(param.type);
+                // We're not going to use parameter names in order
+                // to save space. Instead, we'll put the values in
+                // their declaration order.
+                tds_ctx.write_le(tdsl::uint8_t{0}); // name length
+
+                // I haven't able to find any use case for
+                // this (yet) so, not used ATM.
+                tds_ctx.write_le(tdsl::uint8_t{0}); // status flags
+
+                auto type           = param.type;
+                auto type_size      = param.type_size;
+
+                // Data type properties
+                const auto & dprops = [&]() {
+                    const auto & props = get_data_type_props(type);
+                    // Convert fixed length data types to variable
+                    // size data types.
+                    if (not props.is_variable_size()) {
+                        type      = props.corresponding_varsize_type;
+                        type_size = props.length.fixed;
+                        return get_data_type_props(type);
+                    }
+                    return props;
+                }();
+
+                tds_ctx.write_le(static_cast<tdsl::uint8_t>(type)); // type
 
                 auto maybe_write_collation = [&]() {
                     if (dprops.flags.has_collation) {
@@ -183,28 +303,30 @@ namespace tdsl { namespace detail {
                         tds_ctx.write_le(tdsl::uint8_t{0});
                     }
                 };
+
                 switch (dprops.size_type) {
                     case e_tds_data_size_type::fixed:
                         // Do nothing.
                         break;
                     case e_tds_data_size_type::var_u8:
-                        tds_ctx.write_le(static_cast<tdsl::uint8_t>(0xFF)); // max length - 1 byte
+                        tds_ctx.write_le(
+                            static_cast<tdsl::uint8_t>(type_size)); // max length - 1 byte
                         maybe_write_collation();
                         tds_ctx.write_le(static_cast<tdsl::uint8_t>(param.value.size_bytes()));
                         break;
                     case e_tds_data_size_type::var_u16:
                         tds_ctx.write_le(
-                            static_cast<tdsl::uint16_t>(0xFFFF)); // max length - 2 bytes
+                            static_cast<tdsl::uint16_t>(type_size)); // max length - 2 bytes
                         maybe_write_collation();
                         tds_ctx.write_le(static_cast<tdsl::uint16_t>(param.value.size_bytes()));
-
                         break;
                     case e_tds_data_size_type::var_u32:
-                        tds_ctx.write_le(0xFFFFFFFF); // max length - 2 bytes
+                        tds_ctx.write_le(type_size); // max length - 2 bytes
                         maybe_write_collation();
                         tds_ctx.write_le(static_cast<tdsl::uint32_t>(param.value.size_bytes()));
                         break;
                     case e_tds_data_size_type::var_precision:
+                        TDSL_NOT_YET_IMPLEMENTED;
                         break;
                     case e_tds_data_size_type::unknown:
                         TDSL_TRAP;
@@ -212,54 +334,15 @@ namespace tdsl { namespace detail {
                         break;
                 }
 
-                tds_ctx.write(param.value);
+                if (param.value) {
+                    tds_ctx.write(param.value);
+                }
             }
-
-            // Parameter list
-
-            // for each parameter in parameter list
-            // name length - name
-            // status flags
-            // type info
-            //  type
-            //  maxlen??
-            // value
-            //  length
-            //  data
-
-            /**
-             *  TYPE_INFO=FIXEDLENTYPE
-                /
-                (VARLENTYPE TYPE_VARLEN [COLLATION])
-                /
-                (VARLENTYPE TYPE_VARLEN [PRECISION SCALE])
-                /
-                (VARLENTYPE SCALE) ; (introduced in TDS 7.3)
-                /
-                VARLENTYPE
-                ; (introduced in TDS 7.3)
-                /
-                (PARTLENTYPE
-                [USHORTMAXLEN]
-             *
-             */
-
-            // sp_execute format
-            // SELECT * FROM TEST WHERE A = @name, @name int, @name = 5
-
-            // SELECT * FROM TEST WHERE A = @name
-            // paramlist
-            //  name|int|AABBCCDD
-
-            // parameter* parameter_count;
-
-            // select * from q where x = @P1;
 
             // Reset query state object & reassign row callback
             qstate              = {};
             qstate.row_callback = {rcb_uptr, row_callback};
-            // Write the SQL command
-            string_writer_type::write(tds_ctx, command);
+
             // Send the command
             tds_ctx.send_tds_pdu(e_tds_message_type::rpc);
             // Receive the response
@@ -336,7 +419,7 @@ namespace tdsl { namespace detail {
         TDSL_NODISCARD token_handler_result
         handle_colmetadata_token(tdsl::binary_reader<tdsl::endian::little> & rr) noexcept {
             token_handler_result result                   = {};
-            constexpr static auto k_min_colmetadata_bytes = 8;
+            static constexpr auto k_min_colmetadata_bytes = 8;
             if (not rr.has_bytes(k_min_colmetadata_bytes)) {
                 result.status       = token_handler_status::not_enough_bytes;
                 result.needed_bytes = k_min_colmetadata_bytes - rr.remaining_bytes();
@@ -371,7 +454,7 @@ namespace tdsl { namespace detail {
             }
 
             // Absolute minimum COLMETADATA bytes, regardless of data type
-            constexpr static auto k_colinfo_min_bytes = 6; // user_type + flags + type + colname len
+            static constexpr auto k_colinfo_min_bytes = 6; // user_type + flags + type + colname len
 
             auto colindex                             = 0;
 

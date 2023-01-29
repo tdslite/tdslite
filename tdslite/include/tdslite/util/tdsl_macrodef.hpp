@@ -32,6 +32,21 @@
 #define TDSL_TRAP __builtin_trap()
 
 /**
+ * Mark a line of code as unreachable. If code flow reaches
+ * a line marked with TDSL_UNREACHABLE, the program will
+ * be terminated.
+ */
+#define TDSL_UNREACHABLE __builtin_unreachable()
+
+/**
+ * Placeholder macro for planned but not implemented
+ * functionality or code parts.
+ *
+ * Equivalent to TDSL_TRAP, TDSL_UNREACHABLE
+ */
+#define TDSL_NOT_YET_IMPLEMENTED TDSL_TRAP, TDSL_UNREACHABLE
+
+/**
  * @brief [intrinsics.gcc] Specify minimum alignment for given type. This causes target type to
  * be allocated and aligned at least Alignment bytes boundary.
  *

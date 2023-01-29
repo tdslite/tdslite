@@ -25,13 +25,18 @@ namespace tdsl { namespace detail {
      */
     template <typename NetImpl>
     struct tdsl_driver {
-        using tds_context_type           = detail::tds_context<NetImpl>;
-        using login_context_type         = detail::login_context<NetImpl>;
-        using login_parameters_type      = typename login_context_type::login_parameters;
+        using tds_context_type      = detail::tds_context<NetImpl>;
+        using info_callback_type    = typename tds_context_type::info_callback_type::function_type;
+        using login_context_type    = detail::login_context<NetImpl>;
+        using login_parameters_type = typename login_context_type::login_parameters;
         using pmem_login_parameters_type = typename login_context_type::pmem_login_parameters;
         using wlogin_parameters_type     = typename login_context_type::wlogin_parameters;
+
         using sql_command_type           = detail::command_context<NetImpl>;
         using sql_command_options_type   = typename sql_command_type::command_options;
+        using sql_command_rpc_mode       = e_rpc_mode;
+        using sql_command_rpc_result     = typename sql_command_type::execute_rpc_result;
+        using sql_command_row_callback   = typename sql_command_type::row_callback_fn_t;
 
         enum class e_driver_error_code
         {
@@ -140,9 +145,7 @@ namespace tdsl { namespace detail {
          * @param [in] callback Pointer to the function to call whenever
          *             an INFO token is received
          */
-        void set_info_callback(
-            void * user_ptr,
-            typename tds_context_type::info_callback_type::function_type callback) noexcept {
+        void set_info_callback(void * user_ptr, info_callback_type callback) noexcept {
             tds_ctx.callbacks.info = {user_ptr, callback};
         }
 
@@ -152,8 +155,8 @@ namespace tdsl { namespace detail {
          * Send a query to the server
          *
          * @param [in] command SQL command to execute
-         * @param [in] uptr User supplied pointer, will be passed to row_callback as first argument
-         *             on every invocation
+         * @param [in] uptr User supplied pointer, will be passed to row_callback as first
+         * argument on every invocation
          * @param [in] row_callback Callback to invoke for each row received as
          *             a result to the query. (optional)
          *
@@ -162,8 +165,8 @@ namespace tdsl { namespace detail {
         template <typename T>
         inline auto execute_query(
             T command, void * uptr = nullptr,
-            typename sql_command_type::row_callback_fn_t row_callback =
-                +[](void *, const tds_colmetadata_token &, const tdsl_row &) -> void {}) noexcept
+            sql_command_row_callback row_callback = +[](void *, const tds_colmetadata_token &,
+                                                        const tdsl_row &) -> void {}) noexcept
             -> tdsl::uint32_t {
             TDSL_ASSERT(tds_ctx.is_authenticated());
             return sql_command_type{tds_ctx, command_options}.execute_query(command, uptr,
@@ -177,8 +180,8 @@ namespace tdsl { namespace detail {
          * (const char array overload)
          *
          * @param [in] command SQL command to execute
-         * @param [in] uptr User supplied pointer, will be passed to row_callback as first argument
-         *             on every invocation
+         * @param [in] uptr User supplied pointer, will be passed to row_callback as first
+         * argument on every invocation
          * @param [in] row_callback Callback to invoke for each row received as
          *             a result to the query. (optional)
          *
@@ -187,11 +190,45 @@ namespace tdsl { namespace detail {
         template <tdsl::uint32_t N>
         inline auto execute_query(
             const char (&command) [N], void * uptr = nullptr,
-            typename sql_command_type::row_callback_fn_t row_callback =
-                +[](void *, const tds_colmetadata_token &, const tdsl_row &) -> void {}) noexcept
+            sql_command_row_callback row_callback = +[](void *, const tds_colmetadata_token &,
+                                                        const tdsl_row &) -> void {}) noexcept
             -> tdsl::uint32_t {
             TDSL_ASSERT(tds_ctx.is_authenticated());
             return execute_query(tdsl::string_view{command}, uptr, row_callback);
+        }
+
+        // --------------------------------------------------------------------------------
+
+        /**
+         * Perform a remote procedure call (e.g. execute a stored procedure or
+         * a parameterized query)
+         *
+         * @tparam T String view type
+         *
+         * @param [in] command Command to execute
+         * @param [in] params Parameters of the command, if any
+         * @param [in] mode RPC execution mode
+         * @param [in] rcb_uptr Row callback user pointer (optional)
+         * @param [in] row_callback Row callback function (optional)
+         *
+         * The result set returned by query @p command can be read by providing
+         * a row callback function
+         *
+         * @returns execute_rpc_result::unexpected(e_rpc_error_code::invalid_mode) if @p mode
+         *          value is invalid
+         * @returns rows_affected if successful
+         */
+        template <typename T, traits::enable_when::same_any_of<T, string_view, wstring_view,
+                                                               struct progmem_string_view> = true>
+        inline sql_command_rpc_result execute_rpc(
+            T command, tdsl::span<sql_parameter_binding> params = {},
+            sql_command_rpc_mode mode             = {sql_command_rpc_mode::executesql},
+            void * rcb_uptr                       = nullptr,
+            sql_command_row_callback row_callback = +[](void *, const tds_colmetadata_token &,
+                                                        const tdsl_row &) -> void {}) noexcept {
+            TDSL_ASSERT(tds_ctx.is_authenticated());
+            return sql_command_type{tds_ctx, command_options}.execute_rpc(command, params, mode,
+                                                                          rcb_uptr, row_callback);
         }
 
         /**
@@ -216,7 +253,6 @@ namespace tdsl { namespace detail {
          */
         sql_command_options_type command_options{};
     };
-
 }} // namespace tdsl::detail
 
 #endif

@@ -106,6 +106,8 @@ namespace tdsl {
          * span will be unmodified in this case.
          */
         inline TDSL_NODISCARD auto write(tdsl::byte_view data) noexcept -> bool {
+            TDSL_ASSERT(data);
+
             if (not this->has_bytes(data.size_bytes())) {
                 return false;
             }
@@ -126,6 +128,8 @@ namespace tdsl {
          */
         inline TDSL_NODISCARD auto write(size_type start_offset, tdsl::byte_view data) noexcept
             -> bool {
+
+            TDSL_ASSERT(data);
 
             if (not this->has_bytes(data.size_bytes(), start_offset)) {
                 return false;

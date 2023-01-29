@@ -34,7 +34,7 @@ namespace tdsl { namespace detail {
      * @return Token type as string if @p type has a corresponding string representation,
      * "UNDEFINED" otherwise.
      */
-    inline static TDSL_CXX14_CONSTEXPR const char *
+    TDSL_NODISCARD inline static TDSL_CXX14_CONSTEXPR const char *
     data_type_to_str(e_tds_data_type type) noexcept {
 
         switch (type) {
@@ -94,6 +94,31 @@ namespace tdsl { namespace detail {
             bool reserved : 2;
         } flags;
 
+        // corresponding non-fixed size type, if possible
+        // used for converting fixed types to variable types
+        // when needed (e.g. rpc calls)
+        // RPC does not support the following:
+        // Within a TVP, the following legacy TDS types are not supported:
+        // TDS type     Replacement type
+        // Binary       BigBinary
+        // VarBinary    BigVarBinary
+        // Char         BigChar
+        // VarChar      BigVarChar
+        // Bit          BitN        [+]
+        // Int1         IntN        [+]
+        // Int2         IntN        [+]
+        // Int4         IntN        [+]
+        // Int8         IntN        [+]
+        // Float4       FloatN      [+]
+        // Float8       FloatN      [+]
+        // Money        MoneyN      [+]
+        // Decimal      DecimalN    [+]
+        // Numeric      NumericN    [+]
+        // DateTime     DatetimeN   [+]
+        // DateTime4    DatetimeN   [+]
+        // Money4       MoneyN      [+]
+        e_tds_data_type corresponding_varsize_type;
+
         /**
          * Returns true if data type is a variable size type
          */
@@ -148,36 +173,70 @@ namespace tdsl { namespace detail {
      * @returns varu32_prop if @p type is a variable data type in u32-size boundary
      * @returns varprec_prop if @p type is variable data type with precision and scale
      */
-    static inline tds_data_type_properties get_data_type_props(e_tds_data_type type) {
+    TDSL_NODISCARD inline static tds_data_type_properties
+    get_data_type_props(e_tds_data_type type) {
         tds_data_type_properties result{};
         switch (type) {
             // Fixed length data types
             case e_tds_data_type::NULLTYPE:
-                result.size_type    = e_tds_data_size_type::fixed;
-                result.length.fixed = 0;
+                result.size_type                  = e_tds_data_size_type::fixed;
+                result.length.fixed               = 0;
+                result.corresponding_varsize_type = type; // this is invalid, but anyway.
                 break;
             case e_tds_data_type::BITTYPE:
+                result.size_type                  = e_tds_data_size_type::fixed;
+                result.corresponding_varsize_type = e_tds_data_type::BITNTYPE;
+                result.length.fixed               = 1;
+                break;
             case e_tds_data_type::INT1TYPE:
-                result.size_type    = e_tds_data_size_type::fixed;
-                result.length.fixed = 1;
+                result.size_type                  = e_tds_data_size_type::fixed;
+                result.corresponding_varsize_type = e_tds_data_type::INTNTYPE;
+                result.length.fixed               = 1;
                 break;
             case e_tds_data_type::INT2TYPE:
-                result.size_type    = e_tds_data_size_type::fixed;
-                result.length.fixed = 2;
+                result.size_type                  = e_tds_data_size_type::fixed;
+                result.corresponding_varsize_type = e_tds_data_type::INTNTYPE;
+                result.length.fixed               = 2;
                 break;
             case e_tds_data_type::INT4TYPE:
+                result.size_type                  = e_tds_data_size_type::fixed;
+                result.corresponding_varsize_type = e_tds_data_type::INTNTYPE;
+                result.length.fixed               = 4;
+                break;
             case e_tds_data_type::DATETIM4TYPE:
+                result.size_type                  = e_tds_data_size_type::fixed;
+                result.corresponding_varsize_type = e_tds_data_type::DATETIMNTYPE;
+                result.length.fixed               = 4;
+                break;
             case e_tds_data_type::FLT4TYPE:
+                result.size_type                  = e_tds_data_size_type::fixed;
+                result.corresponding_varsize_type = e_tds_data_type::FLTNTYPE;
+                result.length.fixed               = 4;
+                break;
             case e_tds_data_type::MONEY4TYPE:
-                result.size_type    = e_tds_data_size_type::fixed;
-                result.length.fixed = 4;
+                result.size_type                  = e_tds_data_size_type::fixed;
+                result.corresponding_varsize_type = e_tds_data_type::MONEYNTYPE;
+                result.length.fixed               = 4;
                 break;
             case e_tds_data_type::INT8TYPE:
+                result.size_type                  = e_tds_data_size_type::fixed;
+                result.corresponding_varsize_type = e_tds_data_type::INTNTYPE;
+                result.length.fixed               = 8;
+                break;
             case e_tds_data_type::DATETIMETYPE:
+                result.size_type                  = e_tds_data_size_type::fixed;
+                result.corresponding_varsize_type = e_tds_data_type::DATETIMNTYPE;
+                result.length.fixed               = 8;
+                break;
             case e_tds_data_type::FLT8TYPE:
+                result.size_type                  = e_tds_data_size_type::fixed;
+                result.corresponding_varsize_type = e_tds_data_type::FLTNTYPE;
+                result.length.fixed               = 8;
+                break;
             case e_tds_data_type::MONEYTYPE:
-                result.size_type    = e_tds_data_size_type::fixed;
-                result.length.fixed = 8;
+                result.size_type                  = e_tds_data_size_type::fixed;
+                result.corresponding_varsize_type = e_tds_data_type::MONEYNTYPE;
+                result.length.fixed               = 8;
                 break;
             case e_tds_data_type::DECIMALNTYPE:
             case e_tds_data_type::NUMERICNTYPE:
@@ -187,7 +246,9 @@ namespace tdsl { namespace detail {
                 result.size_type                   = e_tds_data_size_type::var_precision;
                 result.length.variable.length_size = 2;
                 result.flags.has_precision         = {true};
+                result.corresponding_varsize_type  = type;
                 break;
+
             // Variable length data types with 8-bit length bit width
             case e_tds_data_type::GUIDTYPE:
             case e_tds_data_type::INTNTYPE:
@@ -200,6 +261,7 @@ namespace tdsl { namespace detail {
                 // to specify the length of the value or GEN_NULL as appropriate.
                 result.flags.zero_represents_null  = {true};
                 result.size_type                   = e_tds_data_size_type::var_u8;
+                result.corresponding_varsize_type  = type; // is already a varsize type
                 result.length.variable.length_size = sizeof(tdsl::uint8_t);
                 break;
             // Variable length data types with 16-bit length bit width
@@ -216,6 +278,7 @@ namespace tdsl { namespace detail {
                 result.flags.maxlen_represents_null = {true};
                 result.size_type                    = e_tds_data_size_type::var_u16;
                 result.length.variable.length_size  = sizeof(tdsl::uint16_t);
+                result.corresponding_varsize_type   = type; // is already a varsize type
                 break;
             // Variable length data types with 32-bit length bit width
             case e_tds_data_type::NTEXTTYPE:
@@ -230,6 +293,7 @@ namespace tdsl { namespace detail {
                 result.flags.maxlen_represents_null = {true};
                 result.size_type                    = e_tds_data_size_type::var_u32;
                 result.length.variable.length_size  = sizeof(tdsl::uint32_t);
+                result.corresponding_varsize_type   = type; // is already a varsize type
                 break;
             default:
                 result.size_type = e_tds_data_size_type::unknown;
@@ -238,8 +302,8 @@ namespace tdsl { namespace detail {
         return result;
     }
 
-    static inline bool is_valid_variable_length_for_type(e_tds_data_type type,
-                                                         tdsl::uint32_t length) noexcept {
+    TDSL_NODISCARD static inline bool
+    is_valid_variable_length_for_type(e_tds_data_type type, tdsl::uint32_t length) noexcept {
 
         if (length == 0x00) {
             // For all variable length data types, the value is 0x00 for NULL instances.

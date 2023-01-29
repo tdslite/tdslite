@@ -10,13 +10,13 @@
  * _______________________________________________________
  */
 
+#ifndef TDSL_UTIL_INTTYPES_HPP
+#define TDSL_UTIL_INTTYPES_HPP
+
 #include <tdslite/util/tdsl_type_traits.hpp>
 
 #include <stdint.h>
 #include <stddef.h>
-
-#ifndef TDSL_UTIL_INTTYPES_HPP
-#define TDSL_UTIL_INTTYPES_HPP
 
 // *_be_* = type alias for denoting a big-endian integer
 // *_le_* = type alias for denoting a little-endian integer

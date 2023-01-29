@@ -60,6 +60,16 @@ TEST_F(sql_param_fixture, assign) {
 
 // --------------------------------------------------------------------------------
 
+TEST_F(sql_param_fixture, assign_to_backing_type) {
+    ASSERT_NO_THROW({
+        uut_t<tdsl::detail::e_tds_data_type::INT1TYPE> v{17};
+        tdsl::uint8_t v2 = v;
+        EXPECT_EQ(v2, tdsl::uint8_t{17});
+    });
+}
+
+// --------------------------------------------------------------------------------
+
 TEST_F(sql_param_fixture, arithmetic_add) {
     uut_t<tdsl::detail::e_tds_data_type::INT1TYPE> v{tdsl::uint8_t{6}};
     ASSERT_EQ(v, 6);

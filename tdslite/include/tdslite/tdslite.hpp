@@ -17,6 +17,7 @@
 
 #include <tdslite/detail/tdsl_driver.hpp>
 #include <tdslite/detail/tdsl_lang_code_id.hpp>
+#include <tdslite/detail/tdsl_tds_procedure_id.hpp>
 
 namespace tdsl {
 
@@ -31,8 +32,13 @@ namespace tdsl {
     using detail::sql_parameter_bigint;
     using detail::sql_parameter_binding;
     using detail::sql_parameter_int;
+    using detail::sql_parameter_nvarchar;
     using detail::sql_parameter_smallint;
     using detail::sql_parameter_tinyint;
+    using detail::sql_parameter_varchar;
+
+    using rpc_mode    = detail::e_rpc_mode;
+    using stored_proc = detail::e_proc_id;
 
 } // namespace tdsl
 
