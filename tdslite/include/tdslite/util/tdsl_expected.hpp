@@ -1,12 +1,14 @@
 /**
- * _________________________________________________
+ * ____________________________________________________
+ * C++11 *just enough* *expected* implementation
+ * backported from C++23
  *
  * @file   tdsl_expected.hpp
  * @author Mustafa Kemal GILOR <mustafagilor@gmail.com>
  * @date   16.09.2022
  *
  * SPDX-License-Identifier:    MIT
- * _________________________________________________
+ * ____________________________________________________
  */
 
 #ifndef TDSL_UTIL_EXPECTED_HPP
@@ -64,7 +66,7 @@ namespace tdsl {
         struct unexpected_ctr_tag {};
 
     public:
-        inline static auto unexpected(ET v) noexcept -> self_type {
+        static inline auto unexpected(ET v) noexcept -> self_type {
             return self_type{v, unexpected_ctr_tag{}};
         }
 
@@ -123,7 +125,7 @@ namespace tdsl {
         // By default, expected contains ET.
         bool has_expected = {false};
 
-        inline bool has_value() const noexcept {
+        inline TDSL_NODISCARD bool has_value() const noexcept {
             return has_expected;
         }
 

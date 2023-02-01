@@ -1,12 +1,12 @@
 /**
- * _________________________________________________
+ * ____________________________________________________
  *
  * @file   tdsl_field.hpp
  * @author Mustafa Kemal GILOR <mustafagilor@gmail.com>
  * @date   05.10.2022
  *
  * SPDX-License-Identifier:    MIT
- * _________________________________________________
+ * ____________________________________________________
  */
 
 #ifndef TDSL_DETAIL_TDSL_FIELD_HPP
@@ -32,7 +32,14 @@ namespace tdsl {
         // using s_varchar  = tdsl::string_view;
 
         struct sql_money : public sql_data_type_base {
-            explicit sql_money(tdsl::byte_view v) noexcept {
+
+            /**
+             * Construct a new sql money object
+             *
+             * @param [in] v View to bytes to be interpreted as sql_money
+             */
+            inline explicit sql_money(tdsl::byte_view v) noexcept {
+                TDSL_ASSERT(v.size_bytes() == (sizeof(tdsl::uint32_t) * 2));
                 // money is represented as an 8-byte signed integer. The TDS value is the money
                 // value multiplied by 10^4. The 8-byte signed integer itself is represented in the
                 // following sequence:
@@ -45,22 +52,45 @@ namespace tdsl {
                                                    (static_cast<tdsl::uint64_t>(lsh)));
             }
 
-            inline tdsl::int64_t integer() const noexcept {
+            // --------------------------------------------------------------------------------
+
+            /**
+             * Calculate the integer part
+             *
+             * @return tdsl::int64_t sql_money integer part
+             */
+            inline TDSL_NODISCARD tdsl::int64_t integer() const noexcept {
                 return value / 10000;
             }
 
-            inline tdsl::int64_t fraction() const noexcept {
+            // --------------------------------------------------------------------------------
+
+            /**
+             * Calculate the fraction part
+             *
+             * @return tdsl::int64_t sql_money fraction part
+             */
+            inline TDSL_NODISCARD tdsl::int64_t fraction() const noexcept {
                 return value % 10000;
             }
 
+            // --------------------------------------------------------------------------------
+
+            /**
+             * Get sql_money value as a double
+             *
+             * @return double sql_money as double
+             */
             inline operator double() const noexcept {
                 return static_cast<double>(integer()) + (static_cast<double>(fraction()) / 10000);
             }
 
+            // --------------------------------------------------------------------------------
+
             /**
              * Raw 8 byte integer stored in the database
              */
-            inline tdsl::int64_t raw() const noexcept {
+            inline TDSL_NODISCARD tdsl::int64_t raw() const noexcept {
                 return value;
             }
 
@@ -83,6 +113,8 @@ namespace tdsl {
         template <typename NetImpl>
         struct command_context;
 
+        // --------------------------------------------------------------------------------
+
         /**
          * Cast helper for integral types
          *
@@ -96,17 +128,23 @@ namespace tdsl {
             return tdsl::binary_reader<tdsl::endian::little>{data}.read<T>();
         }
 
+        // --------------------------------------------------------------------------------
+
         template <typename T,
                   typename traits::enable_when::template_instance_of<T, tdsl::span> = true>
         inline auto as_impl(byte_view data) -> T {
             return data.rebind_cast<typename T::element_type>();
         }
 
+        // --------------------------------------------------------------------------------
+
         template <typename T,
                   typename traits::enable_when::base_of<sqltypes::sql_data_type_base, T> = true>
         inline auto as_impl(byte_view data) -> T {
             return T{data};
         }
+
+        // --------------------------------------------------------------------------------
 
         // Decimal is not yet supported.
         // /**
@@ -137,18 +175,24 @@ namespace tdsl {
         using byte_view::span;
         using byte_view::operator=;
 
+        // --------------------------------------------------------------------------------
+
         // (mgilor): Little hack to make implicit
         // construction on assignment work, e.g. tdsl_field = buf[50];
         template <typename... Args>
-        inline tdsl_field & operator=(Args &&... args) {
+        inline auto operator=(Args &&... args) noexcept -> tdsl_field & {
             byte_view::operator=(TDSL_FORWARD(args)...);
             return *this;
         }
 
+        // --------------------------------------------------------------------------------
+
         template <typename T>
-        inline auto as() const noexcept -> T {
+        inline TDSL_NODISCARD auto as() const noexcept -> T {
             return detail::as_impl<T>(*this);
         }
+
+        // --------------------------------------------------------------------------------
 
         /**
          * Check if field is NULL
@@ -173,6 +217,8 @@ namespace tdsl {
             TDSL_ASSERT(size() == 0);
         }
 
+        // --------------------------------------------------------------------------------
+
         /**
          * Data value that represents a NULL field.
          * This is the discrimination between an empty string
@@ -187,6 +233,8 @@ namespace tdsl {
             static tdsl::uint8_t a{};
             return &a;
         }
+
+        // --------------------------------------------------------------------------------
 
         // every command_context<T> is our friend.
         template <typename T>

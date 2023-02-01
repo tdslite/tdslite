@@ -1,8 +1,8 @@
 /**
  * ____________________________________________________
- * tdslite main unit test
+ * binary_reader class unit tests
  *
- * @file   ut_tdslite.cpp
+ * @file   ut_binary_reader.cpp
  * @author Mustafa Kemal GILOR <mustafagilor@gmail.com>
  * @date   12.04.2022
  *
@@ -15,8 +15,12 @@
 #include <tdslite/util/tdsl_macrodef.hpp>
 #include <gtest/gtest.h>
 
+// --------------------------------------------------------------------------------
+
 constexpr tdsl::uint8_t buffer_to_read [] = {0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
                                              0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10};
+
+// --------------------------------------------------------------------------------
 
 TEST(binary_reader_test, construct) {
     using uut = tdsl::binary_reader<tdsl::endian::native>;
@@ -26,6 +30,8 @@ TEST(binary_reader_test, construct) {
     });
 }
 
+// --------------------------------------------------------------------------------
+
 TEST(binary_reader_test, construct_explicit_size) {
     using uut = tdsl::binary_reader<tdsl::endian::native>;
 
@@ -34,6 +40,8 @@ TEST(binary_reader_test, construct_explicit_size) {
         (void) aa;
     }()));
 }
+
+// --------------------------------------------------------------------------------
 
 TEST(binary_reader_test, construct_span) {
     using uut = tdsl::binary_reader<tdsl::endian::native>;
@@ -45,6 +53,8 @@ TEST(binary_reader_test, construct_span) {
     }()));
 }
 
+// --------------------------------------------------------------------------------
+
 TEST(binary_reader_test, read_span) {
     using uut = tdsl::binary_reader<tdsl::endian::native>;
     uut reader{buffer_to_read};
@@ -53,10 +63,13 @@ TEST(binary_reader_test, read_span) {
     ASSERT_TRUE(result);
     ASSERT_EQ(expected_result.size_bytes(), result.size_bytes());
 
-    for (auto itr = result.begin(), ite = expected_result.begin(); itr != result.end(); itr++, ite++) {
+    for (auto itr = result.begin(), ite = expected_result.begin(); itr != result.end();
+         itr++, ite++) {
         EXPECT_EQ(*itr, *ite);
     }
 }
+
+// --------------------------------------------------------------------------------
 
 // TEST(binary_reader_test, reinterpret_read) {
 //     using uut = tdsl::binary_reader<tdsl::endian::native>;
@@ -72,14 +85,17 @@ TEST(binary_reader_test, read_span) {
 //     constexpr auto expected_result = target_type{
 //         .u1 = 0x01,
 //         .u2 = 0x02,
-//         .u3 = (tdsl::endian::native == tdsl::endian::little ? std::uint16_t(0x0403) : std::uint16_t(0x0304)),
-//         .u4 = (tdsl::endian::native == tdsl::endian::little ? std::uint32_t(0x08070605) : std::uint32_t(0x05060708)),
+//         .u3 = (tdsl::endian::native == tdsl::endian::little ? std::uint16_t(0x0403) :
+//         std::uint16_t(0x0304)), .u4 = (tdsl::endian::native == tdsl::endian::little ?
+//         std::uint32_t(0x08070605) : std::uint32_t(0x05060708)),
 //     };
 
 //     uut reader{buffer_to_read};
 //     auto result = reader.reinterpret_read<const target_type *>();
 //     EXPECT_EQ(*result, expected_result);
 // }
+
+// --------------------------------------------------------------------------------
 
 TEST(binary_reader_test, seek) {
     using uut = tdsl::binary_reader<tdsl::endian::native>;
@@ -92,10 +108,13 @@ TEST(binary_reader_test, seek) {
 
     ASSERT_EQ(expected_result.size_bytes(), result.size_bytes());
 
-    for (auto itr = result.begin(), ite = expected_result.begin(); itr != result.end(); itr++, ite++) {
+    for (auto itr = result.begin(), ite = expected_result.begin(); itr != result.end();
+         itr++, ite++) {
         EXPECT_EQ(*itr, *ite);
     }
 }
+
+// --------------------------------------------------------------------------------
 
 TEST(binary_reader_test, advance) {
     using uut = tdsl::binary_reader<tdsl::endian::native>;
@@ -107,10 +126,13 @@ TEST(binary_reader_test, advance) {
 
     ASSERT_EQ(expected_result.size_bytes(), result.size_bytes());
 
-    for (auto itr = result.begin(), ite = expected_result.begin(); itr != result.end(); itr++, ite++) {
+    for (auto itr = result.begin(), ite = expected_result.begin(); itr != result.end();
+         itr++, ite++) {
         EXPECT_EQ(*itr, *ite);
     }
 }
+
+// --------------------------------------------------------------------------------
 
 TEST(binary_reader_test, remaining_bytes) {
     using uut = tdsl::binary_reader<tdsl::endian::native>;
@@ -120,6 +142,8 @@ TEST(binary_reader_test, remaining_bytes) {
     EXPECT_EQ(sizeof(buffer_to_read) - 6, reader.remaining_bytes());
 }
 
+// --------------------------------------------------------------------------------
+
 TEST(binary_reader_test, has_bytes) {
     using uut = tdsl::binary_reader<tdsl::endian::native>;
     uut reader{buffer_to_read};
@@ -128,6 +152,8 @@ TEST(binary_reader_test, has_bytes) {
     EXPECT_TRUE(reader.has_bytes(2));
 }
 
+// --------------------------------------------------------------------------------
+
 TEST(binary_reader_test, has_bytes_false) {
     using uut = tdsl::binary_reader<tdsl::endian::native>;
     uut reader{buffer_to_read};
@@ -135,6 +161,8 @@ TEST(binary_reader_test, has_bytes_false) {
     EXPECT_TRUE(result);
     EXPECT_FALSE(reader.has_bytes(3));
 }
+
+// --------------------------------------------------------------------------------
 
 TEST(binary_reader_test, reset) {
     using uut = tdsl::binary_reader<tdsl::endian::native>;
@@ -147,10 +175,13 @@ TEST(binary_reader_test, reset) {
 
     ASSERT_EQ(expected_result.size_bytes(), result.size_bytes());
 
-    for (auto itr = result.begin(), ite = expected_result.begin(); itr != result.end(); itr++, ite++) {
+    for (auto itr = result.begin(), ite = expected_result.begin(); itr != result.end();
+         itr++, ite++) {
         EXPECT_EQ(*itr, *ite);
     }
 }
+
+// --------------------------------------------------------------------------------
 
 TEST(binary_reader_test, read_all) {
     using uut = tdsl::binary_reader<tdsl::endian::native>;
@@ -159,6 +190,8 @@ TEST(binary_reader_test, read_all) {
     EXPECT_FALSE(reader.has_bytes(1));
 }
 
+// --------------------------------------------------------------------------------
+
 TEST(binary_reader_test, overread) {
     using uut = tdsl::binary_reader<tdsl::endian::native>;
     uut reader{buffer_to_read};
@@ -166,12 +199,16 @@ TEST(binary_reader_test, overread) {
     EXPECT_TRUE(reader.has_bytes(1));
 }
 
+// --------------------------------------------------------------------------------
+
 TEST(binary_reader_test, overread_2) {
     using uut = tdsl::binary_reader<tdsl::endian::native>;
     uut reader{buffer_to_read};
     EXPECT_FALSE(reader.advance(0xffffffff));
     EXPECT_TRUE(reader.has_bytes(1));
 }
+
+// --------------------------------------------------------------------------------
 
 TEST(binary_reader_test, subreader) {
     using uut = tdsl::binary_reader<tdsl::endian::native>;
@@ -184,6 +221,8 @@ TEST(binary_reader_test, subreader) {
     EXPECT_EQ(sr.size_bytes(), sizeof(buffer_to_read) - sizeof(tdsl::uint8_t));
 }
 
+// --------------------------------------------------------------------------------
+
 TEST(binary_reader_test, subreader_clamp) {
     using uut = tdsl::binary_reader<tdsl::endian::native>;
     uut reader{buffer_to_read};
@@ -191,4 +230,18 @@ TEST(binary_reader_test, subreader_clamp) {
     (void) a;
     auto sr = reader.subreader(sizeof(buffer_to_read)); // exceed the size
     EXPECT_FALSE(sr);
+}
+
+// --------------------------------------------------------------------------------
+
+TEST(binary_reader_test, checkpoint) {
+    using uut = tdsl::binary_reader<tdsl::endian::native>;
+    uut reader{buffer_to_read};
+    auto a = reader.read<tdsl::uint8_t>();
+    (void) a;
+    auto cp = reader.checkpoint();
+    auto b  = reader.read<tdsl::uint8_t>();
+    (void) b;
+    cp.restore();
+    ASSERT_EQ(reader.offset(), 1);
 }

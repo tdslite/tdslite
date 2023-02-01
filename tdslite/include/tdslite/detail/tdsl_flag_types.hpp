@@ -1,12 +1,12 @@
 /**
- * _________________________________________________
+ * ____________________________________________________
  *
  * @file   tds_flag_types.hpp
  * @author Mustafa K. GILOR <mustafagilor@gmail.com>
  * @date   17.04.2022
  *
  * SPDX-License-Identifier:    MIT
- * _________________________________________________
+ * ____________________________________________________
  */
 
 #ifndef TDSL_DETAIL_TDS_FLAG_TYPES_HPP
@@ -15,6 +15,9 @@
 #include <tdslite/util/tdsl_inttypes.hpp>
 
 namespace tdsl { namespace detail {
+
+    // --------------------------------------------------------------------------------
+
     // 0b1111'0011
     struct option_flags_1 {
         tdsl::uint8_t byte_order : 1; // 0 = ORDER_X86, 1 = ORDER_68000
@@ -26,6 +29,8 @@ namespace tdsl { namespace detail {
         tdsl::uint8_t set_lang : 1;   // 0 = SET_LANG_OFF, 1 = SET_LANG_ON
     };
 
+    // --------------------------------------------------------------------------------
+
     struct option_flags_2 {
         tdsl::uint8_t language : 1; // 0 = INIT_LANG_WARN, 1 = INIT_LANG_FATAL
         tdsl::uint8_t odbc : 1;     // 0  = ODBC_OFF, 1 = ODBC_ON
@@ -36,12 +41,16 @@ namespace tdsl { namespace detail {
         tdsl::uint8_t int_security : 1; // 0 = INTEGRATED_SECURITY_OFF, 1 = INTEGRATED_SECURITY_ON
     };
 
+    // --------------------------------------------------------------------------------
+
     struct type_flags {
         tdsl::uint8_t sql_type : 4; // 0 = SQL_DFLT, 1 = SQL_TSQL
         tdsl::uint8_t ole_db : 1;   // 0 = OLEDB_OFF, 1 = OLEDB_ON
         tdsl::uint8_t read_only_intent : 1;
         tdsl::uint8_t reserved : 2;
     };
+
+    // --------------------------------------------------------------------------------
 
     struct option_flags_3 {
         tdsl::uint8_t change_password : 1; // 0 = No change request, 1 = Change request

@@ -1,5 +1,5 @@
 /**
- * _________________________________________________
+ * ____________________________________________________
  * Immutable view types for strings.
  *
  * @file   tdsl_string_view.hpp
@@ -7,7 +7,7 @@
  * @date   23.05.2022
  *
  * SPDX-License-Identifier:    MIT
- * _________________________________________________
+ * ____________________________________________________
  */
 
 #ifndef TDSL_UTIL_STRING_VIEW_HPP
@@ -29,14 +29,22 @@ namespace tdsl {
         // so we have to do it ourselves.
         using base_type::span;
 
+        // --------------------------------------------------------------------------------
+
         wstring_view(const base_type & other) : base_type::span(other) {}
+
+        // --------------------------------------------------------------------------------
 
         wstring_view(base_type && other) : base_type::span(other) {}
 
+        // --------------------------------------------------------------------------------
+
         wstring_view() : span() {}
 
+        // --------------------------------------------------------------------------------
+
         // byte constructor
-        wstring_view(tdsl::byte_view bv) : span(bv.rebind_cast<char16_t>()) {
+        inline wstring_view(tdsl::byte_view bv) noexcept : span(bv.rebind_cast<char16_t>()) {
             // If the string is NUL-terminated, omit the NUL terminator.
 
             if (bv.size() > 1 && bv [bv.size() - 2] == '\0' && bv [bv.size() - 1] == '\0') {
@@ -44,8 +52,10 @@ namespace tdsl {
             }
         }
 
+        // --------------------------------------------------------------------------------
+
         template <tdsl::uint32_t N>
-        wstring_view(const char16_t (&str) [N]) : span(str, N) {
+        inline wstring_view(const char16_t (&str) [N]) noexcept : span(str, N) {
             // If the string is NUL-terminated, omit the NUL terminator.
             if (N > 0 && str [N - 1] == u'\0') {
                 element_count -= 1;
@@ -66,14 +76,22 @@ namespace tdsl {
         // so we have to do it ourselves.
         using base_type::span;
 
-        string_view(const base_type & other) : base_type::span(other) {}
+        // --------------------------------------------------------------------------------
 
-        string_view(base_type && other) : base_type::span(other) {}
+        inline string_view(const base_type & other) noexcept : base_type::span(other) {}
 
-        string_view() : span() {}
+        // --------------------------------------------------------------------------------
+
+        inline string_view(base_type && other) noexcept : base_type::span(other) {}
+
+        // --------------------------------------------------------------------------------
+
+        inline string_view() noexcept : span() {}
+
+        // --------------------------------------------------------------------------------
 
         template <tdsl::uint32_t N>
-        string_view(const char (&str) [N]) : span(str, N) {
+        inline string_view(const char (&str) [N]) noexcept : span(str, N) {
             // If the string is NUL-terminated, omit the NUL terminator.
             if (N > 0 && str [N - 1] == '\0') {
                 element_count -= 1;
@@ -130,6 +148,8 @@ namespace tdsl {
 
     struct progmem_forward_iterator {
 
+        // --------------------------------------------------------------------------------
+
         inline progmem_forward_iterator(tdsl::char_view span) noexcept :
             reader{span.rebind_cast<const tdsl::uint8_t>()} {
             static_assert(
@@ -137,6 +157,8 @@ namespace tdsl {
                     tdsl_memcpyp_detect<void *, const void *, tdsl::size_t>::value>::value,
                 "The progmem_forward_iterator type requires memcpy_P function to be available!");
         }
+
+        // --------------------------------------------------------------------------------
 
         /**
          * Return the char at current iterator
@@ -152,6 +174,8 @@ namespace tdsl {
             return reader.peek_raw<char>(::memcpy_P);
         }
 
+        // --------------------------------------------------------------------------------
+
         /**
          * Advance iterator forward (pre-increment)
          */
@@ -161,6 +185,8 @@ namespace tdsl {
             TDSL_ASSERT_MSG(b, "Something is wrong (attempted OOB advance)");
             return *this;
         }
+
+        // --------------------------------------------------------------------------------
 
         /**
          * Advance iterator forward (post-increment)
@@ -172,8 +198,12 @@ namespace tdsl {
             return *this;
         }
 
+        // --------------------------------------------------------------------------------
+
         friend bool(::operator==)(const progmem_forward_iterator &,
                                   const progmem_forward_iterator &) noexcept;
+
+        // --------------------------------------------------------------------------------
 
         friend bool(::operator!=)(const progmem_forward_iterator & a,
                                   const progmem_forward_iterator & b) noexcept;
@@ -198,7 +228,11 @@ namespace tdsl {
         using tdsl::char_view::operator bool;
         using element_type = typename tdsl::char_view::element_type;
 
+        // --------------------------------------------------------------------------------
+
         progmem_string_view() : tdsl::char_view() {}
+
+        // --------------------------------------------------------------------------------
 
         /**
          * Construct a new progmem string view object
@@ -239,6 +273,8 @@ namespace tdsl {
             return progmem_forward_iterator{*this};
         }
 
+        // --------------------------------------------------------------------------------
+
         /**
          * Get an iterator to the end of the
          * underlying progmem string.
@@ -250,6 +286,8 @@ namespace tdsl {
                 tdsl::char_view{tdsl::char_view::end(), tdsl::char_view::end()}
             };
         }
+
+        // --------------------------------------------------------------------------------
 
         /**
          * Get raw data pointer
@@ -275,6 +313,8 @@ inline bool operator==(const tdsl::progmem_forward_iterator & a,
     return a.reader.current() == b.reader.current();
 };
 
+// --------------------------------------------------------------------------------
+
 /**
  * Inequality operator
  *
@@ -287,6 +327,8 @@ inline bool operator!=(const tdsl::progmem_forward_iterator & a,
                        const tdsl::progmem_forward_iterator & b) noexcept {
     return !operator==(a, b);
 };
+
+// --------------------------------------------------------------------------------
 
 /**
  * Auto-wraps and stores a string literal in
@@ -305,9 +347,13 @@ inline bool operator!=(const tdsl::progmem_forward_iterator & a,
 
 #endif
 
+// --------------------------------------------------------------------------------
+
 inline tdsl::string_view operator"" _tsv(const char * val, tdsl::size_t len) noexcept {
     return tdsl::string_view{val, len};
 }
+
+// --------------------------------------------------------------------------------
 
 inline tdsl::wstring_view operator"" _twsv(const char16_t * val, tdsl::size_t len) noexcept {
     return tdsl::wstring_view{val, len};

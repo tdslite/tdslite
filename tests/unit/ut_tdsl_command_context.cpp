@@ -1,5 +1,5 @@
 /**
- * _________________________________________________
+ * ____________________________________________________
  * Unit tests for tdslite command context
  *
  * @file   ut_tdsl_command_context.cpp
@@ -7,7 +7,7 @@
  * @date   05.10.2022
  *
  * SPDX-License-Identifier:    MIT
- * _________________________________________________
+ * ____________________________________________________
  */
 
 #include <tdslite/detail/tdsl_command_context.hpp>

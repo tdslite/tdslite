@@ -1,8 +1,8 @@
 /**
  * ____________________________________________________
- * tdslite main unit test
+ * binary_writer class unit tests
  *
- * @file   ut_tdslite.cpp
+ * @file   ut_binary_writer.cpp
  * @author Mustafa Kemal GILOR <mustafagilor@gmail.com>
  * @date   12.04.2022
  *
@@ -15,14 +15,20 @@
 #include <tdslite/util/tdsl_macrodef.hpp>
 #include <gtest/gtest.h>
 
+// --------------------------------------------------------------------------------
+
 constexpr tdsl::uint8_t source_buffer [] = {0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
                                             0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10};
+
+// --------------------------------------------------------------------------------
 
 struct binary_writer_test : public ::testing::Test {
     template <tdsl::endian E = tdsl::endian::native>
     using uut                             = tdsl::binary_writer<E>;
     tdsl::uint8_t destination_buffer [16] = {};
 };
+
+// --------------------------------------------------------------------------------
 
 TEST_F(binary_writer_test, construct) {
     EXPECT_NO_THROW({
@@ -31,6 +37,8 @@ TEST_F(binary_writer_test, construct) {
     });
 }
 
+// --------------------------------------------------------------------------------
+
 TEST_F(binary_writer_test, construct_explicit_size) {
 
     EXPECT_NO_THROW(([this] {
@@ -38,6 +46,8 @@ TEST_F(binary_writer_test, construct_explicit_size) {
         (void) aa;
     }()));
 }
+
+// --------------------------------------------------------------------------------
 
 TEST_F(binary_writer_test, construct_span) {
 
@@ -48,6 +58,8 @@ TEST_F(binary_writer_test, construct_span) {
         (void) writer;
     }()));
 }
+
+// --------------------------------------------------------------------------------
 
 TEST_F(binary_writer_test, write_span) {
 
@@ -65,6 +77,8 @@ TEST_F(binary_writer_test, write_span) {
         EXPECT_EQ(*itr, *ite);
     }
 }
+
+// --------------------------------------------------------------------------------
 
 TEST_F(binary_writer_test, seek) {
 
@@ -92,6 +106,8 @@ TEST_F(binary_writer_test, seek) {
         EXPECT_EQ(*itr, *ite);
     }
 }
+
+// --------------------------------------------------------------------------------
 
 TEST_F(binary_writer_test, positive_advance) {
 
@@ -121,6 +137,8 @@ TEST_F(binary_writer_test, positive_advance) {
     ASSERT_TRUE(writer.advance(0));
 }
 
+// --------------------------------------------------------------------------------
+
 TEST_F(binary_writer_test, negative_advance) {
     uut<> writer{destination_buffer};
     ASSERT_TRUE(writer.advance(sizeof(destination_buffer)));
@@ -149,6 +167,8 @@ TEST_F(binary_writer_test, negative_advance) {
     }
 }
 
+// --------------------------------------------------------------------------------
+
 TEST_F(binary_writer_test, remaining_bytes) {
     uut<> writer{destination_buffer};
     ASSERT_EQ(writer.remaining_bytes(), sizeof(destination_buffer));
@@ -159,6 +179,8 @@ TEST_F(binary_writer_test, remaining_bytes) {
     writer.advance(12);
     ASSERT_EQ(writer.remaining_bytes(), 0);
 }
+
+// --------------------------------------------------------------------------------
 
 TEST_F(binary_writer_test, has_bytes) {
     uut<> writer{destination_buffer};
@@ -181,6 +203,8 @@ TEST_F(binary_writer_test, has_bytes) {
     ASSERT_FALSE(writer.advance(1));
 }
 
+// --------------------------------------------------------------------------------
+
 TEST_F(binary_writer_test, reset) {
     uut<> writer{destination_buffer};
     ASSERT_TRUE(writer.seek(4));
@@ -188,6 +212,8 @@ TEST_F(binary_writer_test, reset) {
     ASSERT_EQ(writer.offset(), 0);
     ASSERT_EQ(writer.remaining_bytes(), sizeof(destination_buffer));
 }
+
+// --------------------------------------------------------------------------------
 
 TEST_F(binary_writer_test, endianness_ne2be) {
     uut<tdsl::endian::big> writer{destination_buffer};
@@ -200,6 +226,8 @@ TEST_F(binary_writer_test, endianness_ne2be) {
     }
 }
 
+// --------------------------------------------------------------------------------
+
 TEST_F(binary_writer_test, endianness_ne2le) {
     uut<tdsl::endian::little> writer{destination_buffer};
     ASSERT_TRUE(writer.write(tdsl::uint32_t{0x01020304}));
@@ -210,6 +238,8 @@ TEST_F(binary_writer_test, endianness_ne2le) {
         EXPECT_EQ(*itr, *ite);
     }
 }
+
+// --------------------------------------------------------------------------------
 
 TEST_F(binary_writer_test, endianness_ne2ne) {
     uut<tdsl::endian::native> writer{destination_buffer};
@@ -223,6 +253,8 @@ TEST_F(binary_writer_test, endianness_ne2ne) {
     }
 }
 
+// --------------------------------------------------------------------------------
+
 TEST_F(binary_writer_test, endianness_override) {
     uut<tdsl::endian::native> writer{destination_buffer};
     tdsl::uint32_t nv{0x01020304};
@@ -234,4 +266,15 @@ TEST_F(binary_writer_test, endianness_override) {
          itr++, ite++) {
         EXPECT_EQ(*itr, *ite);
     }
+}
+
+// --------------------------------------------------------------------------------
+
+TEST_F(binary_writer_test, checkpoint) {
+    uut<tdsl::endian::native> writer{destination_buffer};
+    ASSERT_TRUE(writer.write(tdsl::uint32_t{0x01020304}));
+    auto cp = writer.checkpoint();
+    ASSERT_TRUE(writer.write(tdsl::uint32_t{0x01020304}));
+    cp.restore();
+    ASSERT_EQ(sizeof(tdsl::uint32_t), writer.offset());
 }

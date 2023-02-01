@@ -33,6 +33,8 @@ namespace tdsl {
         template <typename Derived>
         struct span_mixin_shift_left {
 
+            // --------------------------------------------------------------------------------
+
             /**
              * Shift elements to left
              *
@@ -45,6 +47,8 @@ namespace tdsl {
                 -> decltype(traits::declval<U>().size_bytes()) {
                 return shift_left(count, static_cast<const Derived &>(*this).size_bytes());
             }
+
+            // --------------------------------------------------------------------------------
 
             /**
              * Shift elements to left
@@ -99,11 +103,15 @@ namespace tdsl {
             }
         };
 
+        // --------------------------------------------------------------------------------
+
         /**
          * Element mutability dependent span interface
          */
         template <typename Derived, bool ElemTHasConstQualifier>
         struct span_element_mutability_dependent_interface;
+
+        // --------------------------------------------------------------------------------
 
         /**
          * Additional interface for mutable spans
@@ -112,11 +120,15 @@ namespace tdsl {
         struct span_element_mutability_dependent_interface<Derived, false>
             : public span_mixin_shift_left<Derived> {};
 
+        // --------------------------------------------------------------------------------
+
         /**
          * Additional interface for immutable spans
          */
         template <typename Derived>
         struct span_element_mutability_dependent_interface<Derived, true> {};
+
+        // --------------------------------------------------------------------------------
 
         /**
          * Enables additional interfaces to span depending on
@@ -149,10 +161,14 @@ namespace tdsl {
         using const_iterator             = const_pointer;
         using self_type                  = span<element_type>;
 
+        // --------------------------------------------------------------------------------
+
         /**
          * Default c-tor
          */
         inline constexpr span() noexcept = default;
+
+        // --------------------------------------------------------------------------------
 
         /**
          * Copy c-tor
@@ -160,12 +176,16 @@ namespace tdsl {
         inline constexpr span(const self_type & other) noexcept :
             data_(other.data_), element_count(other.element_count) {}
 
+        // --------------------------------------------------------------------------------
+
         /**
          * Move c-tor
          */
         inline constexpr span(self_type && other) noexcept :
             data_(detail::exchange(other.data_, nullptr)),
             element_count(detail::exchange(other.element_count, 0)) {}
+
+        // --------------------------------------------------------------------------------
 
         /**
          * Construct a new span object
@@ -175,6 +195,8 @@ namespace tdsl {
          */
         inline explicit constexpr span(element_type * elem, size_type elem_count) noexcept :
             data_(elem), element_count(elem_count) {}
+
+        // --------------------------------------------------------------------------------
 
         /**
          * Construct a new span object from explicit begin
@@ -190,6 +212,8 @@ namespace tdsl {
         inline explicit constexpr span(element_type * begin, element_type * end) noexcept :
             data_(begin), element_count(end - begin) {}
 
+        // --------------------------------------------------------------------------------
+
         /**
          * Construct a new span object from a fixed-size
          * array.
@@ -200,6 +224,8 @@ namespace tdsl {
         template <size_type N>
         inline constexpr span(element_type (&buffer) [N]) noexcept :
             data_(buffer), element_count(N) {}
+
+        // --------------------------------------------------------------------------------
 
         /**
          * Copy assignment
@@ -212,6 +238,8 @@ namespace tdsl {
             return *this;
         }
 
+        // --------------------------------------------------------------------------------
+
         /**
          * Move assignment
          */
@@ -223,6 +251,8 @@ namespace tdsl {
                            : static_cast<decltype(element_count)>(0);
             return *this;
         }
+
+        // --------------------------------------------------------------------------------
 
         /**
          * Equality comparison operator
@@ -237,6 +267,8 @@ namespace tdsl {
             return data_ == other.data_ && element_count == other.element_count;
         }
 
+        // --------------------------------------------------------------------------------
+
         /**
          * Get the amount of the bytes in the span
          *
@@ -245,6 +277,8 @@ namespace tdsl {
         inline TDSL_NODISCARD constexpr auto size_bytes() const noexcept -> size_type {
             return element_count * sizeof(element_type);
         }
+
+        // --------------------------------------------------------------------------------
 
         /**
          * Get the amount of the elements in the span
@@ -255,6 +289,8 @@ namespace tdsl {
             return element_count;
         }
 
+        // --------------------------------------------------------------------------------
+
         /**
          * Get the amount of the elements in the span
          *
@@ -263,6 +299,8 @@ namespace tdsl {
         inline TDSL_NODISCARD constexpr auto ssize() const noexcept -> ssize_type {
             return element_count;
         }
+
+        // --------------------------------------------------------------------------------
 
         /**
          * Data pointer
@@ -273,6 +311,8 @@ namespace tdsl {
             return data_;
         }
 
+        // --------------------------------------------------------------------------------
+
         /**
          * Iterator interface begin() function
          *
@@ -281,6 +321,8 @@ namespace tdsl {
         inline TDSL_NODISCARD constexpr auto begin() const noexcept -> iterator {
             return data_;
         }
+
+        // --------------------------------------------------------------------------------
 
         /**
          * Iterator interface end() function
@@ -291,6 +333,8 @@ namespace tdsl {
             return (data_ + element_count);
         }
 
+        // --------------------------------------------------------------------------------
+
         /**
          * Iterator interface begin() function
          *
@@ -299,6 +343,8 @@ namespace tdsl {
         inline TDSL_NODISCARD constexpr auto cbegin() const noexcept -> const_iterator {
             return data_;
         }
+
+        // --------------------------------------------------------------------------------
 
         /**
          * Iterator interface end() function
@@ -309,16 +355,20 @@ namespace tdsl {
             return (data_ + element_count);
         }
 
+        // --------------------------------------------------------------------------------
+
         /**
          * Subscript operator
          *
          * @param [in] index Element to access
          * @return reference Reference to the element
          */
-        inline auto operator[](size_type index) const noexcept -> reference {
+        inline TDSL_NODISCARD auto operator[](size_type index) const noexcept -> reference {
             TDSL_ASSERT_MSG(index < size(), "Array subscript index exceeds span bounds!");
             return data() [index];
         }
+
+        // --------------------------------------------------------------------------------
 
         /**
          * Make span boolable, so it can be used expressions like:
@@ -335,6 +385,8 @@ namespace tdsl {
             return data_ && element_count;
         }
 
+        // --------------------------------------------------------------------------------
+
         /**
          * Cast span to another span with new element type
          *
@@ -345,7 +397,7 @@ namespace tdsl {
          * the element count of the resulting span will be rounded down.
          */
         template <typename Q, traits::enable_when::integral<Q> = true>
-        inline constexpr auto rebind_cast() const noexcept -> span<const Q> {
+        inline TDSL_NODISCARD constexpr auto rebind_cast() const noexcept -> span<const Q> {
             using rebound_span_type = span<const Q>;
             return rebound_span_type{
                 reinterpret_cast<typename rebound_span_type::const_pointer>(data()),

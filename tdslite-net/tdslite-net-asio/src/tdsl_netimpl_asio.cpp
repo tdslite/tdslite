@@ -1,12 +1,14 @@
 /**
- * _________________________________________________
+ * ____________________________________________________
+ * Boost.ASIO based networking implementation for
+ * tdslite
  *
  * @file   tdsl_netimpl_asio.cpp
  * @author Mustafa K. GILOR <mustafagilor@gmail.com>
  * @date   20.04.2022
  *
  * SPDX-License-Identifier:    MIT
- * _________________________________________________
+ * ____________________________________________________
  */
 
 // May be enabled for diagnostics:

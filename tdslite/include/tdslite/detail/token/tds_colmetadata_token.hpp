@@ -1,12 +1,12 @@
 /**
- * _________________________________________________
+ * ____________________________________________________
  *
  * @file   tds_colmetadata_token.hpp
  * @author Mustafa Kemal GILOR <mustafagilor@gmail.com>
  * @date   09.08.2022
  *
  * SPDX-License-Identifier:    MIT
- * _________________________________________________
+ * ____________________________________________________
  */
 
 #ifndef TDSL_DETAIL_TOKEN_TDS_COLMETADATA_TOKEN_HPP

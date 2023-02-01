@@ -1,5 +1,5 @@
 /**
- * _________________________________________________
+ * ____________________________________________________
  *
  * @file   tdsl_default_allocator.hpp
  * @author Mustafa Kemal Gilor <mustafagilor@gmail.com>
@@ -7,7 +7,7 @@
  * @date   05.10.2022
  *
  * SPDX-License-Identifier:    MIT
- * _________________________________________________
+ * ____________________________________________________
  */
 
 #ifndef TDSL_DETAIL_DEFAULT_ALLOCATOR_HPP
@@ -17,7 +17,7 @@
 
 #ifndef TDSL_DISABLE_DEFAULT_ALLOCATOR
 
-    #include <stdlib.h> // for default malloc-free
+#include <stdlib.h> // for default malloc-free
 
 namespace tdsl {
 

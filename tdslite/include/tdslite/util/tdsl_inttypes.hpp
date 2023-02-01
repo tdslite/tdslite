@@ -77,25 +77,25 @@ namespace tdsl {
     struct numeric_limits {
 
         template <typename Q>
-        inline static constexpr auto min_value() noexcept ->
+        static inline constexpr auto min_value() noexcept ->
             typename traits::enable_if<traits::is_signed<Q>::value, Q>::type {
             return -max_value<Q>() + Q{-1};
         }
 
         template <typename Q>
-        inline static constexpr auto min_value() noexcept ->
+        static inline constexpr auto min_value() noexcept ->
             typename traits::enable_if<!traits::is_signed<Q>::value, Q>::type {
             return 0;
         }
 
         template <typename Q>
-        inline static constexpr auto max_value() noexcept ->
+        static inline constexpr auto max_value() noexcept ->
             typename traits::enable_if<traits::is_signed<Q>::value, Q>::type {
             return static_cast<typename traits::make_unsigned<Q>::type>(~0) >> 1;
         }
 
         template <typename Q>
-        inline static constexpr auto max_value() noexcept ->
+        static inline constexpr auto max_value() noexcept ->
             typename traits::enable_if<!traits::is_signed<Q>::value, Q>::type {
             return ~Q{0};
         }
@@ -138,36 +138,54 @@ static_assert(tdsl::numeric_limits::max_value<tdsl::uint64_t>() ==
 
 // user-defined literals for casting integers
 
-inline static constexpr tdsl::uint8_t operator"" _tdsu8(unsigned long long arg) noexcept {
+// --------------------------------------------------------------------------------
+
+static inline constexpr tdsl::uint8_t operator"" _tdsu8(unsigned long long arg) noexcept {
     return static_cast<tdsl::uint8_t>(arg);
 }
 
-inline static constexpr tdsl::int8_t operator"" _tdsi8(unsigned long long arg) noexcept {
+// --------------------------------------------------------------------------------
+
+static inline constexpr tdsl::int8_t operator"" _tdsi8(unsigned long long arg) noexcept {
     return static_cast<tdsl::int8_t>(arg);
 }
 
-inline static constexpr tdsl::uint16_t operator"" _tdsu16(unsigned long long arg) noexcept {
+// --------------------------------------------------------------------------------
+
+static inline constexpr tdsl::uint16_t operator"" _tdsu16(unsigned long long arg) noexcept {
     return static_cast<tdsl::uint16_t>(arg);
 }
 
-inline static constexpr tdsl::int16_t operator"" _tdsi16(unsigned long long arg) noexcept {
+// --------------------------------------------------------------------------------
+
+static inline constexpr tdsl::int16_t operator"" _tdsi16(unsigned long long arg) noexcept {
     return static_cast<tdsl::int16_t>(arg);
 }
 
-inline static constexpr tdsl::uint32_t operator"" _tdsu32(unsigned long long arg) noexcept {
+// --------------------------------------------------------------------------------
+
+static inline constexpr tdsl::uint32_t operator"" _tdsu32(unsigned long long arg) noexcept {
     return static_cast<tdsl::uint32_t>(arg);
 }
 
-inline static constexpr tdsl::int32_t operator"" _tdsi32(unsigned long long arg) noexcept {
+// --------------------------------------------------------------------------------
+
+static inline constexpr tdsl::int32_t operator"" _tdsi32(unsigned long long arg) noexcept {
     return static_cast<tdsl::int32_t>(arg);
 }
 
-inline static constexpr tdsl::uint64_t operator"" _tdsu64(unsigned long long arg) noexcept {
+// --------------------------------------------------------------------------------
+
+static inline constexpr tdsl::uint64_t operator"" _tdsu64(unsigned long long arg) noexcept {
     return static_cast<tdsl::uint64_t>(arg);
 }
 
-inline static constexpr tdsl::int64_t operator"" _tdsi64(unsigned long long arg) noexcept {
+// --------------------------------------------------------------------------------
+
+static inline constexpr tdsl::int64_t operator"" _tdsi64(unsigned long long arg) noexcept {
     return static_cast<tdsl::int64_t>(arg);
 }
+
+// --------------------------------------------------------------------------------
 
 #endif

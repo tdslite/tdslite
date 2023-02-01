@@ -1,12 +1,13 @@
 /**
- * _________________________________________________
+ * ____________________________________________________
+ * progmem_string_view class unit tests
  *
  * @file   ut_progmem_string_view.cpp
  * @author Mustafa Kemal GILOR <mustafagilor@gmail.com>
  * @date   04.12.2022
  *
  * SPDX-License-Identifier:    MIT
- * _________________________________________________
+ * ____________________________________________________
  */
 
 #include <cstring>
@@ -27,15 +28,21 @@ const char pmemstr [] = "Lorem ipsum dolor sit amet";
 
 const char nntstr []  = {'L', 'o', 'r', 'e', 'm'};
 
+// --------------------------------------------------------------------------------
+
 TEST(progmem_string_view, default_construct) {
     tdsl::progmem_string_view psv{pmemstr};
     EXPECT_EQ(psv.size_bytes(), sizeof(pmemstr) - 1);
 }
 
+// --------------------------------------------------------------------------------
+
 TEST(progmem_string_view, default_construct_nntstr) {
     tdsl::progmem_string_view psv{nntstr};
     EXPECT_EQ(psv.size_bytes(), sizeof(nntstr));
 }
+
+// --------------------------------------------------------------------------------
 
 TEST(progmem_string_view, iterate_range_loop) {
     int idx = 0;
@@ -43,6 +50,8 @@ TEST(progmem_string_view, iterate_range_loop) {
         ASSERT_EQ(ch, pmemstr [idx++]);
     }
 }
+
+// --------------------------------------------------------------------------------
 
 TEST(progmem_string_view, iterate_post_increment) {
     int idx = 0;
@@ -52,6 +61,8 @@ TEST(progmem_string_view, iterate_post_increment) {
     }
 }
 
+// --------------------------------------------------------------------------------
+
 TEST(progmem_string_view, iterate_pre_increment) {
     int idx = 0;
     tdsl::progmem_string_view psv{pmemstr};
@@ -59,6 +70,8 @@ TEST(progmem_string_view, iterate_pre_increment) {
         ASSERT_EQ(*itr, pmemstr [idx++]);
     }
 }
+
+// --------------------------------------------------------------------------------
 
 TEST(progmem_string_view, iterate_array_subscript) {
     tdsl::progmem_string_view psv{pmemstr};

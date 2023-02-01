@@ -1,12 +1,12 @@
 /**
- * _________________________________________________
+ * ____________________________________________________
  *
  * @file   tdsl_envchange_type.hpp
  * @author Mustafa Kemal GILOR <mustafagilor@gmail.com>
  * @date   19.05.2022
  *
  * SPDX-License-Identifier:    MIT
- * _________________________________________________
+ * ____________________________________________________
  */
 
 #ifndef TDSL_DETAIL_TDS_ENVCHANGE_TYPE_HPP

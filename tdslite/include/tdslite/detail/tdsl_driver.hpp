@@ -1,5 +1,5 @@
 /**
- * _________________________________________________
+ * ____________________________________________________
  * High level type that integrates sub-level impl
  * to provide a TDS driver.
  *
@@ -8,7 +8,7 @@
  * @date   25.04.2022
  *
  * SPDX-License-Identifier:    MIT
- * _________________________________________________
+ * ____________________________________________________
  */
 
 #ifndef TDSL_DETAIL_DRIVER_HPP
@@ -150,7 +150,8 @@ namespace tdsl { namespace detail {
          * @param [in] user_ptr (optional) User-supplied first argument to pass to the
          *             callback function. `nullptr` by default (unused).
          */
-        void set_info_callback(info_callback_type callback, void * user_ptr = nullptr) noexcept {
+        inline auto set_info_callback(info_callback_type callback,
+                                      void * user_ptr = nullptr) noexcept -> void {
             tds_ctx.callbacks.info = {callback, user_ptr};
         }
 

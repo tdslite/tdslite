@@ -1,12 +1,12 @@
 /**
- * _________________________________________________
+ * ____________________________________________________
  *
  * @file   tdsl_net_rx_mixin.hpp
  * @author Mustafa Kemal GILOR <mustafagilor@gmail.com>
  * @date   04.10.2022
  *
  * SPDX-License-Identifier:    MIT
- * _________________________________________________
+ * ____________________________________________________
  */
 
 #ifndef TDSL_DETAIL_NET_RECV_IF_MIXIN_HPP
@@ -69,6 +69,8 @@ namespace tdsl { namespace detail {
                               detail::has_do_receive_tds_pdu_member_fn<Derived>::value>::value,
                           "The type NetImpl must implement void do_receive_tds_pdu() function!");
         } // namespace detail
+
+        // --------------------------------------------------------------------------------
 
         /**
          * Receive one, complete TDS message.

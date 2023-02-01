@@ -2,8 +2,9 @@
  * ____________________________________________________
  * binary_writer<> utility class implementation
  *
+ * @file   tdsl_binary_writer.hpp
  * @author Mustafa Kemal GILOR <mustafagilor@gmail.com>
- * @date   18/11/2022
+ * @date   18.11.2022
  *
  * SPDX-License-Identifier: MIT
  * ____________________________________________________
@@ -51,16 +52,22 @@ namespace tdsl {
         using span_type::end;
         using span_type::size_bytes;
 
+        // --------------------------------------------------------------------------------
+
         /**
          * Copy constructor
          */
         explicit constexpr binary_writer(const span_type & other) noexcept : span_type(other) {}
+
+        // --------------------------------------------------------------------------------
 
         /**
          * Move constructor
          */
         explicit constexpr binary_writer(span_type && other) noexcept :
             span_type(TDSL_MOVE(other)) {}
+
+        // --------------------------------------------------------------------------------
 
         /**
          * Shift all written bytes by @p amount and
@@ -73,14 +80,18 @@ namespace tdsl {
             this->advance(static_cast<tdsl::int32_t>(-amount));
         }
 
+        // --------------------------------------------------------------------------------
+
         /**
          * Get a view to underlying data
          *
          * @return byte_view View to the underlying data
          */
-        inline auto underlying_view() const noexcept -> tdsl::byte_view {
+        inline TDSL_NODISCARD auto underlying_view() const noexcept -> tdsl::byte_view {
             return span_type::template rebind_cast<const tdsl::uint8_t>();
         }
+
+        // --------------------------------------------------------------------------------
 
         /**
          * Write @p data as-is
@@ -95,6 +106,8 @@ namespace tdsl {
         inline TDSL_NODISCARD auto write(const T (&data) [N]) noexcept -> bool {
             return write(tdsl::byte_view{data});
         }
+
+        // --------------------------------------------------------------------------------
 
         /**
          * Write @p data as-is
@@ -116,6 +129,8 @@ namespace tdsl {
             this->do_advance(data.size_bytes());
             return true;
         }
+
+        // --------------------------------------------------------------------------------
 
         /**
          * Write @p data as-is
@@ -143,6 +158,8 @@ namespace tdsl {
 
             return true;
         }
+
+        // --------------------------------------------------------------------------------
 
         /**
          * Write a value with type T to current position.
@@ -172,6 +189,8 @@ namespace tdsl {
             this->do_advance(sizeof(T));
             return true;
         }
+
+        // --------------------------------------------------------------------------------
 
         /**
          * Write a value with type T to current position

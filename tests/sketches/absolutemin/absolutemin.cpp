@@ -1,5 +1,5 @@
 /**
- * _________________________________________________
+ * ____________________________________________________
  * Sketch to check memory usage of tdslite
  *
  * @file   absolutemin.ino
@@ -7,7 +7,7 @@
  * @date   04.12.2022
  *
  * SPDX-License-Identifier:    MIT
- * _________________________________________________
+ * ____________________________________________________
  */
 
 #include <tdslite.h>
@@ -15,8 +15,9 @@
 #define SKETCH_TDSL_NETBUF_SIZE 512
 #define SKETCH_TDSL_PACKET_SIZE 512
 
-struct EthernetClient {
+// --------------------------------------------------------------------------------
 
+struct EthernetClient {
     int connect(const char * dst, tdsl::uint16_t port) {}
 
     int read(tdsl::uint8_t * buf, tdsl::size_t sz) {}
@@ -36,8 +37,12 @@ struct EthernetClient {
     }
 };
 
+// --------------------------------------------------------------------------------
+
 tdsl::uint8_t net_buf [SKETCH_TDSL_NETBUF_SIZE] = {};
 tdsl::arduino_driver<EthernetClient> driver{net_buf};
+
+// --------------------------------------------------------------------------------
 
 void setup() {
     tdsl::arduino_driver<EthernetClient>::progmem_connection_parameters params;
@@ -57,6 +62,8 @@ void setup() {
     params.packet_size = {SKETCH_TDSL_PACKET_SIZE};
     driver.connect(params);
 }
+
+// --------------------------------------------------------------------------------
 
 void loop() {
     driver.execute_query(TDSL_PMEMSTR("CREATE TABLE #hello_world(a int, b int);"));

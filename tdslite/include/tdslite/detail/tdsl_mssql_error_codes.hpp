@@ -1,12 +1,12 @@
 /**
- * _________________________________________________
+ * ____________________________________________________
  *
  * @file   tdsl_mssql_error_codes.hpp
  * @author Mustafa Kemal GILOR <mustafagilor@gmail.com>
  * @date   23.05.2022
  *
  * SPDX-License-Identifier:    MIT
- * _________________________________________________
+ * ____________________________________________________
  */
 
 #ifndef TDSL_DETAIL_MSSQL_ERROR_CODE_HPP

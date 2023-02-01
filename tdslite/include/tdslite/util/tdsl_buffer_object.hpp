@@ -1,12 +1,13 @@
 /**
- * _________________________________________________
+ * ____________________________________________________
+ * tdsl_buffer_object implementation
  *
  * @file   tdsl_buffer_object.hpp
  * @author Mustafa Kemal GILOR <mustafagilor@gmail.com>
  * @date   19.11.2022
  *
  * SPDX-License-Identifier:    MIT
- * _________________________________________________
+ * ____________________________________________________
  */
 
 #ifndef TDSL_UTIL_TDSL_BUFFER_OBJECT_HPP
@@ -18,6 +19,7 @@
 #include <tdslite/util/tdsl_debug_print.hpp>
 
 namespace tdsl {
+
     /**
      * A buffer object that allows exclusive progressive reads
      * and writes over underlying buffer span.
@@ -60,11 +62,11 @@ namespace tdsl {
                                    writer.remaining_bytes());
             }
 
-            inline binary_reader_type * operator->() noexcept {
+            inline TDSL_NODISCARD binary_reader_type * operator->() noexcept {
                 return &reader;
             }
 
-            inline binary_reader_type & operator*() noexcept {
+            inline TDSL_NODISCARD binary_reader_type & operator*() noexcept {
                 return reader;
             }
 
@@ -92,7 +94,7 @@ namespace tdsl {
                 in_use_flag = {false};
             }
 
-            inline binary_writer_type * operator->() noexcept {
+            inline TDSL_NODISCARD binary_writer_type * operator->() noexcept {
                 return &writer;
             }
 
@@ -106,7 +108,7 @@ namespace tdsl {
          *
          * @return progressive_binary_reader
          */
-        inline auto get_reader() noexcept -> progressive_binary_reader {
+        inline TDSL_NODISCARD auto get_reader() noexcept -> progressive_binary_reader {
             return progressive_binary_reader{*this, in_use};
         }
 
@@ -115,7 +117,7 @@ namespace tdsl {
          *
          * @return progressive_binary_writer
          */
-        inline auto get_writer() noexcept -> progressive_binary_writer {
+        inline TDSL_NODISCARD auto get_writer() noexcept -> progressive_binary_writer {
             return progressive_binary_writer{*this, in_use};
         }
 
@@ -124,7 +126,7 @@ namespace tdsl {
          *
          * @return tdsl::byte_view
          */
-        inline auto get_underlying_view() const noexcept -> tdsl::byte_view {
+        inline TDSL_NODISCARD auto get_underlying_view() const noexcept -> tdsl::byte_view {
             return binary_writer_type::underlying_view();
         }
 

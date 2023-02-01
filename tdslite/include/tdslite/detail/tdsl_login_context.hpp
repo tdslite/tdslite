@@ -1,5 +1,5 @@
 /**
- * _________________________________________________
+ * ____________________________________________________
  * Tabular Data Stream protocol login operations
  *
  * @file   tdsl_login_context.hpp
@@ -7,7 +7,7 @@
  * @date   14.04.2022
  *
  * SPDX-License-Identifier:    MIT
- * _________________________________________________
+ * ____________________________________________________
  */
 
 #ifndef TDSL_DETAIL_LOGIN_CONTEXT_HPP
@@ -52,52 +52,7 @@ namespace tdsl {
             using tds_context_type = tds_context<NetImpl>;
             using self_type        = login_context<NetImpl>;
 
-            /**
-             * The tabular data stream protocol header
-             */
-            struct tds_login7_header {
-                tdsl::uint32_t packet_length;
-                tdsl::uint32_t tds_version;
-                tdsl::uint32_t packet_size;
-                tdsl::uint32_t client_version;
-                tdsl::uint32_t client_pid;
-                tdsl::uint32_t connection_id;
-                tdsl::uint8_t opt1;
-                tdsl::uint8_t opt2;
-                tdsl::uint8_t type;
-                tdsl::uint8_t opt3;
-                tdsl::uint32_t time_zone;
-                tdsl::uint32_t collation;
-            } TDSL_PACKED;
-
-            static_assert(sizeof(tds_login7_header) == 36, "Invalid TDS Login7 header size");
-
-            enum class e_login_status : tdsl::int8_t
-            {
-                success = 0,
-                failure = -1
-            };
-
-        private:
-            tds_context_type & tds_ctx;
-
-        public:
-            /**
-             * Construct a new login context object
-             *
-             * @param [in] tc The TDS context
-             */
-            inline login_context(tds_context_type & tc) noexcept : tds_ctx(tc) {
-                tds_ctx.callbacks.loginack = {
-                    +[](void * uptr, const tds_login_ack_token &) noexcept -> void {
-                        auto self                         = reinterpret_cast<self_type *>(uptr);
-                        // Mark current context as `authenticated`
-                        self->tds_ctx.flags.authenticated = {true};
-                    },
-                    this};
-            }
-
-            inline ~login_context() = default;
+            // --------------------------------------------------------------------------------
 
             /**
              * The arguments for the login operation
@@ -163,20 +118,73 @@ namespace tdsl {
                 end
             };
 
-            // 14 bytes? 8 = 4
+            enum class e_login_status : tdsl::int8_t
+            {
+                success = 0,
+                failure = -1
+            };
 
-            static constexpr tdsl::uint16_t calc_sizeof_offset_size_section() noexcept {
+        private:
+            tds_context_type & tds_ctx;
+
+            /**
+             * The tabular data stream protocol header
+             */
+            struct tds_login7_header {
+                tdsl::uint32_t packet_length;
+                tdsl::uint32_t tds_version;
+                tdsl::uint32_t packet_size;
+                tdsl::uint32_t client_version;
+                tdsl::uint32_t client_pid;
+                tdsl::uint32_t connection_id;
+                tdsl::uint8_t opt1;
+                tdsl::uint8_t opt2;
+                tdsl::uint8_t type;
+                tdsl::uint8_t opt3;
+                tdsl::uint32_t time_zone;
+                tdsl::uint32_t collation;
+            } TDSL_PACKED;
+
+            static_assert(sizeof(tds_login7_header) == 36, "Invalid TDS Login7 header size");
+
+        public:
+            /**
+             * Construct a new login context object
+             *
+             * @param [in] tc The TDS context
+             */
+            inline login_context(tds_context_type & tc) noexcept : tds_ctx(tc) {
+                tds_ctx.callbacks.loginack = {
+                    +[](void * uptr, const tds_login_ack_token &) noexcept -> void {
+                        auto self                         = reinterpret_cast<self_type *>(uptr);
+                        // Mark current context as `authenticated`
+                        self->tds_ctx.flags.authenticated = {true};
+                    },
+                    this};
+            }
+
+            // --------------------------------------------------------------------------------
+
+            inline ~login_context() = default;
+
+            // --------------------------------------------------------------------------------
+
+            static inline constexpr auto calc_sizeof_offset_size_section() noexcept
+                -> tdsl::uint16_t {
                 return ((static_cast<tdsl::uint16_t>(e_tds_login_parameter_idx::end) - 1) *
                         sizeof(tdsl::uint32_t)) +
                        6 /*client id size*/;
             }
+
+            // --------------------------------------------------------------------------------
 
             /**
              * Encode a password for TDS protocol
              *
              * @param [in] buf Buffer to encode
              */
-            static inline void encode_password(tdsl::uint8_t * buf, tdsl::uint32_t sz) {
+            static inline auto encode_password(tdsl::uint8_t * buf, tdsl::uint32_t sz) noexcept
+                -> void {
                 // Quoting TDS:
                 // "Before submitting a password from the client to the server, for every byte in
                 // the password buffer" "starting with the position pointed to by ibPassword or
@@ -198,8 +206,10 @@ namespace tdsl {
              * @param [in] params Login parameters
              */
             template <typename LoginParamsType>
-            e_login_status do_login(const LoginParamsType & params) noexcept {
-                tds_ctx.write_le(/*arg=*/0_tdsu32); // placeholder for packet length
+            auto do_login(const LoginParamsType & params) noexcept -> e_login_status {
+
+                // Put a placeholder for length.
+                auto len_ph = tds_ctx.put_placeholder(0_tdsu32);
                 tds_ctx.write_be(
                     static_cast<tdsl::uint32_t>(e_tds_version::sql_server_2000_sp1)); // TDS version
                 tds_ctx.write_le(params.packet_size); // Requested packet size by the client
@@ -342,8 +352,7 @@ namespace tdsl {
                 // Now we exactly know how much packet data we got our hand.
                 // Replace the placeholder value (0) with the actual packet
                 // length.
-                // Write the login packet length
-                put_login_header_length(total_packet_data_size);
+                len_ph.write_le(tdsl::uint32_t{total_packet_data_size});
                 // Send the login request.
                 tds_ctx.send_tds_pdu(e_tds_message_type::login);
 
@@ -354,10 +363,6 @@ namespace tdsl {
                 return tds_ctx.is_authenticated() ? e_login_status::success
                                                   : e_login_status::failure;
             } // ... void do_login_impl(const LoginParamsType & params) noexcept {
-        private:
-            inline auto put_login_header_length(tdsl::uint32_t lplength) noexcept -> void {
-                tds_ctx.write_le(TDSL_OFFSETOF(tds_login7_header, packet_length), lplength);
-            }
         };
     } // namespace detail
 } // namespace tdsl

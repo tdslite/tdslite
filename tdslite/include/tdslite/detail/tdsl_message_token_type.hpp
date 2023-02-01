@@ -1,12 +1,12 @@
 /**
- * _________________________________________________
+ * ____________________________________________________
  *
  * @file   tdsl_message_token_type.hpp
  * @author Mustafa K. GILOR <mustafagilor@gmail.com>
  * @date   25.04.2022
  *
  * SPDX-License-Identifier:    MIT
- * _________________________________________________
+ * ____________________________________________________
  */
 
 #ifndef TDSL_DETAIL_TDS_MESSAGE_TOKEN_TYPE_HPP
@@ -32,7 +32,7 @@ namespace tdsl { namespace detail {
      * @return Token type as string if @p type has a corresponding string representation,
      * "UNDEFINED" otherwise.
      */
-    inline static TDSL_NODISCARD TDSL_CXX14_CONSTEXPR const char *
+    static inline TDSL_NODISCARD TDSL_CXX14_CONSTEXPR const char *
     message_token_type_to_str(e_tds_message_token_type type) {
         switch (type) {
 #define TDSL_MESSAGE_TOKEN_TYPE_DECL(NAME, VALUE)                                                  \

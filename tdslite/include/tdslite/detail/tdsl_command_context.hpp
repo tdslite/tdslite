@@ -1,5 +1,5 @@
 /**
- * _________________________________________________
+ * ____________________________________________________
  * FIXME: Description?
  *
  * @file   tdsl_command_context.hpp
@@ -7,7 +7,7 @@
  * @date   23.05.2022
  *
  * SPDX-License-Identifier:    MIT
- * _________________________________________________
+ * ____________________________________________________
  */
 
 #ifndef TDSL_DETAIL_COMMAND_CONTEXT_HPP
@@ -46,6 +46,7 @@ namespace tdsl { namespace detail {
         // Constant reference to tdsl_row
         using row_cref             = const tdsl::tdsl_row &;
         using row_callback_fn_t    = void (*)(void *, column_metadata_cref, row_cref);
+        using execute_rpc_result   = tdsl::expected<tdsl::uint32_t, e_rpc_error_code>;
 
         struct command_options {
             struct {
@@ -72,7 +73,7 @@ namespace tdsl { namespace detail {
          *
          * @param [in] ctx The TDS context associated with the command
          */
-        command_context(tds_context_type & ctx, const command_options & opts = {}) noexcept :
+        inline command_context(tds_context_type & ctx, const command_options & opts = {}) noexcept :
             tds_ctx(ctx), options(opts) {
 
             tds_ctx.callbacks.sub_token_handler = {&token_handler, this};
@@ -122,7 +123,7 @@ namespace tdsl { namespace detail {
             return qstate.affected_rows;
         }
 
-        using execute_rpc_result = tdsl::expected<tdsl::uint32_t, e_rpc_error_code>;
+        // --------------------------------------------------------------------------------
 
         /**
          * Perform a remote procedure call (e.g. execute a stored procedure or

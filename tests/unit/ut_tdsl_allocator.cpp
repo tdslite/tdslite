@@ -1,6 +1,6 @@
 /**
  * ____________________________________________________
- * tdslite main unit test
+ * unit tests for tdsl_allocator and tdsl_malloc_free
  *
  * @file   ut_tds_allocator.cpp
  * @author Mustafa Kemal GILOR <mustafagilor@gmail.com>
@@ -10,7 +10,7 @@
  * ____________________________________________________
  */
 #ifndef NDEBUG
-    #define NDEBUG // to disable assertions
+#define NDEBUG // to disable assertions
 #endif
 #include <tdslite/detail/tdsl_allocator.hpp>
 #include <gtest/gtest.h>

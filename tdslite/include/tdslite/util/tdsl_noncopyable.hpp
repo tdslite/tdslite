@@ -1,12 +1,13 @@
 /**
- * _________________________________________________
+ * ____________________________________________________
+ * noncopyable base class implementation
  *
  * @file   tdsl_noncopyable.hpp
  * @author Mustafa Kemal GILOR <mustafagilor@gmail.com>
  * @date   17.08.2022
  *
  * SPDX-License-Identifier:    MIT
- * _________________________________________________
+ * ____________________________________________________
  */
 
 #ifndef TDSL_UTIL_NONCOPYABLE_HPP
@@ -32,15 +33,21 @@ namespace tdsl { namespace util {
          */
         noncopyable(noncopyable &)                   = delete;
 
+        // --------------------------------------------------------------------------------
+
         /**
          * @brief Deleted copy constructor (immutable)
          */
         noncopyable(const noncopyable &)             = delete;
 
+        // --------------------------------------------------------------------------------
+
         /**
          * @brief Deleted copy assingment operator (mutable)
          */
         noncopyable & operator=(noncopyable &)       = delete;
+
+        // --------------------------------------------------------------------------------
 
         /**
          * @brief Deleted copy assignment operator (immutable)
@@ -53,15 +60,21 @@ namespace tdsl { namespace util {
          */
         noncopyable()                           = default;
 
+        // --------------------------------------------------------------------------------
+
         /**
          * @brief Default destructor
          */
         ~noncopyable()                          = default;
 
+        // --------------------------------------------------------------------------------
+
         /**
          * @brief Default move constructor
          */
         noncopyable(noncopyable &&)             = default;
+
+        // --------------------------------------------------------------------------------
 
         /**
          * @brief Default move assignment operator

@@ -1,5 +1,5 @@
 /**
- * _________________________________________________
+ * ____________________________________________________
  * A minimal, command line SQL shell to illustrate
  * tdslite's capabilities
  *
@@ -8,7 +8,7 @@
  * @date   06.10.2022
  *
  * SPDX-License-Identifier:    MIT
- * _________________________________________________
+ * ____________________________________________________
  */
 
 #include <tdslite/net/asio/tdsl_netimpl_asio.hpp> // network implementation to use

@@ -1,12 +1,27 @@
 /**
- * _________________________________________________
+ * ____________________________________________________
+ * The main TDS context.
+ *
+ * Main context's job is owning the TDS connection and
+ * performing the essential packet handling. The handled
+ * packet data is delivered to downstream consumers via
+ * callback functions.
+ *
+ * Main context itself implements no specific functionality.
+ * It's subcontext's job (i.e. tdsl_login_context,
+ * tdsl_command_context) to provide an interface to perform a
+ * specific task (e.g. authenticate to a SQL server, execute sql
+ * commands). Subcontexts are designed to be constructed &
+ * destructed on demand, whereas the main context is kept
+ * alive during the entire lifetime of the connection.
+ *
  *
  * @file   tdsl_tds_context.hpp
  * @author Mustafa K. GILOR <mustafagilor@gmail.com>
  * @date   25.04.2022
  *
  * SPDX-License-Identifier:    MIT
- * _________________________________________________
+ * ____________________________________________________
  */
 
 #ifndef TDSL_DETAIL_TDS_CONTEXT_HPP
@@ -106,7 +121,8 @@ namespace tdsl { namespace detail {
          * Default constructor for tds_context
          */
         template <typename... Args>
-        tds_context(Args &&... args) noexcept : NetworkImplementation(TDSL_FORWARD(args)...) {
+        inline tds_context(Args &&... args) noexcept :
+            NetworkImplementation(TDSL_FORWARD(args)...) {
             // Register tds_context message handler to network implementation
             this->register_packet_data_callback(&handle_packet_data, this);
         }
@@ -140,48 +156,12 @@ namespace tdsl { namespace detail {
                 } break;
                 default: {
                     TDSL_DEBUG_PRINTLN(
-                        "tds_context::handle_msg: unhandled (%ld) bytes of msg with type (%d)",
+                        "tds_context::handle_msg: unhandled (%zu) bytes of msg with type (%d)",
                         nmsg_rdr.remaining_bytes(), static_cast<int>(message_type));
                 } break;
             }
 
             return 0;
-        }
-
-        // --------------------------------------------------------------------------------
-
-        /**
-         * Write common TDS header of the packet
-         *
-         * @note 16-bit zero value will be put for the `length` field as a placeholder.
-         * The real packet length must be substituted via calling @ref put_tds_header_length
-         * function afterwards.
-         */
-        inline void write_tds_header(e_tds_message_type msg_type) noexcept {
-            this->template write(static_cast<tdsl::uint8_t>(msg_type)); // Packet type
-            this->template write(/*arg=*/0x01_tdsu8);                   // STATUS
-            this->template write(/*arg=*/0_tdsu16);                     // Placeholder for length
-            this->template write(/*arg=*/0_tdsu32); // Channel, Packet ID and Window
-        }
-
-        // --------------------------------------------------------------------------------
-
-        /**
-         * Put the packet length into TDS packet.
-         *
-         * @note @ref write_tds_header() function must already be called
-         * before
-         *
-         * @param [in] data_length Length of the data section
-         */
-        void put_tds_header_length(tdsl::uint16_t data_length) noexcept {
-            // Length is the size of the packet inclusing the 8 bytes in the packet header.
-            // It is the number of bytes from start of this header to the start of the next
-            // packet header. Length is a 2-byte, unsigned short and is represented in network
-            // byte order (big-endian).
-            this->template write(
-                TDSL_OFFSETOF(tds_header, length),
-                host_to_network(static_cast<tdsl::uint16_t>(data_length + sizeof(tds_header))));
         }
 
         // --------------------------------------------------------------------------------
@@ -207,10 +187,10 @@ namespace tdsl { namespace detail {
             // start parsing tokens
             while (msg_rdr.has_bytes(/*amount_of_bytes=*/k_min_token_need_bytes)) {
 
-                // Save offset before token read in case
+                // Put a checkpoint first
                 // we might need to revert (e.g. fragmented token).
-                const auto prev_offset = msg_rdr.offset();
-                const auto token_type  = static_cast<e_token_type>(msg_rdr.read<tdsl::uint8_t>());
+                auto checkpoint       = msg_rdr.checkpoint();
+                const auto token_type = static_cast<e_token_type>(msg_rdr.read<tdsl::uint8_t>());
 
                 // Yet again, the protocol designers have decided to not to
                 // be consistent with their design. Some of the tokens
@@ -228,9 +208,10 @@ namespace tdsl { namespace detail {
                     const auto sth_r = callbacks.sub_token_handler(token_type, msg_rdr);
                     if (not(sth_r.status == token_handler_status::unhandled)) {
                         if (sth_r.needed_bytes) {
-                            // reseek to token start so the unread token
-                            // data dont get discarded by the network layer
-                            msg_rdr.seek(prev_offset);
+                            // Restore message reader back to the checkpoint
+                            // so the data we've read until now doesn't
+                            // get discarded by the network layer
+                            checkpoint.restore();
                             return sth_r.needed_bytes;
                         }
                         continue;
@@ -263,7 +244,7 @@ namespace tdsl { namespace detail {
                 if (not(msg_rdr.has_bytes(current_token_size))) {
                     // reseek to token start so the unread token
                     // data dont get discarded by the network layer
-                    msg_rdr.seek(prev_offset);
+                    checkpoint.restore();
                     return current_token_size - msg_rdr.remaining_bytes();
                 }
 

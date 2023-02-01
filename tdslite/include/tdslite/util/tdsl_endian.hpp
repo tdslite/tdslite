@@ -2,7 +2,7 @@
  * ____________________________________________________
  * Endianness related definitions
  *
- * @file   tds_endianness.hpp
+ * @file   tds_endian.hpp
  * @author Mustafa Kemal GILOR <mustafagilor@gmail.com>
  * @date   12.04.2022
  *

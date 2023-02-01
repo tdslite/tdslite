@@ -1,12 +1,13 @@
 /**
- * _________________________________________________
+ * ____________________________________________________
+ * Debug printing utilities
  *
  * @file   tdsl_debug_print.hpp
  * @author Mustafa Kemal GILOR <mustafagilor@gmail.com>
  * @date   22.05.2022
  *
  * SPDX-License-Identifier:    MIT
- * _________________________________________________
+ * ____________________________________________________
  */
 
 #ifndef TDSL_UTIL_DEBUG_PRINT_HPP

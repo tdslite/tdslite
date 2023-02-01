@@ -1,5 +1,5 @@
 /**
- * _________________________________________________
+ * ____________________________________________________
  * Unsigned to string conversion utilitites
  *
  * @file   tdsl_utos.hpp
@@ -7,7 +7,7 @@
  * @date   20.01.2023
  *
  * SPDX-License-Identifier:    MIT
- * _________________________________________________
+ * ____________________________________________________
  */
 
 #ifndef TDSL_UTIL_UTOS_HPP
@@ -33,7 +33,7 @@ namespace tdsl {
      * @return tdsl::char_view A subspan of @p out contains
      *         the string representation
      */
-    TDSL_NODISCARD static inline tdsl::char_view utos(tdsl::size_t val,
+    static inline TDSL_NODISCARD tdsl::char_view utos(tdsl::size_t val,
                                                       tdsl::char_span out) noexcept {
         if (not out.size_bytes()) {
             return tdsl::char_view{};

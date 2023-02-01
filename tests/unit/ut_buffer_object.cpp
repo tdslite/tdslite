@@ -1,12 +1,13 @@
 /**
- * _________________________________________________
+ * ____________________________________________________
+ * tdsl_buffer_object class unit tests
  *
  * @file   ut_buffer_object.cpp
  * @author Mustafa Kemal GILOR <mustafagilor@gmail.com>
  * @date   18.11.2022
  *
  * SPDX-License-Identifier:    MIT
- * _________________________________________________
+ * ____________________________________________________
  */
 
 #include <tdslite/util/tdsl_buffer_object.hpp>
@@ -19,6 +20,8 @@ struct buffer_object_fixture : public ::testing::Test {
     tdsl::uint8_t buf [8192] = {};
     tdsl::tdsl_buffer_object bo{buf};
 };
+
+// --------------------------------------------------------------------------------
 
 /**
  * Test sequential write-reads.
@@ -63,6 +66,8 @@ TEST_F(buffer_object_fixture, write_read_buf_partial) {
     }
 }
 
+// --------------------------------------------------------------------------------
+
 /**
  * Test sequential write-reads.
  */
@@ -83,6 +88,8 @@ TEST_F(buffer_object_fixture, write_overflow) {
     ASSERT_EQ(bo.get_reader()->read<tdsl::uint8_t>(), 0xff);
 }
 
+// --------------------------------------------------------------------------------
+
 /**
  * Test sequential write-reads.
  */
@@ -91,6 +98,8 @@ TEST_F(buffer_object_fixture, read_overflow) {
     ASSERT_DEATH(v = bo.get_reader()->read<tdsl::uint8_t>(), "");
     (void) v;
 }
+
+// --------------------------------------------------------------------------------
 
 /**
  * Test sequential write-reads.
@@ -109,6 +118,8 @@ TEST_F(buffer_object_fixture, write_1) {
     ASSERT_EQ(bo.get_reader()->remaining_bytes(), 0);
     ASSERT_EQ(bo.get_writer()->remaining_bytes(), sizeof(buf));
 }
+
+// --------------------------------------------------------------------------------
 
 /**
  * Test sequential write-reads.
@@ -134,6 +145,8 @@ TEST_F(buffer_object_fixture, write_4) {
     ASSERT_EQ(bo.get_writer()->remaining_bytes(), sizeof(buf));
 }
 
+// --------------------------------------------------------------------------------
+
 /**
  * Test sequential write-reads.
  */
@@ -153,6 +166,8 @@ TEST_F(buffer_object_fixture, write_read_int_seq) {
         }
     }
 }
+
+// --------------------------------------------------------------------------------
 
 /**
  * Test sequential write-reads.
@@ -176,6 +191,8 @@ TEST_F(buffer_object_fixture, write_read_buf) {
     }
 }
 
+// --------------------------------------------------------------------------------
+
 /**
  * Test reader-writer exclusivity.
  *
@@ -195,35 +212,61 @@ TEST_F(buffer_object_fixture, exclusivity) {
     // writer-reader
     {
         auto v = bo.get_writer();
-        exclusivity_EXPECT_DEATH(bo.get_reader(), "");
+        exclusivity_EXPECT_DEATH(
+            {
+                auto x = bo.get_reader();
+                (void) x;
+            },
+            "");
     }
 
     // writer-reader
     {
         auto v = bo.get_writer();
-        exclusivity_EXPECT_DEATH(bo.get_writer(), "");
+        exclusivity_EXPECT_DEATH(
+            {
+                auto x = bo.get_writer();
+                (void) x;
+            },
+            "");
     }
 
     // reader-writer
     {
         auto v = bo.get_reader();
-        exclusivity_EXPECT_DEATH(bo.get_writer(), "");
+        exclusivity_EXPECT_DEATH(
+            {
+                auto x = bo.get_writer();
+                (void) x;
+            },
+            "");
     }
 
     // reader-reader
     {
         auto v = bo.get_reader();
-        exclusivity_EXPECT_DEATH(bo.get_reader(), "");
+        exclusivity_EXPECT_DEATH(
+            {
+                auto x = bo.get_reader();
+                (void) x;
+            },
+            "");
     }
 
     // Exclusive writers
     for (int i = 0; i < 10; i++) {
-        ASSERT_NO_FATAL_FAILURE(bo.get_writer());
+        ASSERT_NO_FATAL_FAILURE({
+            auto x = bo.get_writer();
+            (void) x;
+        });
     }
 
     // Exclusive readers
     for (int i = 0; i < 10; i++) {
-        ASSERT_NO_FATAL_FAILURE(bo.get_reader());
+        ASSERT_NO_FATAL_FAILURE({
+            auto x = bo.get_reader();
+            (void) x;
+        });
     }
 }
 

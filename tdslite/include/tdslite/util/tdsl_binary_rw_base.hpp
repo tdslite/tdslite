@@ -28,6 +28,42 @@ namespace tdsl {
     template <typename Derived>
     struct binary_reader_writer_base {
 
+        // --------------------------------------------------------------------------------
+
+        /**
+         * The checkpoint object
+         *
+         * Allows user to return to a specific point in
+         * binary reader/writer back.
+         */
+        struct checkpoint {
+
+            /**
+             * Construct a new checkpoint object
+             *
+             * @param [in] r Binary reader/writer base object
+             */
+            inline checkpoint(binary_reader_writer_base<Derived> & r) :
+                rw_base(r), offset(rw_base.offset()) {}
+
+            /**
+             * Revert binary reader/writer offset back
+             * to the saved checkpoint. Note that this
+             * function does not revert any written data
+             * for binary writers, so be careful for sensitive
+             * data.
+             */
+            inline void restore() noexcept {
+                rw_base.seek(offset);
+            }
+
+        private:
+            binary_reader_writer_base<Derived> & rw_base;
+            tdsl::size_t offset;
+        };
+
+        // --------------------------------------------------------------------------------
+
         /**
          * Get pointer to the current position
          *
@@ -40,6 +76,8 @@ namespace tdsl {
             return static_cast<const U &>(*this).data() + offset_;
         }
 
+        // --------------------------------------------------------------------------------
+
         /**
          * @brief Remaining capacity (in bytes), relative to @ref `size`
          *
@@ -49,6 +87,8 @@ namespace tdsl {
             return static_cast<const Derived &>(*this).size_bytes() - offset();
         }
 
+        // --------------------------------------------------------------------------------
+
         /**
          * Current offset
          */
@@ -56,6 +96,25 @@ namespace tdsl {
             TDSL_ASSERT(offset_ <= static_cast<const Derived &>(*this).size_bytes());
             return offset_;
         }
+
+        // --------------------------------------------------------------------------------
+
+        /**
+         * Save current reader/writer position into
+         * a checkpoint object. Invoke restore() function to
+         * return to the saved position back.
+         *
+         * It is useful for scenarios such as the user needs to keep the
+         * data in the buffer when e.g. the data is incomplete or needed
+         * to be persisted for an extended duration of time.
+         *
+         * @return checkpoint Checkpoint object at current offset
+         */
+        inline TDSL_NODISCARD auto checkpoint() noexcept -> checkpoint {
+            return {*this};
+        }
+
+        // --------------------------------------------------------------------------------
 
         /**
          * Set offset to a specific position
@@ -77,12 +136,16 @@ namespace tdsl {
             return true;
         }
 
+        // --------------------------------------------------------------------------------
+
         /**
          * Reset offset to zero
          */
         inline auto reset() noexcept -> void {
             offset_ = {0};
         }
+
+        // --------------------------------------------------------------------------------
 
         /**
          * Advance offset by @p amount_of_bytes bytes
@@ -116,6 +179,8 @@ namespace tdsl {
             return true;
         }
 
+        // --------------------------------------------------------------------------------
+
         /**
          * Check whether Derived has @p amount_of_bytes empty space remaining
          *
@@ -132,6 +197,8 @@ namespace tdsl {
 
             return (offset() + amount_of_bytes) <= static_cast<const Derived &>(*this).size_bytes();
         }
+
+        // --------------------------------------------------------------------------------
 
         /**
          * Check whether Derived has @p amount_of_bytes empty space remaining
@@ -157,52 +224,62 @@ namespace tdsl {
         /**
          * Beginning of the occupied (non-free) region
          */
-        inline auto inuse_begin() const noexcept -> const tdsl::uint8_t * {
+        inline TDSL_NODISCARD auto inuse_begin() const noexcept -> const tdsl::uint8_t * {
             return static_cast<const Derived &>(*this).begin();
         }
+
+        // --------------------------------------------------------------------------------
 
         /**
          * End of the occupied (non-free) region
          */
-        inline auto inuse_end() const noexcept -> const tdsl::uint8_t * {
+        inline TDSL_NODISCARD auto inuse_end() const noexcept -> const tdsl::uint8_t * {
             TDSL_ASSERT((inuse_begin() + this->offset_) <=
                         static_cast<const Derived &>(*this).end());
             return inuse_begin() + this->offset();
         }
+
+        // --------------------------------------------------------------------------------
 
         /**
          * View to written data
          *
          * @return tdsl::byte_view
          */
-        inline auto inuse_span() const noexcept -> tdsl::byte_view {
+        inline TDSL_NODISCARD auto inuse_span() const noexcept -> tdsl::byte_view {
             return tdsl::byte_view{inuse_begin(), inuse_end()};
         }
+
+        // --------------------------------------------------------------------------------
 
         /**
          * Beginning of the free space
          *
          * @return tdsl::uint8_t*
          */
-        inline auto free_begin() const noexcept -> tdsl::uint8_t * {
+        inline TDSL_NODISCARD auto free_begin() const noexcept -> tdsl::uint8_t * {
             return static_cast<const Derived &>(*this).begin() + this->offset();
         }
+
+        // --------------------------------------------------------------------------------
 
         /**
          * End of the free space
          *
          * @return tdsl::uint8_t*
          */
-        inline auto free_end() const noexcept -> tdsl::uint8_t * {
+        inline TDSL_NODISCARD auto free_end() const noexcept -> tdsl::uint8_t * {
             return static_cast<const Derived &>(*this).end();
         }
+
+        // --------------------------------------------------------------------------------
 
         /**
          * Span to free space
          *
          * @return tdsl::byte_span
          */
-        inline auto free_span() const noexcept -> tdsl::byte_span {
+        inline TDSL_NODISCARD auto free_span() const noexcept -> tdsl::byte_span {
             return tdsl::byte_span{free_begin(), free_end()};
         }
 

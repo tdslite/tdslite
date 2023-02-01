@@ -8,7 +8,6 @@
 # SPDX-License-Identifier:    MIT
 # _______________________________________________________
 
-
 make_component(
     tdslite.tests.it
     TARGET  TYPE UNIT_TEST

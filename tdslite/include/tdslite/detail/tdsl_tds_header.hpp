@@ -1,12 +1,12 @@
 /**
- * _________________________________________________
+ * ____________________________________________________
  *
  * @file   tdsl_tds_header.hpp
  * @author Mustafa Kemal GILOR <mustafagilor@gmail.com>
  * @date   19.10.2022
  *
  * SPDX-License-Identifier:    MIT
- * _________________________________________________
+ * ____________________________________________________
  */
 
 #ifndef TDSL_DETAIL_TDS_HEADER_HPP
@@ -27,6 +27,8 @@ namespace tdsl { namespace detail {
         tdsl::uint8_t packet_number;
         tdsl::uint8_t window;
     } TDSL_PACKED;
+
+    static_assert(sizeof(tds_header) == 8, "Invalid tds_header size!");
 }} // namespace tdsl::detail
 
 #endif

@@ -1,5 +1,5 @@
 /**
- * _________________________________________________
+ * ____________________________________________________
  * Unit tests for string_view and wstring_view types
  *
  * @file   ut_string_view.cpp
@@ -7,7 +7,7 @@
  * @date   21.01.2023
  *
  * SPDX-License-Identifier:    MIT
- * _________________________________________________
+ * ____________________________________________________
  */
 
 #include <tdslite/util/tdsl_string_view.hpp>

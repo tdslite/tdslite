@@ -1,5 +1,5 @@
 /**
- * _________________________________________________
+ * ____________________________________________________
  * Compile-time checker for network I/O type constraints
  *
  * @file   network_io_contract.hpp
@@ -7,7 +7,7 @@
  * @date   19.10.2022
  *
  * SPDX-License-Identifier:    MIT
- * _________________________________________________
+ * ____________________________________________________
  */
 
 #ifndef TDSL_NET_NETWORK_IO_CONTRACT_HPP

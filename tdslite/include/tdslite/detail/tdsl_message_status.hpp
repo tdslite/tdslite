@@ -1,12 +1,12 @@
 /**
- * _________________________________________________
+ * ____________________________________________________
  *
  * @file   tds_message_status.hpp
  * @author Mustafa K. GILOR <mustafagilor@gmail.com>
  * @date   18.04.2022
  *
  * SPDX-License-Identifier:    MIT
- * _________________________________________________
+ * ____________________________________________________
  */
 
 #ifndef TDSL_DETAIL_TDS_MESSAGE_STATUS_HPP

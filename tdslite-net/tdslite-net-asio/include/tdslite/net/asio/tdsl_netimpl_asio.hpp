@@ -1,5 +1,5 @@
 /**
- * _________________________________________________
+ * ____________________________________________________
  * Network implementation for tdslite using boost::asio.
  *
  * @file   tdsl_netimpl_asio.hpp
@@ -7,7 +7,7 @@
  * @date   20.04.2022
  *
  * SPDX-License-Identifier:    MIT
- * _________________________________________________
+ * ____________________________________________________
  */
 
 #ifndef TDSL_NET_NETIMPL_ASIO_HPP
@@ -110,7 +110,7 @@ namespace tdsl { namespace net {
 
     private:
         // Underlying buffer
-        constexpr static tdsl::uint32_t k_buffer_size = {16384};
+        static constexpr tdsl::uint32_t k_buffer_size = {16384};
         std::vector<tdsl::uint8_t> underlying_buffer{std::vector<tdsl::uint8_t>(k_buffer_size)};
         // Type-erased smart pointers to asio-specific stuff
         std::shared_ptr<void> io_context{nullptr};

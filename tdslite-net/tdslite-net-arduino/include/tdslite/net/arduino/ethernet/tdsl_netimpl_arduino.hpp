@@ -1,5 +1,5 @@
 /**
- * _________________________________________________
+ * ____________________________________________________
  * Network implementation compatible with Official arduino
  * ethernet library's EthernetClient. Also compatible with
  * other implementations that implements the same interface.
@@ -10,7 +10,7 @@
  * @date   20.04.2022
  *
  * SPDX-License-Identifier: MIT
- * _________________________________________________
+ * ____________________________________________________
  */
 
 #ifndef TDSL_NET_NETIMPL_ARDUINO_HPP
@@ -50,6 +50,8 @@ namespace tdsl { namespace net {
         using network_io_result =
             typename network_io_base<tdsl_netimpl_arduino<EthernetClientType>>::network_io_result;
 
+        // --------------------------------------------------------------------------------
+
         /**
          * Construct a new tdsl driver object
          *
@@ -62,6 +64,8 @@ namespace tdsl { namespace net {
             this->network_buffer = tdsl::tdsl_buffer_object{network_io_buffer};
         }
 
+        // --------------------------------------------------------------------------------
+
         /**
          * Construct a new tdsl driver object
          *
@@ -72,6 +76,8 @@ namespace tdsl { namespace net {
             client(TDSL_MOVE(ec)) {
             this->network_buffer = tdsl::tdsl_buffer_object{network_io_buffer};
         }
+
+        // --------------------------------------------------------------------------------
 
         /**
          * Try to connect to the target endpoint @p target : @p port
@@ -141,10 +147,14 @@ namespace tdsl { namespace net {
             return cr;
         }
 
+        // --------------------------------------------------------------------------------
+
         TDSL_SYMBOL_VISIBLE tdsl::int32_t do_disconnect() {
             client.stop();
             return 0;
         }
+
+        // --------------------------------------------------------------------------------
 
         /**
          * Send byte_views @p header and @p bufs sequentially to the connected endpoint
@@ -160,6 +170,8 @@ namespace tdsl { namespace net {
             client.write(message.data(), message.size_bytes());
             client.flush();
         }
+
+        // --------------------------------------------------------------------------------
 
         /**
          * Read exactly @p dst_buf.size() bytes from socket
@@ -188,6 +200,8 @@ namespace tdsl { namespace net {
             do_disconnect();
             return network_io_result::unexpected(-1); // error case
         }
+
+        // --------------------------------------------------------------------------------
 
         TDSL_SYMBOL_VISIBLE auto do_recv(tdsl::uint32_t transfer_exactly) noexcept
             -> network_io_result {
@@ -255,6 +269,8 @@ namespace tdsl { namespace net {
             do_disconnect();
             return network_io_result::unexpected(-1);
         }
+
+        // --------------------------------------------------------------------------------
 
         /**
          * The client instance. Any client type compatible with

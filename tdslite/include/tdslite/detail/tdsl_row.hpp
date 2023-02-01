@@ -1,12 +1,12 @@
 /**
- * _________________________________________________
+ * ____________________________________________________
  *
  * @file   tdsl_row.hpp
  * @author Mustafa Kemal GILOR <mustafagilor@gmail.com>
  * @date   29.09.2022
  *
  * SPDX-License-Identifier:    MIT
- * _________________________________________________
+ * ____________________________________________________
  */
 
 #ifndef TDSL_DETAIL_TDSL_ROW_HPP
@@ -32,38 +32,38 @@ namespace tdsl {
 
         // --------------------------------------------------------------------------------
 
-        inline auto begin() const noexcept -> fields_type_t::iterator {
+        inline TDSL_NODISCARD auto begin() const noexcept -> fields_type_t::iterator {
             return fields.begin();
         }
 
         // --------------------------------------------------------------------------------
 
-        inline auto end() const noexcept -> fields_type_t::iterator {
+        inline TDSL_NODISCARD auto end() const noexcept -> fields_type_t::iterator {
             return fields.end();
         }
 
         // --------------------------------------------------------------------------------
 
-        inline auto cbegin() const noexcept -> fields_type_t::const_iterator {
+        inline TDSL_NODISCARD auto cbegin() const noexcept -> fields_type_t::const_iterator {
             return fields.cbegin();
         }
 
         // --------------------------------------------------------------------------------
 
-        inline auto cend() const noexcept -> fields_type_t::const_iterator {
+        inline TDSL_NODISCARD auto cend() const noexcept -> fields_type_t::const_iterator {
             return fields.cend();
         }
 
         // --------------------------------------------------------------------------------
 
-        inline auto operator[](fields_type_t::size_type index) const noexcept
+        inline TDSL_NODISCARD auto operator[](fields_type_t::size_type index) const noexcept
             -> fields_type_t::reference {
             return fields [index];
         }
 
         // --------------------------------------------------------------------------------
 
-        inline auto size() const noexcept -> fields_type_t::size_type {
+        inline TDSL_NODISCARD auto size() const noexcept -> fields_type_t::size_type {
             return fields.size();
         }
 
@@ -77,7 +77,7 @@ namespace tdsl {
          * @return tdsl_row with n_col field on success
          * @return e_tdsl_row_make_err::FAILURE_MEM_ALLOC on failure
          */
-        static inline make_result_t make(tdsl::uint32_t n_col) {
+        static inline TDSL_NODISCARD make_result_t make(tdsl::uint32_t n_col) {
             tdsl_field * fields = field_allocator_t::create_n(n_col);
             if (fields) {
                 return tdsl_row(fields, n_col);

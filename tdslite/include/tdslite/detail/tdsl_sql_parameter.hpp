@@ -1,12 +1,12 @@
 /**
- * _________________________________________________
+ * ____________________________________________________
  *
  * @file   tdsl_sql_parameter.hpp
  * @author Mustafa Kemal GILOR <mustafagilor@gmail.com>
  * @date   10.01.2023
  *
  * SPDX-License-Identifier:    MIT
- * _________________________________________________
+ * ____________________________________________________
  */
 
 #ifndef TDSL_DETAIL_TDSL_SQL_PARAMETER_HPP
@@ -114,9 +114,15 @@ namespace tdsl { namespace detail {
     struct sql_parameter_impl<DTYPE, integral_tag> {
         using BackingType = typename sql_param_traits<DTYPE>::type;
 
+        // --------------------------------------------------------------------------------
+
         inline sql_parameter_impl() : value{} {}
 
+        // --------------------------------------------------------------------------------
+
         inline sql_parameter_impl(BackingType value) : value(native_to_le(value)) {}
+
+        // --------------------------------------------------------------------------------
 
         /**
          * Act as backing type for const operations.
@@ -128,10 +134,12 @@ namespace tdsl { namespace detail {
             return le_to_native(value);
         }
 
+        // --------------------------------------------------------------------------------
+
         /**
          * Cast operator to sql_paramater_binding
          */
-        inline operator sql_parameter_binding() const noexcept {
+        inline TDSL_NODISCARD operator sql_parameter_binding() const noexcept {
             sql_parameter_binding param{};
             param.type      = DTYPE;
             param.type_size = sizeof(BackingType);
@@ -144,7 +152,7 @@ namespace tdsl { namespace detail {
          * Get @ref value as bytes
          * (integral)
          */
-        inline tdsl::byte_view to_bytes() const noexcept {
+        inline TDSL_NODISCARD auto to_bytes() const noexcept -> tdsl::byte_view {
             return tdsl::byte_view{reinterpret_cast<const tdsl::uint8_t *>(&value),
                                    sizeof(BackingType)};
         }
@@ -161,9 +169,15 @@ namespace tdsl { namespace detail {
     struct sql_parameter_impl<DTYPE, string_view_tag> {
         using BackingType = typename sql_param_traits<DTYPE>::type;
 
+        // --------------------------------------------------------------------------------
+
         inline sql_parameter_impl() : value{} {}
 
+        // --------------------------------------------------------------------------------
+
         inline sql_parameter_impl(BackingType value) : value(value) {}
+
+        // --------------------------------------------------------------------------------
 
         /**
          * Act as backing type for const operations.
@@ -175,10 +189,12 @@ namespace tdsl { namespace detail {
             return value;
         }
 
+        // --------------------------------------------------------------------------------
+
         /**
          * Cast operator to sql_paramater_binding
          */
-        inline operator sql_parameter_binding() const noexcept {
+        inline TDSL_NODISCARD operator sql_parameter_binding() const noexcept {
             sql_parameter_binding param{};
             param.type      = DTYPE;
             param.type_size = value.size_bytes(); // FIXME: Probably wrong
@@ -190,7 +206,7 @@ namespace tdsl { namespace detail {
         /**
          * Get @ref value as bytes
          */
-        inline tdsl::byte_view to_bytes() const noexcept {
+        inline TDSL_NODISCARD auto to_bytes() const noexcept -> tdsl::byte_view {
             return value.template rebind_cast<const tdsl::uint8_t>();
         }
 

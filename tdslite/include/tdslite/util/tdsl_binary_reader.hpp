@@ -2,6 +2,7 @@
  * ____________________________________________________
  * binary_reader<> utility class implementation
  *
+ * @file   tdsl_binary_reader.hpp
  * @author Mustafa Kemal GILOR <mustafagilor@gmail.com>
  * @date   12.04.2022
  *
@@ -19,7 +20,7 @@
 #include <tdslite/util/tdsl_macrodef.hpp>
 #include <tdslite/util/tdsl_binary_rw_base.hpp>
 
-#include <string.h>
+#include <string.h> // needed for memcpy
 
 namespace tdsl {
 

@@ -1,12 +1,12 @@
 /**
- * _________________________________________________
+ * ____________________________________________________
  *
  * @file   tdsl_net_tx_mixin.hpp
  * @author Mustafa Kemal GILOR <mustafagilor@gmail.com>
  * @date   04.10.2022
  *
  * SPDX-License-Identifier:    MIT
- * _________________________________________________
+ * ____________________________________________________
  */
 
 #ifndef TDSL_DETAIL_NET_SEND_IF_MIXIN_HPP
@@ -31,21 +31,29 @@ namespace tdsl { namespace detail {
     template <typename Derived>
     struct net_tx_mixin {
 
+        // --------------------------------------------------------------------------------
+
         template <typename T, traits::enable_when::integral<T> = true>
         inline auto write(T v) noexcept -> void {
             byte_view data(reinterpret_cast<const tdsl::uint8_t *>(&v), sizeof(T));
             write(data);
         }
 
+        // --------------------------------------------------------------------------------
+
         template <typename T, traits::enable_when::integral<T> = true>
         inline auto write_be(T v) noexcept -> void {
             write(native_to_be(v));
         }
 
+        // --------------------------------------------------------------------------------
+
         template <typename T, traits::enable_when::integral<T> = true>
         inline auto write_le(T v) noexcept -> void {
             write(native_to_le(v));
         }
+
+        // --------------------------------------------------------------------------------
 
         template <typename T, traits::enable_when::integral<T> = true>
         inline auto write(tdsl::size_t offset, T v) noexcept -> void {
@@ -53,34 +61,48 @@ namespace tdsl { namespace detail {
             write(offset, data);
         }
 
+        // --------------------------------------------------------------------------------
+
         template <typename T, traits::enable_when::integral<T> = true>
         inline auto write_be(tdsl::size_t offset, T v) noexcept -> void {
             write(offset, native_to_be(v));
         }
+
+        // --------------------------------------------------------------------------------
 
         template <typename T, traits::enable_when::integral<T> = true>
         inline auto write_le(tdsl::size_t offset, T v) noexcept -> void {
             write(offset, native_to_le(v));
         }
 
+        // --------------------------------------------------------------------------------
+
         template <typename T>
         inline void write(tdsl::size_t offset, tdsl::span<T> data) noexcept {
             static_cast<Derived &>(*this).do_write(offset, data);
         }
+
+        // --------------------------------------------------------------------------------
 
         template <typename T>
         inline void write(tdsl::span<T> data) noexcept {
             static_cast<Derived &>(*this).do_write(data);
         }
 
+        // --------------------------------------------------------------------------------
+
         template <typename... Args>
         inline void send(Args &&... args) noexcept {
             static_cast<Derived &>(*this).do_send(TDSL_FORWARD(args)...);
         }
 
+        // --------------------------------------------------------------------------------
+
         inline void send_tds_pdu(detail::e_tds_message_type mtype) noexcept {
             static_cast<Derived &>(*this).do_send_tds_pdu(mtype);
         }
+
+        // --------------------------------------------------------------------------------
 
         template <typename T>
         struct placeholder {
@@ -88,9 +110,13 @@ namespace tdsl { namespace detail {
             inline placeholder(net_tx_mixin<Derived> & tx, tdsl::size_t offset) :
                 tx(tx), offset(offset) {}
 
+            // --------------------------------------------------------------------------------
+
             inline void write_be(T v) noexcept {
                 tx.write_be(offset, v);
             }
+
+            // --------------------------------------------------------------------------------
 
             inline void write_le(T v) noexcept {
                 tx.write_le(offset, v);
@@ -100,6 +126,8 @@ namespace tdsl { namespace detail {
             net_tx_mixin<Derived> & tx;
             tdsl::size_t offset;
         };
+
+        // --------------------------------------------------------------------------------
 
         /**
          * Put a placeholder value to current offset in order

@@ -1,12 +1,12 @@
 /**
- * _________________________________________________
+ * ____________________________________________________
  *
  * @file   tdsl_string_writer.hpp
  * @author Mustafa Kemal GILOR <mustafagilor@gmail.com>
  * @date   23.05.2022
  *
  * SPDX-License-Identifier:    MIT
- * _________________________________________________
+ * ____________________________________________________
  */
 
 #ifndef TDSL_DETAIL_STRING_PARAMETER_WRITER_HPP
@@ -34,12 +34,16 @@ namespace tdsl { namespace detail {
         struct write_counter {
             write_counter(TDSCTX & tds_ctx) : tds_ctx(tds_ctx) {}
 
+            // --------------------------------------------------------------------------------
+
             inline void write(const tdsl::string_view & sv) noexcept {
                 string_parameter_writer<TDSCTX>::write(tds_ctx, sv);
                 written_chars += string_parameter_writer<TDSCTX>::calculate_write_size(sv);
             }
 
-            inline tdsl::size_t get() const noexcept {
+            // --------------------------------------------------------------------------------
+
+            inline TDSL_NODISCARD auto get() const noexcept -> tdsl::size_t {
                 return written_chars;
             }
 
@@ -48,11 +52,16 @@ namespace tdsl { namespace detail {
             tdsl::size_t written_chars = {0};
         };
 
-        inline static write_counter make_counted_writer(TDSCTX & tds_ctx) noexcept {
+        // --------------------------------------------------------------------------------
+
+        static inline TDSL_NODISCARD auto make_counted_writer(TDSCTX & tds_ctx) noexcept
+            -> write_counter {
             return {tds_ctx};
         }
 
-        inline static void write(typename TDSCTX::tx_mixin & xc, const string_view & sv,
+        // --------------------------------------------------------------------------------
+
+        static inline void write(typename TDSCTX::tx_mixin & xc, const string_view & sv,
                                  void (*encoder)(tdsl::uint8_t *,
                                                  tdsl::uint32_t) = nullptr) noexcept {
             for (auto ch : sv) {
@@ -64,7 +73,9 @@ namespace tdsl { namespace detail {
             }
         }
 
-        inline static void write(typename TDSCTX::rx_mixin & xc, const wstring_view & sv,
+        // --------------------------------------------------------------------------------
+
+        static inline void write(typename TDSCTX::rx_mixin & xc, const wstring_view & sv,
                                  void (*encoder)(tdsl::uint8_t *,
                                                  tdsl::uint32_t) = nullptr) noexcept {
 
@@ -81,8 +92,10 @@ namespace tdsl { namespace detail {
             }
         }
 
+        // --------------------------------------------------------------------------------
+
         template <typename T = struct progmem_string_view>
-        inline static void write(typename TDSCTX::tx_mixin & xc, const T & sv,
+        static inline void write(typename TDSCTX::tx_mixin & xc, const T & sv,
                                  void (*encoder)(tdsl::uint8_t *, tdsl::uint32_t) = nullptr) {
             for (auto ch : sv) {
                 char16_t c = ch;
@@ -93,8 +106,10 @@ namespace tdsl { namespace detail {
             }
         }
 
+        // --------------------------------------------------------------------------------
+
         template <typename T>
-        inline static auto calculate_write_size(const T & sv) noexcept -> tdsl::size_t {
+        static inline auto calculate_write_size(const T & sv) noexcept -> tdsl::size_t {
             return sv.size_bytes() * (sizeof(char16_t) / sizeof(typename T::element_type));
         }
     };

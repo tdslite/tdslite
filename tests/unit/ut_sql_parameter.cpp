@@ -1,5 +1,5 @@
 /**
- * _________________________________________________
+ * ____________________________________________________
  * Unit tests for sql_parameter and sql_parameter_binding
  * types
  *
@@ -8,7 +8,7 @@
  * @date   10.01.2023
  *
  * SPDX-License-Identifier:    MIT
- * _________________________________________________
+ * ____________________________________________________
  */
 
 #include <tdslite/detail/tdsl_sql_parameter.hpp>

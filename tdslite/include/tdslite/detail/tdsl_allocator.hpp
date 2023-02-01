@@ -1,12 +1,12 @@
 /**
- * _________________________________________________
+ * ____________________________________________________
  *
  * @file   tdsl_allocator.hpp
  * @author Mustafa Kemal GILOR <mustafagilor@gmail.com>
  * @date   29.09.2022
  *
  * SPDX-License-Identifier:    MIT
- * _________________________________________________
+ * ____________________________________________________
  */
 
 #ifndef TDSL_DETAIL_TDSL_ALLOCATOR_HPP
@@ -48,6 +48,8 @@ namespace tdsl {
         free_fn_type f   = tdsl::tdsl_default_free;
     };
 
+    // --------------------------------------------------------------------------------
+
     /**
      * Set-get malloc & free functions for tdslite
      *
@@ -58,8 +60,8 @@ namespace tdsl {
      *
      * @return mfctx Object containing current malloc-free functions
      */
-    inline const mfctx & tdslite_malloc_free(malloc_fn_type mfn = nullptr,
-                                             free_fn_type ffn   = nullptr) noexcept {
+    inline auto tdslite_malloc_free(malloc_fn_type mfn = nullptr,
+                                    free_fn_type ffn   = nullptr) noexcept -> const mfctx & {
         TDSL_ASSERT_MSG(not(!(mfn) != !(ffn)),
                         "malloc and free functions can either be both null or non-null.");
 
@@ -80,11 +82,15 @@ namespace tdsl {
         return mf;
     }
 
-    inline TDSL_NODISCARD void * tdslite_malloc(unsigned long n_bytes) noexcept {
+    // --------------------------------------------------------------------------------
+
+    inline TDSL_NODISCARD auto tdslite_malloc(unsigned long n_bytes) noexcept -> void * {
         return tdslite_malloc_free().a(n_bytes);
     }
 
-    inline void tdslite_free(void * p, unsigned long n_bytes) noexcept {
+    // --------------------------------------------------------------------------------
+
+    inline auto tdslite_free(void * p, unsigned long n_bytes) noexcept -> void {
         (void) n_bytes;
         tdslite_malloc_free().f(p);
     }
@@ -93,7 +99,9 @@ namespace tdsl {
     // type T's corresponding constructor & destructor is noexcept
     template <typename T>
     struct tds_allocator {
-        static TDSL_NODISCARD T * allocate(tdsl::uint32_t n_elems) noexcept {
+        // --------------------------------------------------------------------------------
+
+        static TDSL_NODISCARD auto allocate(tdsl::uint32_t n_elems) noexcept -> T * {
             void * mem = tdslite_malloc(n_elems * sizeof(T));
             if (nullptr == mem) {
                 return nullptr;
@@ -102,13 +110,17 @@ namespace tdsl {
             return static_cast<T *>(mem);
         }
 
-        static void deallocate(T * p, tdsl::uint32_t n_elems) noexcept {
+        // --------------------------------------------------------------------------------
+
+        static inline auto deallocate(T * p, tdsl::uint32_t n_elems) noexcept -> void {
             // call destructor if class type
             tdslite_free(p, sizeof(T) * n_elems);
         }
 
+        // --------------------------------------------------------------------------------
+
         template <typename... Args>
-        static TDSL_NODISCARD T * create(Args &&... args) {
+        static TDSL_NODISCARD auto create(Args &&... args) -> T * {
             void * mem = tdslite_malloc(sizeof(T));
             if (nullptr == mem) {
                 return nullptr;
@@ -122,13 +134,17 @@ namespace tdsl {
             return storage;
         }
 
-        static void destroy(T * p) {
+        // --------------------------------------------------------------------------------
+
+        static auto destroy(T * p) -> void {
             destruct(p, 1);
             deallocate(p, /*n_elems=*/1);
         }
 
+        // --------------------------------------------------------------------------------
+
         template <typename... Args>
-        static TDSL_NODISCARD T * create_n(tdsl::uint32_t n_elems, Args &&... args) {
+        static TDSL_NODISCARD auto create_n(tdsl::uint32_t n_elems, Args &&... args) -> T * {
             void * mem = tdslite_malloc(sizeof(T) * n_elems);
             if (nullptr == mem) {
                 return nullptr;
@@ -142,12 +158,16 @@ namespace tdsl {
             return storage;
         }
 
-        static void destroy_n(T * p, tdsl::uint32_t n_elems) {
+        // --------------------------------------------------------------------------------
+
+        static auto destroy_n(T * p, tdsl::uint32_t n_elems) -> void {
             destruct(p, n_elems);
             deallocate(p, /*n_elems=*/n_elems);
         }
 
     private:
+        // --------------------------------------------------------------------------------
+
         template <typename Q = T, traits::enable_when::class_type<Q> = true, typename... Args>
         static void construct(Q * storage, tdsl::uint32_t n_elems, Args &&... args) {
             for (tdsl::uint32_t i = 0; i < n_elems; i++) {
@@ -155,6 +175,8 @@ namespace tdsl {
                 new (storage + i, placement_new_tag{}) Q(TDSL_FORWARD(args)...);
             }
         }
+
+        // --------------------------------------------------------------------------------
 
         template <typename Q = T, traits::enable_when::class_type<Q> = true>
         static void destruct(Q * storage, tdsl::uint32_t n_elems) {
@@ -164,9 +186,13 @@ namespace tdsl {
             }
         }
 
+        // --------------------------------------------------------------------------------
+
         // noop
         template <typename Q, traits::enable_when::non_class_type<Q> = true>
         static void construct(Q *, tdsl::uint32_t) {}
+
+        // --------------------------------------------------------------------------------
 
         // noop
         template <typename Q, traits::enable_when::non_class_type<Q> = true>

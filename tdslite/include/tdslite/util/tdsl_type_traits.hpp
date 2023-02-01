@@ -20,30 +20,27 @@
 
 namespace tdsl { namespace traits {
 
-    template <class T, T V>
-    struct integral_constant {
-        static constexpr T value = V;
-        using value_type         = T;
-        using type               = integral_constant;
+    // --------------------------------------------------------------------------------
+    // enable_if
 
-        constexpr operator value_type() const noexcept {
-            return value;
-        }
+    template <bool, typename T = void>
+    struct enable_if;
 
-        constexpr value_type operator()() const noexcept {
-            return value;
-        }
+    template <typename T>
+    struct enable_if<true, T> {
+        using type = T;
     };
 
-    using true_type  = integral_constant<bool, true>;
-    using false_type = integral_constant<bool, false>;
+    // --------------------------------------------------------------------------------
+    // dependent_bool
 
     template <bool T>
     struct dependent_bool {
         static constexpr bool value = T;
     };
 
-    // Conditional
+    // --------------------------------------------------------------------------------
+    // conditional
 
     template <bool B, class T, class F>
     struct conditional {
@@ -55,85 +52,9 @@ namespace tdsl { namespace traits {
         using type = F;
     };
 
-    template <class T>
-    struct is_const : false_type {};
-
-    template <class T>
-    struct is_const<const T> : true_type {};
-
-    template <class T>
-    struct is_volatile : false_type {};
-
-    template <class T>
-    struct is_volatile<volatile T> : true_type {};
-
-    // Disjunction
-
-    template <class...>
-    struct disjunction : false_type {};
-
-    template <class T1>
-    struct disjunction<T1> : T1 {};
-
-    template <class T1, class... Tn>
-    struct disjunction<T1, Tn...> : conditional<bool(T1::value), T1, disjunction<Tn...>>::type {};
-
-    template <typename...>
-    struct op_or;
-
-    template <>
-    struct op_or<> : public false_type {};
-
-    template <typename T1>
-    struct op_or<T1> : public T1 {};
-
-    template <typename T1, typename T2>
-    struct op_or<T1, T2> : public conditional<T1::value, T1, T2>::type {};
-
-    template <typename T1, typename T2, typename T3, typename... Tn>
-    struct op_or<T1, T2, T3, Tn...>
-        : public conditional<T1::value, T1, op_or<T2, T3, Tn...>>::type {};
-
-    // enable_if
-    template <bool, typename T = void>
-    struct enable_if;
-
-    template <typename T>
-    struct enable_if<true, T> {
-        using type = T;
-    };
-
-    // is_same
-    template <typename T, typename U>
-    struct is_same : false_type {};
-
-    template <typename T>
-    struct is_same<T, T> : true_type {};
-
-    template <typename>
-    struct is_lvalue_reference : public false_type {};
-
-    template <typename T>
-    struct is_lvalue_reference<T &> : public true_type {};
-
-    /// is_rvalue_reference
-    template <typename>
-    struct is_rvalue_reference : public false_type {};
-
-    template <typename T>
-    struct is_rvalue_reference<T &&> : public true_type {};
-
-    template <typename T>
-    struct is_reference : public op_or<is_lvalue_reference<T>, is_rvalue_reference<T>>::type {};
-
-    template <class T>
-    struct is_function
-        : integral_constant<bool, !is_const<const T>::value && !is_reference<T>::value> {};
-
-    template <typename T>
-    using enable_if_function = typename enable_if<is_function<T>::value, bool>::type;
-
+    // --------------------------------------------------------------------------------
     // remove_reference
+
     template <typename T>
     struct remove_reference {
         typedef T type;
@@ -149,7 +70,9 @@ namespace tdsl { namespace traits {
         typedef T type;
     };
 
-    /// remove_cv
+    // --------------------------------------------------------------------------------
+    // remove_cv
+
     template <typename T>
     struct remove_cv {
         using type = T;
@@ -170,59 +93,189 @@ namespace tdsl { namespace traits {
         using type = T;
     };
 
+    // --------------------------------------------------------------------------------
+    // remove_cvref
+
     template <typename T>
     struct remove_cvref {
         using type = typename remove_reference<typename remove_cv<T>::type>::type;
     };
 
-    // is_integral
-    template <typename>
-    struct is_integral_base : public false_type {};
+    // --------------------------------------------------------------------------------
+    // integral_constant
+
+    template <class T, T V>
+    struct integral_constant {
+        static constexpr T value = V;
+        using value_type         = T;
+        using type               = integral_constant;
+
+        constexpr operator value_type() const noexcept {
+            return value;
+        }
+
+        constexpr value_type operator()() const noexcept {
+            return value;
+        }
+    };
+
+    // --------------------------------------------------------------------------------
+    // true_type
+
+    using true_type  = integral_constant<bool, true>;
+
+    // --------------------------------------------------------------------------------
+    // false_type
+
+    using false_type = integral_constant<bool, false>;
+
+    // --------------------------------------------------------------------------------
+    // is_const
+
+    template <class T>
+    struct is_const : false_type {};
+
+    template <class T>
+    struct is_const<const T> : true_type {};
+
+    // --------------------------------------------------------------------------------
+    // is_volatile
+
+    template <class T>
+    struct is_volatile : false_type {};
+
+    template <class T>
+    struct is_volatile<volatile T> : true_type {};
+
+    // --------------------------------------------------------------------------------
+    // disjunction
+
+    template <class...>
+    struct disjunction : false_type {};
+
+    template <class T1>
+    struct disjunction<T1> : T1 {};
+
+    template <class T1, class... Tn>
+    struct disjunction<T1, Tn...> : conditional<bool(T1::value), T1, disjunction<Tn...>>::type {};
+
+    // --------------------------------------------------------------------------------
+    // op_or
+
+    template <typename...>
+    struct op_or;
 
     template <>
-    struct is_integral_base<bool> : public true_type {};
+    struct op_or<> : public false_type {};
 
-    template <>
-    struct is_integral_base<char> : public true_type {};
+    template <typename T1>
+    struct op_or<T1> : public T1 {};
 
-    template <>
-    struct is_integral_base<signed char> : public true_type {};
+    template <typename T1, typename T2>
+    struct op_or<T1, T2> : public conditional<T1::value, T1, T2>::type {};
 
-    template <>
-    struct is_integral_base<unsigned char> : public true_type {};
+    template <typename T1, typename T2, typename T3, typename... Tn>
+    struct op_or<T1, T2, T3, Tn...>
+        : public conditional<T1::value, T1, op_or<T2, T3, Tn...>>::type {};
 
-    template <>
-    struct is_integral_base<short> : public true_type {};
+    // --------------------------------------------------------------------------------
+    // is_same
 
-    template <>
-    struct is_integral_base<unsigned short> : public true_type {};
-
-    template <>
-    struct is_integral_base<int> : public true_type {};
-
-    template <>
-    struct is_integral_base<unsigned int> : public true_type {};
-
-    template <>
-    struct is_integral_base<long> : public true_type {};
-
-    template <>
-    struct is_integral_base<unsigned long> : public true_type {};
-
-    template <>
-    struct is_integral_base<long long> : public true_type {};
-
-    template <>
-    struct is_integral_base<unsigned long long> : public true_type {};
-
-    template <>
-    struct is_integral_base<char16_t> : public true_type {};
-
-    template <>
-    struct is_integral_base<char32_t> : public true_type {};
+    template <typename T, typename U>
+    struct is_same : false_type {};
 
     template <typename T>
-    struct is_integral : is_integral_base<typename remove_cv<T>::type> {};
+    struct is_same<T, T> : true_type {};
+
+    // --------------------------------------------------------------------------------
+    // is_lvalue_reference
+
+    template <typename>
+    struct is_lvalue_reference : public false_type {};
+
+    template <typename T>
+    struct is_lvalue_reference<T &> : public true_type {};
+
+    // --------------------------------------------------------------------------------
+    // is_rvalue_reference
+
+    template <typename>
+    struct is_rvalue_reference : public false_type {};
+
+    template <typename T>
+    struct is_rvalue_reference<T &&> : public true_type {};
+
+    // --------------------------------------------------------------------------------
+    // is_reference
+
+    template <typename T>
+    struct is_reference : public op_or<is_lvalue_reference<T>, is_rvalue_reference<T>>::type {};
+
+    // --------------------------------------------------------------------------------
+    // is_function
+
+    template <class T>
+    struct is_function
+        : integral_constant<bool, !is_const<const T>::value && !is_reference<T>::value> {};
+
+    // --------------------------------------------------------------------------------
+    // detail::is_integral_base
+
+    namespace detail {
+        template <typename>
+        struct is_integral_base : public false_type {};
+
+        template <>
+        struct is_integral_base<bool> : public true_type {};
+
+        template <>
+        struct is_integral_base<char> : public true_type {};
+
+        template <>
+        struct is_integral_base<signed char> : public true_type {};
+
+        template <>
+        struct is_integral_base<unsigned char> : public true_type {};
+
+        template <>
+        struct is_integral_base<short> : public true_type {};
+
+        template <>
+        struct is_integral_base<unsigned short> : public true_type {};
+
+        template <>
+        struct is_integral_base<int> : public true_type {};
+
+        template <>
+        struct is_integral_base<unsigned int> : public true_type {};
+
+        template <>
+        struct is_integral_base<long> : public true_type {};
+
+        template <>
+        struct is_integral_base<unsigned long> : public true_type {};
+
+        template <>
+        struct is_integral_base<long long> : public true_type {};
+
+        template <>
+        struct is_integral_base<unsigned long long> : public true_type {};
+
+        template <>
+        struct is_integral_base<char16_t> : public true_type {};
+
+        template <>
+        struct is_integral_base<char32_t> : public true_type {};
+    } // namespace detail
+
+    // --------------------------------------------------------------------------------
+    // is_integral
+
+    template <typename T>
+    struct is_integral : detail::is_integral_base<typename remove_cv<T>::type> {};
+
+    // --------------------------------------------------------------------------------
+    // is_floating_point
 
     template <class T>
     struct is_floating_point
@@ -230,9 +283,15 @@ namespace tdsl { namespace traits {
                                       is_same<double, typename remove_cv<T>::type>::value ||
                                       is_same<long double, typename remove_cv<T>::type>::value> {};
 
+    // --------------------------------------------------------------------------------
+    // is_arithmetic
+
     template <typename T>
     struct is_arithmetic
         : integral_constant<bool, is_integral<T>::value || is_floating_point<T>::value> {};
+
+    // --------------------------------------------------------------------------------
+    // detail::is_void_helper
 
     namespace detail {
         template <typename>
@@ -242,20 +301,29 @@ namespace tdsl { namespace traits {
         struct is_void_helper<void> : public true_type {};
     } // namespace detail
 
+    // --------------------------------------------------------------------------------
+    // is_void
+
     /// is_void
     template <typename T>
     struct is_void : public detail::is_void_helper<typename remove_cv<T>::type>::type {};
 
-    // enable_if_integral
+    // --------------------------------------------------------------------------------
+    // make_void
+
     template <typename... Ts>
     struct make_void {
         typedef void type;
     };
 
+    // --------------------------------------------------------------------------------
+    // void_t
+
     template <typename... Ts>
     using void_t = typename make_void<Ts...>::type;
 
-    // declval
+    // --------------------------------------------------------------------------------
+    // detail::declval_impl
 
     namespace detail {
         template <class T>
@@ -264,10 +332,14 @@ namespace tdsl { namespace traits {
         T declval_impl(long);
     } // namespace detail
 
+    // --------------------------------------------------------------------------------
+    // declval
+
     template <class T>
     decltype(detail::declval_impl<T>(0)) declval() noexcept;
 
-    //
+    // --------------------------------------------------------------------------------
+    // detail::detector
 
     namespace detail {
         template <class Default, class AlwaysVoid, template <class...> class Op, class... Args>
@@ -284,22 +356,35 @@ namespace tdsl { namespace traits {
 
     } // namespace detail
 
+    // --------------------------------------------------------------------------------
+    // nonesuch
+
     struct nonesuch {
         ~nonesuch()                      = delete;
-        nonesuch(nonesuch const &)       = delete;
-        void operator=(nonesuch const &) = delete;
+        nonesuch(const nonesuch &)       = delete;
+        void operator=(const nonesuch &) = delete;
     };
+
+    // --------------------------------------------------------------------------------
+    // is_detected
 
     template <template <class...> class Op, class... Args>
     using is_detected = typename detail::detector<nonesuch, void, Op, Args...>::value_t;
 
+    // --------------------------------------------------------------------------------
+    // detected_t
+
     template <template <class...> class Op, class... Args>
     using detected_t = typename detail::detector<nonesuch, void, Op, Args...>::type;
+
+    // --------------------------------------------------------------------------------
+    // detected_or
 
     template <class Default, template <class...> class Op, class... Args>
     using detected_or = detail::detector<Default, void, Op, Args...>;
 
-    // referenceable
+    // --------------------------------------------------------------------------------
+    // is_referenceable
 
     template <typename T, typename = void>
     struct is_referenceable : public false_type {};
@@ -307,7 +392,9 @@ namespace tdsl { namespace traits {
     template <typename T>
     struct is_referenceable<T, void_t<T &>> : public true_type {};
 
-    // add reference
+    // --------------------------------------------------------------------------------
+    // add_lvalue_reference
+
     template <typename T, bool = is_referenceable<T>::value>
     struct add_lvalue_reference {
         using type = T;
@@ -317,6 +404,9 @@ namespace tdsl { namespace traits {
     struct add_lvalue_reference<T, true> {
         using type = T &;
     };
+
+    // --------------------------------------------------------------------------------
+    // add_rvalue_reference
 
     template <typename T, bool = is_referenceable<T>::value>
     struct add_rvalue_reference {
@@ -328,6 +418,9 @@ namespace tdsl { namespace traits {
         using type = T &&;
     };
 
+    // --------------------------------------------------------------------------------
+    // add_pointer
+
     template <typename T, bool = op_or<is_referenceable<T>, is_void<T>>::value>
     struct add_pointer {
         using type = T;
@@ -338,16 +431,24 @@ namespace tdsl { namespace traits {
         using type = typename remove_reference<T>::type *;
     };
 
+    // --------------------------------------------------------------------------------
+    // add_const
+
     template <typename T>
     struct add_const {
         using type = const T;
     };
 
-    /// add_volatile
+    // --------------------------------------------------------------------------------
+    // add_volatile
+
     template <typename T>
     struct add_volatile {
         using type = volatile T;
     };
+
+    // --------------------------------------------------------------------------------
+    // detail::is_class_test
 
     namespace detail {
 
@@ -361,8 +462,14 @@ namespace tdsl { namespace traits {
         false_type is_class_test(...);
     } // namespace detail
 
+    // --------------------------------------------------------------------------------
+    // is_class
+
     template <class T>
     struct is_class : decltype(detail::is_class_test<T>(nullptr)) {};
+
+    // --------------------------------------------------------------------------------
+    // detail::test_pre_is_base_of
 
     // is_base_of detail
     namespace detail {
@@ -378,6 +485,9 @@ namespace tdsl { namespace traits {
             -> decltype(test_pre_ptr_convertible<B>(static_cast<D *>(nullptr)));
     } // namespace detail
 
+    // --------------------------------------------------------------------------------
+    // is_base_of
+
     template <typename Base, typename Derived>
     struct is_base_of
         : integral_constant<bool,
@@ -385,7 +495,8 @@ namespace tdsl { namespace traits {
                                 is_class<Derived>::value && decltype(detail::test_pre_is_base_of<
                                                                      Base, Derived>(0))::value> {};
 
-    // array
+    // --------------------------------------------------------------------------------
+    // is_array
 
     template <class T>
     struct is_array : false_type {};
@@ -395,6 +506,9 @@ namespace tdsl { namespace traits {
 
     template <class T, unsigned long N>
     struct is_array<T [N]> : true_type {};
+
+    // --------------------------------------------------------------------------------
+    // remove_extent
 
     template <class T>
     struct remove_extent {
@@ -411,6 +525,9 @@ namespace tdsl { namespace traits {
         typedef T type;
     };
 
+    // --------------------------------------------------------------------------------
+    // decay
+
     template <class T>
     struct decay {
     private:
@@ -423,6 +540,9 @@ namespace tdsl { namespace traits {
                                  typename remove_cv<U>::type>::type>::type type;
     };
 
+    // --------------------------------------------------------------------------------
+    // detail::is_template_instance_of_impl
+
     namespace {
         template <typename, template <typename...> class>
         struct is_template_instance_of_impl : public false_type {};
@@ -431,22 +551,43 @@ namespace tdsl { namespace traits {
         struct is_template_instance_of_impl<U<Ts...>, U> : public true_type {};
     } // namespace
 
+    // --------------------------------------------------------------------------------
+    // is_template_instance_of
+
     template <typename T, template <typename...> class U>
     using is_template_instance_of = is_template_instance_of_impl<typename decay<T>::type, U>;
 
+    // --------------------------------------------------------------------------------
+
     namespace enable_when {
+
+        // --------------------------------------------------------------------------------
+        // enable_when::template_instance_of
+
         template <typename T, template <typename...> class U>
         using template_instance_of =
             typename traits::enable_if<traits::is_template_instance_of<T, U>::value, bool>::type;
 
+        // --------------------------------------------------------------------------------
+        // enable_when::integral
+
         template <typename T>
         using integral = typename enable_if<is_integral<T>::value, bool>::type;
+
+        // --------------------------------------------------------------------------------
+        // enable_when::same
 
         template <typename T, typename Q>
         using same = typename enable_if<is_same<T, Q>::value, bool>::type;
 
+        // --------------------------------------------------------------------------------
+        // enable_when::non_const
+
         template <typename T>
         using not_const = typename enable_if<!is_const<T>::value, bool>::type;
+
+        // --------------------------------------------------------------------------------
+        // enable_when::same_any_of
 
         /**
          * Enable if the given type T is same with any of the types listed in type list Q
@@ -457,19 +598,34 @@ namespace tdsl { namespace traits {
         template <typename T, typename... Q>
         using same_any_of = typename enable_if<disjunction<is_same<T, Q>...>::value, bool>::type;
 
+        // --------------------------------------------------------------------------------
+        // enable_when::not_same
+
         template <typename T, typename Q>
         using not_same = typename enable_if<!is_same<T, Q>::value, bool>::type;
+
+        // --------------------------------------------------------------------------------
+        // enable_when::class_type
 
         template <typename T>
         using class_type = typename enable_if<is_class<T>::value, bool>::type;
 
+        // --------------------------------------------------------------------------------
+        // enable_when::non_class_type
+
         template <typename T>
         using non_class_type = typename enable_if<!is_class<T>::value, bool>::type;
+
+        // --------------------------------------------------------------------------------
+        // enable_when::base_of
 
         template <typename T, typename Q>
         using base_of = typename enable_if<is_base_of<T, Q>::value, bool>::type;
 
     } // namespace enable_when
+
+    // --------------------------------------------------------------------------------
+    // detail::make_signed_helper
 
     namespace detail {
         template <typename T>
@@ -529,6 +685,9 @@ namespace tdsl { namespace traits {
         struct make_signed_helper<unsigned long long> {
             using type = signed long long;
         };
+
+        // --------------------------------------------------------------------------------
+        // detail::make_unsigned_helper
 
         template <typename T>
         struct make_unsigned_helper; // undefined for all types by default
@@ -590,6 +749,9 @@ namespace tdsl { namespace traits {
 
     } // namespace detail
 
+    // --------------------------------------------------------------------------------
+    // copy_qualifiers
+
     template <typename SRC, typename DST>
     struct copy_qualifiers {
         using type = DST;
@@ -615,6 +777,9 @@ namespace tdsl { namespace traits {
     static_assert(is_same<copy_qualifiers<volatile int, char>::type, volatile char>::value, "");
     static_assert(
         is_same<copy_qualifiers<const volatile int, char>::type, const volatile char>::value, "");
+
+    // --------------------------------------------------------------------------------
+    // make_signed
 
     template <typename T>
     struct make_signed {
@@ -642,6 +807,9 @@ namespace tdsl { namespace traits {
     static_assert(is_same<make_signed<signed long long>::type, signed long long>::value, "");
     static_assert(is_same<make_signed<unsigned long long>::type, signed long long>::value, "");
 
+    // --------------------------------------------------------------------------------
+    // make_unsigned
+
     template <typename T>
     struct make_unsigned {
     private:
@@ -668,16 +836,24 @@ namespace tdsl { namespace traits {
     static_assert(is_same<make_unsigned<signed long long>::type, unsigned long long>::value, "");
     static_assert(is_same<make_unsigned<unsigned long long>::type, unsigned long long>::value, "");
 
+    // --------------------------------------------------------------------------------
+    // detail::is_signed
+
     namespace detail {
         template <typename T, bool = traits::is_arithmetic<T>::value>
-        struct is_signed : integral_constant<bool, T(-1) < T(0)> {};
+        struct is_signed_impl : integral_constant<bool, T(-1) < T(0)> {};
 
         template <typename T>
-        struct is_signed<T, false> : false_type {};
+        struct is_signed_impl<T, false> : false_type {};
     } // namespace detail
 
+    // --------------------------------------------------------------------------------
+    // is_signed
+
     template <typename T>
-    struct is_signed : detail::is_signed<T>::type {};
+    struct is_signed : detail::is_signed_impl<T>::type {};
+
+    // --------------------------------------------------------------------------------
 
 }} // namespace tdsl::traits
 

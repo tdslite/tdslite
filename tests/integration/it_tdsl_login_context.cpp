@@ -1,13 +1,13 @@
 /**
- * _________________________________________________
+ * ____________________________________________________
  * TDS login context integration tests
  *
- * @file   it_tds_login.cpp
+ * @file   it_tdsl_login_context.cpp
  * @author Mustafa K. GILOR <mustafagilor@gmail.com>
  * @date   20.04.2022
  *
  * SPDX-License-Identifier:    MIT
- * _________________________________________________
+ * ____________________________________________________
  */
 
 #include <tdslite/detail/tdsl_login_context.hpp>
@@ -42,6 +42,8 @@ struct tds_login_ctx_it_fixture : public ::testing::Test {
     uut_t login{tds_ctx};
 };
 
+// --------------------------------------------------------------------------------
+
 TEST_F(tds_login_ctx_it_fixture, login) {
     uut_t::login_parameters params;
     params.server_name  = "mssql-2017";
@@ -53,6 +55,8 @@ TEST_F(tds_login_ctx_it_fixture, login) {
     params.db_name      = "master";
     EXPECT_EQ(login.do_login(params), uut_t::e_login_status::success);
 }
+
+// --------------------------------------------------------------------------------
 
 TEST_F(tds_login_ctx_it_fixture, login_invalid_uname) {
     uut_t::login_parameters params;
@@ -66,6 +70,8 @@ TEST_F(tds_login_ctx_it_fixture, login_invalid_uname) {
     EXPECT_EQ(login.do_login(params), uut_t::e_login_status::failure);
 }
 
+// --------------------------------------------------------------------------------
+
 TEST_F(tds_login_ctx_it_fixture, login_invalid_pwd) {
     uut_t::login_parameters params;
     params.server_name  = "mssql-2017";
@@ -77,6 +83,8 @@ TEST_F(tds_login_ctx_it_fixture, login_invalid_pwd) {
     params.db_name      = "master";
     EXPECT_EQ(login.do_login(params), uut_t::e_login_status::failure);
 }
+
+// --------------------------------------------------------------------------------
 
 TEST_F(tds_login_ctx_it_fixture, login_invalid_db) {
     uut_t::login_parameters params;

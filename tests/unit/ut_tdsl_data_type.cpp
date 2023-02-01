@@ -1,12 +1,13 @@
 /**
- * _________________________________________________
+ * ____________________________________________________
+ * tdsl data_type unit tests
  *
  * @file   ut_tdsl_data_type.cpp
  * @author Mustafa Kemal GILOR <mustafagilor@gmail.com>
  * @date   09.01.2023
  *
  * SPDX-License-Identifier:    MIT
- * _________________________________________________
+ * ____________________________________________________
  */
 
 #include <tdslite/detail/tdsl_data_type.hpp>
