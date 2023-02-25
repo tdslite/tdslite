@@ -47,6 +47,14 @@
 #define TDSL_NOT_YET_IMPLEMENTED TDSL_TRAP, TDSL_UNREACHABLE
 
 /**
+ * Statement that marks reaching to a point in code execution
+ * flow impossible. If the program reaches to the point
+ * the program state is no longer valid and program
+ * will terminate itself.
+ */
+#define TDSL_CANNOT_HAPPEN TDSL_ASSERT(0), TDSL_TRAP, TDSL_UNREACHABLE
+
+/**
  * @brief [intrinsics.gcc] Specify minimum alignment for given type. This causes target type to
  * be allocated and aligned at least Alignment bytes boundary.
  *

@@ -55,6 +55,24 @@ namespace tdsl { namespace detail {
             } flags = {};
         };
 
+        struct query_result {
+
+            /**
+             * Number of affected rows from current query
+             */
+            tdsl::uint32_t affected_rows       = {0};
+
+            /**
+             *
+             *
+             */
+            tds_done_token::status_type status = {};
+
+            inline explicit operator bool() const noexcept {
+                return !(status.error() || status.srverror());
+            }
+        };
+
     private:
         using self_type                = command_context<NetImpl>;
         using string_writer_type       = string_parameter_writer<tds_context_type>;
@@ -80,8 +98,9 @@ namespace tdsl { namespace detail {
 
             tds_ctx.callbacks.done              = {
                 [](void * uptr, const tds_done_token & dt) noexcept -> void {
-                    command_context & ctx    = *static_cast<command_context *>(uptr);
-                    ctx.qstate.affected_rows = dt.done_row_count;
+                    command_context & ctx           = *static_cast<command_context *>(uptr);
+                    ctx.qstate.result.status        = dt.status;
+                    ctx.qstate.result.affected_rows = dt.done_row_count;
                     TDSL_DEBUG_PRINT("cc: done token -- affected rows(%d)\n", dt.done_row_count);
                 },
                 this};
@@ -105,7 +124,7 @@ namespace tdsl { namespace detail {
          */
         template <typename T, traits::enable_when::same_any_of<T, string_view, wstring_view,
                                                                struct progmem_string_view> = true>
-        inline tdsl::uint32_t execute_query(
+        inline query_result execute_query(
             T command,
             row_callback_fn_t row_callback = +[](void *, const tds_colmetadata_token &,
                                                  const tdsl_row &) -> void {},
@@ -119,8 +138,9 @@ namespace tdsl { namespace detail {
             tds_ctx.send_tds_pdu(e_tds_message_type::sql_batch);
             // Receive the response
             tds_ctx.receive_tds_pdu();
+
             // The state will be updated upon receiving the response
-            return qstate.affected_rows;
+            return qstate.result;
         }
 
         // --------------------------------------------------------------------------------
@@ -148,7 +168,7 @@ namespace tdsl { namespace detail {
                                                                struct progmem_string_view> = true>
         inline execute_rpc_result execute_rpc(
             T command, tdsl::span<sql_parameter_binding> params = {},
-            e_rpc_mode mode                = {e_rpc_mode::executesql},
+            e_rpc_mode mode                = e_rpc_mode::executesql,
             row_callback_fn_t row_callback = +[](void *, const tds_colmetadata_token &,
                                                  const tdsl_row &) -> void {},
             void * rcb_uptr                = nullptr) noexcept {
@@ -198,56 +218,60 @@ namespace tdsl { namespace detail {
                 tds_ctx.write(tdsl::uint32_t{0}); // collation
 
                 // put a placeholder
-                auto param_decl_sz_ph = tds_ctx.put_placeholder(tdsl::uint16_t{0});
+                auto param_decl_sz_ph     = tds_ctx.put_placeholder(tdsl::uint16_t{0});
 
-                auto write_binding_data_type_text =
-                    [](const sql_parameter_binding & pb,
-                       typename string_writer_type::write_counter & wc) {
-                        auto type = pb.type;
-
-                        // Translate INTNTYPE decls to corresponding
-                        // fixed length decls
-                        if (type == e_tds_data_type::INTNTYPE) {
-                            switch (pb.type_size) {
-                                case 1:
-                                    type = e_tds_data_type::INT1TYPE;
-                                    break;
-                                case 2:
-                                    type = e_tds_data_type::INT2TYPE;
-                                    break;
-                                case 4:
-                                    type = e_tds_data_type::INT4TYPE;
-                                    break;
-                                case 8:
-                                    type = e_tds_data_type::INT8TYPE;
-                                    break;
-                            }
-                        }
-
-                        switch (type) {
-                            case e_tds_data_type::INT1TYPE:
-                                wc.write("TINYINT");
-                                break;
-                            case e_tds_data_type::INT2TYPE:
-                                wc.write("SMALLINT");
-                                break;
-                            case e_tds_data_type::INT4TYPE:
-                                wc.write("INT");
-                                break;
-                            case e_tds_data_type::INT8TYPE:
-                                wc.write("BIGINT");
-                                break;
-                            case e_tds_data_type::NVARCHARTYPE:
-                                wc.write("NVARCHAR(MAX)");
-                                break;
-                            case e_tds_data_type::BIGVARCHRTYPE:
-                                wc.write("VARCHAR(MAX)");
-                                break;
-                            default:
-                                TDSL_NOT_YET_IMPLEMENTED;
-                                break;
-                        }
-                    };
+                auto write_param_type_str = [](const sql_parameter_binding & pb,
+                                               typename string_writer_type::write_counter & wc) {
+                    /**
+                     * Write string representation of the type @ref pb.type
+                     */
+                    switch (var_to_fixed(pb.type, pb.type_size)) {
+                        case e_tds_data_type::BITTYPE:
+                            wc.write("BIT");
+                            break;
+                        case e_tds_data_type::INT1TYPE:
+                            wc.write("TINYINT");
+                            break;
+                        case e_tds_data_type::INT2TYPE:
+                            wc.write("SMALLINT");
+                            break;
+                        case e_tds_data_type::INT4TYPE:
+                            wc.write("INT");
+                            break;
+                        case e_tds_data_type::INT8TYPE:
+                            wc.write("BIGINT");
+                            break;
+                        case e_tds_data_type::NVARCHARTYPE:
+                            wc.write("NVARCHAR(MAX)");
+                            break;
+                        case e_tds_data_type::BIGVARCHRTYPE:
+                            wc.write("VARCHAR(MAX)");
+                            break;
+                        case e_tds_data_type::FLT4TYPE:
+                            wc.write("REAL");
+                            break;
+                        case e_tds_data_type::FLT8TYPE:
+                            wc.write("FLOAT");
+                            break;
+                        case e_tds_data_type::DATETIM4TYPE:
+                            wc.write("SMALLDATETIME");
+                            break;
+                        case e_tds_data_type::DATETIMETYPE:
+                            wc.write("DATETIME");
+                            break;
+                        case e_tds_data_type::INTNTYPE:
+                        case e_tds_data_type::FLTNTYPE:
+                        case e_tds_data_type::DATETIMNTYPE:
+                        case e_tds_data_type::MONEYNTYPE:
+                        case e_tds_data_type::DECIMALNTYPE:
+                        case e_tds_data_type::NUMERICNTYPE:
+                            TDSL_CANNOT_HAPPEN;
+                            break;
+                        default:
+                            TDSL_NOT_YET_IMPLEMENTED;
+                            break;
+                    }
+                };
 
                 auto cw                = string_writer_type::make_counted_writer(tds_ctx);
                 tdsl::size_t param_idx = {0};
@@ -259,7 +283,7 @@ namespace tdsl { namespace detail {
                     cw.write(param_decl);
                     cw.write(tdsl::string_view{tdsl::utos(param_idx++, utos_buf)});
                     cw.write(" ");
-                    write_binding_data_type_text(param, cw);
+                    write_param_type_str(param, cw);
                     // TODO: Handle data types with variable length (e.g. varchar(30))
                     if (param_idx == params.size()) {
                         break;
@@ -352,7 +376,7 @@ namespace tdsl { namespace detail {
             // Receive the response
             tds_ctx.receive_tds_pdu();
             // The state will be updated upon receiving the response
-            return tdsl::uint32_t{qstate.affected_rows};
+            return tdsl::uint32_t{qstate.result.affected_rows};
         }
 
         // --------------------------------------------------------------------------------
@@ -394,10 +418,9 @@ namespace tdsl { namespace detail {
              * Column metadata for current query (if applicable)
              */
             tds_colmetadata_token colmd                    = {};
-            /**
-             * Number of affected rows from current query
-             */
-            tdsl::uint32_t affected_rows                   = {0};
+
+            query_result result                            = {};
+
             /**
              * If the query returns a result set, this is the
              * function to be called for every row read from
@@ -752,6 +775,78 @@ namespace tdsl { namespace detail {
             result.status       = token_handler_status::success;
             result.needed_bytes = 0;
             return result;
+        }
+
+        /**
+         * Convert variable type to equivalent fixed type
+         *
+         * @param [in] type Variable type
+         * @param [in] type_size Variable type size
+         *
+         * @return e_tds_data_type Equivalent fixed type
+         */
+        static inline auto var_to_fixed(e_tds_data_type type, tdsl::size_t type_size) noexcept
+            -> e_tds_data_type {
+
+            switch (type) {
+                    // Translate INTNTYPE decls to corresponding
+                    // fixed length decls
+                case e_tds_data_type::INTNTYPE: {
+                    // For INTNTYPE, the only valid lengths are 0x01, 0x02,
+                    // 0x04, and 0x08, which map to tinyint, smallint,
+                    // int, and bigint SQL data types respectively.
+                    switch (type_size) {
+                        case 1:
+                            return e_tds_data_type::INT1TYPE;
+                        case 2:
+                            return e_tds_data_type::INT2TYPE;
+                        case 4:
+                            return e_tds_data_type::INT4TYPE;
+                        case 8:
+                            return e_tds_data_type::INT8TYPE;
+                    }
+                } break;
+                case e_tds_data_type::FLTNTYPE: {
+                    // For FLTNTYPE, the only valid lengths are 0x04 and 0x08
+                    switch (type_size) {
+                        case 4:
+                            return e_tds_data_type::FLT4TYPE;
+                            break;
+                        case 8:
+                            return e_tds_data_type::FLT8TYPE;
+                    }
+                } break;
+                case e_tds_data_type::DATETIMNTYPE: {
+                    // For DATETIMNTYPE, the only valid lengths are 0x04 and 0x08,
+                    // which map to smalldatetime and datetime SQL data types
+                    // respectively.
+                    switch (type_size) {
+                        case 4:
+                            return e_tds_data_type::DATETIM4TYPE;
+                            break;
+                        case 8:
+                            return e_tds_data_type::DATETIMETYPE;
+                    }
+                } break;
+                case e_tds_data_type::MONEYNTYPE: {
+                    // For MONEYNTYPE, the only valid lengths are 0x04 and 0x08,
+                    // which map to smallmoney and money SQL data types respectively.
+                    switch (type_size) {
+                        case 4:
+                            return e_tds_data_type::MONEY4TYPE;
+                            break;
+                        case 8:
+                            return e_tds_data_type::MONEYTYPE;
+                    }
+                } break;
+                case e_tds_data_type::DECIMALNTYPE:
+                case e_tds_data_type::NUMERICNTYPE:
+                    TDSL_NOT_YET_IMPLEMENTED;
+                    break;
+                default:
+                    return type;
+            }
+            TDSL_CANNOT_HAPPEN;
         }
     };
 }} // namespace tdsl::detail

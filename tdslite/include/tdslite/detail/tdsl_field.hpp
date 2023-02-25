@@ -26,11 +26,14 @@ namespace tdsl {
         using s_smallint = tdsl::int16_t;
         using s_int      = tdsl::int32_t;
         using s_bigint   = tdsl::int64_t;
+        using s_float4   = float;
+        using s_float8   = double;
 
         struct sql_data_type_base {};
 
-        // using s_varchar  = tdsl::string_view;
-
+        /**
+         * money sql type
+         */
         struct sql_money : public sql_data_type_base {
 
             /**
@@ -98,6 +101,97 @@ namespace tdsl {
             tdsl::int64_t value;
         };
 
+        /**
+         * smalldatetime sql type
+         */
+        struct sql_smalldatetime : public sql_data_type_base {
+
+            // --------------------------------------------------------------------------------
+
+            /**
+             * Construct a new SQL smalldatetime object
+             *
+             * @param [in] v View to bytes to be interpreted as sql_smalldatetime
+             */
+            inline explicit sql_smalldatetime(tdsl::byte_view v) noexcept {
+                TDSL_ASSERT(v.size_bytes() == (sizeof(tdsl::uint16_t) * 2));
+                tdsl::binary_reader<tdsl::endian::little> br{v};
+                days_elapsed    = br.read<tdsl::uint16_t>();
+                minutes_elapsed = br.read<tdsl::uint16_t>();
+            }
+
+            // --------------------------------------------------------------------------------
+
+            /**
+             * Convert smalldatetime to unix timestamp
+             *
+             * @return tdsl::uint64_t smalldatetime value as unix timestamp
+             */
+            inline tdsl::uint64_t to_unix_timestamp() const noexcept {
+                constexpr auto days_between_epochs = ((1970 - 1900) * 365);
+                if (days_elapsed < days_between_epochs) {
+                    return 0; // 1-1-1970
+                }
+                return ((days_elapsed - days_between_epochs) * 86400) + (minutes_elapsed * 60);
+            }
+
+            // --------------------------------------------------------------------------------
+
+            // One 2-byte unsigned integer that represents the
+            // number of days since January 1, 1900.
+            tdsl::uint16_t days_elapsed;
+            // One 2-byte unsigned integer that represents the
+            // number of minutes elapsed since 12 AM that day.
+            tdsl::uint16_t minutes_elapsed;
+        };
+
+        /**
+         * datetime sql type
+         */
+        struct sql_datetime : public sql_data_type_base {
+
+            // --------------------------------------------------------------------------------
+
+            /**
+             * Construct a new SQL smalldatetime object
+             *
+             * @param [in] v View to bytes to be interpreted as sql_smalldatetime
+             */
+            inline explicit sql_datetime(tdsl::byte_view v) noexcept {
+                TDSL_ASSERT(v.size_bytes() == (sizeof(tdsl::int32_t) + sizeof(uint32_t)));
+                tdsl::binary_reader<tdsl::endian::little> br{v};
+                days_elapsed         = br.read<tdsl::int32_t>();
+                centiseconds_elapsed = br.read<tdsl::uint32_t>();
+            }
+
+            // --------------------------------------------------------------------------------
+
+            /**
+             * Convert datetime to unix timestamp
+             *
+             * @return tdsl::uint64_t datetime value as unix timestamp
+             */
+            inline tdsl::uint64_t to_unix_timestamp() const noexcept {
+                constexpr auto days_between_epochs = ((1970 - 1900) * 365);
+                if (days_elapsed < days_between_epochs) {
+                    return 0; // 1-1-1970
+                }
+                return ((days_elapsed - days_between_epochs) * 86400ul) +
+                       (centiseconds_elapsed / 100);
+            }
+
+            // --------------------------------------------------------------------------------
+
+            // One 4-byte signed integer that represents the number of days
+            // since January 1, 1900. Negative numbers are allowed to represent
+            // dates since January 1, 1753.
+            tdsl::int32_t days_elapsed;
+            // One 4-byte unsigned integer that represents the number of one
+            // three-hundredths of a second (300 counts per second) elapsed
+            // since 12 AM that day.
+            tdsl::uint32_t centiseconds_elapsed;
+        };
+
         // struct sql_decimal {
         //     inline operator tdsl::int64_t() const noexcept {
         //         return value;
@@ -116,12 +210,12 @@ namespace tdsl {
         // --------------------------------------------------------------------------------
 
         /**
-         * Cast helper for integral types
+         * Cast helper for arithmetic types
          *
          * @param [in] data Data to cast
          * @return T bytes of data converted to host endianness and reinterpreted as type T
          */
-        template <typename T, typename traits::enable_when::integral<T> = true>
+        template <typename T, typename traits::enable_when::arithmetic<T> = true>
         inline auto as_impl(byte_view data) -> T {
             TDSL_ASSERT_MSG(data.size_bytes() >= sizeof(T),
                             "Given span does not have enough bytes to read a value with type T!");

@@ -575,6 +575,12 @@ namespace tdsl { namespace traits {
         using integral = typename enable_if<is_integral<T>::value, bool>::type;
 
         // --------------------------------------------------------------------------------
+        // enable_when::arithmetic
+
+        template <typename T>
+        using arithmetic = typename enable_if<is_arithmetic<T>::value, bool>::type;
+
+        // --------------------------------------------------------------------------------
         // enable_when::same
 
         template <typename T, typename Q>

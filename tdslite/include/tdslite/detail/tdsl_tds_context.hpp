@@ -506,7 +506,7 @@ namespace tdsl { namespace detail {
          *
          * @return tdsl::uint32_t Amount of needed bytes to read a complete DONE token, if any.
          *                        The return value would be non-zero only if the reader has
-         * partial token data.
+         *                        partial token data.
          */
         inline tdsl::uint32_t handle_done_token(tdsl::binary_reader<tdsl::endian::little> & rr) {
             // fe
@@ -516,15 +516,15 @@ namespace tdsl { namespace detail {
                 return k_min_done_bytes - rr.remaining_bytes();
             }
 
-            tds_done_token token{};
+            tds_done_token token = {};
 
-            token.status         = rr.read<tdsl::uint16_t>();
+            token.status.value   = rr.read<tdsl::uint16_t>();
             token.curcmd         = rr.read<tdsl::uint16_t>();
             token.done_row_count = rr.read<tdsl::uint32_t>();
 
             TDSL_DEBUG_PRINTLN(
                 "received done token -> status [%d] | cur_cmd [%d] | done_row_count [%d]",
-                token.status, token.curcmd, token.done_row_count);
+                token.status.value, token.curcmd, token.done_row_count);
             callbacks.done(token);
             return 0;
         }

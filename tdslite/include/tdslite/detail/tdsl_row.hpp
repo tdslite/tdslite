@@ -1,5 +1,6 @@
 /**
  * ____________________________________________________
+ * Result set row type
  *
  * @file   tdsl_row.hpp
  * @author Mustafa Kemal GILOR <mustafagilor@gmail.com>
@@ -21,6 +22,10 @@
 
 namespace tdsl {
 
+    /**
+     * A type that represents a row in a result set.
+     * Composed of N fields, where N is the field count.
+     */
     struct tdsl_row : util::noncopyable {
         enum class e_tdsl_row_make_err
         {

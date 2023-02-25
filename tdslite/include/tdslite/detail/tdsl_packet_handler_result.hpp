@@ -17,7 +17,7 @@
 namespace tdsl {
     template <typename Status, Status DefaultStatusV>
     struct packet_handler_result {
-        Status status               = {DefaultStatusV};
+        Status status             = {DefaultStatusV};
         /**
          * `needed_bytes` is a way to signal network layer
          * to know at least how many bytes more are needed
@@ -30,7 +30,7 @@ namespace tdsl {
          * implementation has to support it via constructs such as
          * read(transfer_at_least{needed_bytes}).
          */
-        tdsl::uint32_t needed_bytes = {0};
+        tdsl::size_t needed_bytes = {0};
     };
 } // namespace tdsl
 

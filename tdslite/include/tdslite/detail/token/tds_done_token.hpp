@@ -34,7 +34,47 @@ namespace tdsl {
         // * 0x100: DONE_SRVERROR. Used in place of DONE_ERROR when an error occurred on the
         //          current SQL statement, which is severe enough to require the result set, if any,
         //          to be discarded
-        tdsl::uint16_t status         = {0};
+
+        struct status_type {
+            /**
+             * Check if this DONE token is the last one
+             *
+             * @return true there are more DONE tokens following
+             * @return false this is the last token in the token stream
+             */
+            inline bool more() const noexcept {
+                return (value & tdsl::uint16_t{0x1}) == tdsl::uint16_t{0x1};
+            }
+
+            /**
+             * Check if DONE token indicates an error
+             *
+             * @return true an error occured while executing the current SQL statement
+             * @return false no error
+             */
+            inline bool error() const noexcept {
+                return (value & tdsl::uint16_t{0x2}) == tdsl::uint16_t{0x2};
+            }
+
+            inline bool in_xact() const noexcept {
+                return (value & tdsl::uint16_t{0x4}) == tdsl::uint16_t{0x4};
+            }
+
+            inline bool count_valid() const noexcept {
+                return (value & tdsl::uint16_t{0x10}) == tdsl::uint16_t{0x10};
+            }
+
+            inline bool attn() const noexcept {
+                return (value & tdsl::uint16_t{0x20}) == tdsl::uint16_t{0x20};
+            }
+
+            inline bool srverror() const noexcept {
+                return (value & tdsl::uint16_t{0x100}) == tdsl::uint16_t{0x100};
+            }
+
+            tdsl::uint16_t value;
+        } status;
+
         // The token of the current SQL statement. The token value is provided and controlled by the
         // application layer, which utilizes TDS. The TDS layer does not evaluate the value.
         tdsl::uint16_t curcmd         = {0};

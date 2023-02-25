@@ -124,6 +124,56 @@ TEST_F(tdsl_field_fixture, field_as_u32string_view) {
 
 // --------------------------------------------------------------------------------
 
+TEST_F(tdsl_field_fixture, field_as_sql_smalldatetime) {
+    // 135, 26874
+    tdsl::uint8_t buf1 [4] = {0xfa, 0x68, 0x87, 0x00};
+
+    field                  = buf1;
+    EXPECT_EQ(field.as<tdsl::sqltypes::sql_smalldatetime>().days_elapsed, 26874);
+    EXPECT_EQ(field.as<tdsl::sqltypes::sql_smalldatetime>().minutes_elapsed, 135);
+    EXPECT_EQ(field.as<tdsl::sqltypes::sql_smalldatetime>().to_unix_timestamp(), 114401700);
+}
+
+// --------------------------------------------------------------------------------
+
+TEST_F(tdsl_field_fixture, field_as_sql_smalldatetime_zero) {
+    // 136, 26874
+    tdsl::uint8_t buf1 [4] = {0xcd, 0x63, 0x88, 0x00};
+
+    field                  = buf1;
+    EXPECT_EQ(field.as<tdsl::sqltypes::sql_smalldatetime>().days_elapsed, 25549);
+    EXPECT_EQ(field.as<tdsl::sqltypes::sql_smalldatetime>().minutes_elapsed, 136);
+    EXPECT_EQ(field.as<tdsl::sqltypes::sql_smalldatetime>().to_unix_timestamp(), 0);
+}
+
+// --------------------------------------------------------------------------------
+
+TEST_F(tdsl_field_fixture, field_as_sql_datetime) {
+    // 987000, 26874
+    tdsl::uint8_t buf1 [8] = {0xfa, 0x68, 0x00, 0x00, 0x78, 0x0f, 0x0f, 0x00};
+
+    // F0F78
+
+    field                  = buf1;
+    EXPECT_EQ(field.as<tdsl::sqltypes::sql_datetime>().days_elapsed, 26874);
+    EXPECT_EQ(field.as<tdsl::sqltypes::sql_datetime>().centiseconds_elapsed, 987000);
+    EXPECT_EQ(field.as<tdsl::sqltypes::sql_datetime>().to_unix_timestamp(), 114403470);
+}
+
+// --------------------------------------------------------------------------------
+
+TEST_F(tdsl_field_fixture, field_as_sql_datetime_zero) {
+    // 136, 26874
+    tdsl::uint8_t buf1 [8] = {0xfa, 0x58, 0x00, 0x00, 0x78, 0x0f, 0x0f, 0x00};
+
+    field                  = buf1;
+    EXPECT_EQ(field.as<tdsl::sqltypes::sql_datetime>().days_elapsed, 22778);
+    EXPECT_EQ(field.as<tdsl::sqltypes::sql_datetime>().centiseconds_elapsed, 987000);
+    EXPECT_EQ(field.as<tdsl::sqltypes::sql_datetime>().to_unix_timestamp(), 0);
+}
+
+// --------------------------------------------------------------------------------
+
 #include <tdslite/detail/token/tds_colmetadata_token.hpp>
 #include <tdslite/detail/tdsl_data_type.hpp>
 

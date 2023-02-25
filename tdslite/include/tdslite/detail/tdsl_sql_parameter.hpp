@@ -1,5 +1,6 @@
 /**
  * ____________________________________________________
+ * SQL RPC parameter types
  *
  * @file   tdsl_sql_parameter.hpp
  * @author Mustafa Kemal GILOR <mustafagilor@gmail.com>
@@ -35,6 +36,11 @@ namespace tdsl { namespace detail {
 
     // Tag type to enable sql parameter implementation for string types
     struct string_view_tag {};
+
+    // --------------------------------------------------------------------------------
+
+    // Tag type to enable sql parameter implementation for float types
+    using float_tag = integral_tag;
 
     // --------------------------------------------------------------------------------
 
@@ -79,6 +85,26 @@ namespace tdsl { namespace detail {
     struct sql_param_traits<e_tds_data_type::INT8TYPE> {
         using type = tdsl::int64_t;
         using tag  = integral_tag;
+    };
+
+    // --------------------------------------------------------------------------------
+
+    template <>
+    struct sql_param_traits<e_tds_data_type::FLT4TYPE> {
+        using type = float;
+        using tag  = float_tag;
+        static_assert(sizeof(float) == 4,
+                      "The implementation assumes that float is 4 bytes in size!");
+    };
+
+    // --------------------------------------------------------------------------------
+
+    template <>
+    struct sql_param_traits<e_tds_data_type::FLT8TYPE> {
+        using type = double;
+        using tag  = float_tag;
+        static_assert(sizeof(double) == 8,
+                      "The implementation assumes that float is 4 bytes in size!");
     };
 
     // --------------------------------------------------------------------------------
@@ -227,12 +253,51 @@ namespace tdsl { namespace detail {
 
     // --------------------------------------------------------------------------------
 
+    // Implemented:
+    // TDSL_DATA_TYPE_DECL(BITTYPE       , 0x32) TDSL_DATA_TYPE_LIST_DELIM
+    // TDSL_DATA_TYPE_DECL(INT1TYPE      , 0x30) TDSL_DATA_TYPE_LIST_DELIM
+    // TDSL_DATA_TYPE_DECL(INT2TYPE      , 0x34) TDSL_DATA_TYPE_LIST_DELIM
+    // TDSL_DATA_TYPE_DECL(INT4TYPE      , 0x38) TDSL_DATA_TYPE_LIST_DELIM
+    // TDSL_DATA_TYPE_DECL(INT8TYPE      , 0x7F) TDSL_DATA_TYPE_LIST_DELIM
+    // TDSL_DATA_TYPE_DECL(FLT4TYPE      , 0x3B) TDSL_DATA_TYPE_LIST_DELIM
+    // TDSL_DATA_TYPE_DECL(FLT8TYPE      , 0x3E) TDSL_DATA_TYPE_LIST_DELIM
+    // TDSL_DATA_TYPE_DECL(BIGVARCHRTYPE , 0xA7) TDSL_DATA_TYPE_LIST_DELIM
+    // TDSL_DATA_TYPE_DECL(NVARCHARTYPE  , 0xE7) TDSL_DATA_TYPE_LIST_DELIM
+
+    // Not yet implemented:
+    // TDSL_DATA_TYPE_DECL(GUIDTYPE      , 0x24) TDSL_DATA_TYPE_LIST_DELIM
+    // TDSL_DATA_TYPE_DECL(DATETIM4TYPE  , 0x3A) TDSL_DATA_TYPE_LIST_DELIM
+    // TDSL_DATA_TYPE_DECL(DATETIMETYPE  , 0x3D) TDSL_DATA_TYPE_LIST_DELIM
+    // TDSL_DATA_TYPE_DECL(MONEYTYPE     , 0x3C) TDSL_DATA_TYPE_LIST_DELIM
+    // TDSL_DATA_TYPE_DECL(MONEY4TYPE    , 0x7A) TDSL_DATA_TYPE_LIST_DELIM
+    // TDSL_DATA_TYPE_DECL(INTNTYPE      , 0x26) TDSL_DATA_TYPE_LIST_DELIM
+    // TDSL_DATA_TYPE_DECL(DECIMALTYPE   , 0x37) TDSL_DATA_TYPE_LIST_DELIM
+    // TDSL_DATA_TYPE_DECL(NUMERICTYPE   , 0x3F) TDSL_DATA_TYPE_LIST_DELIM
+    // TDSL_DATA_TYPE_DECL(BITNTYPE      , 0x68) TDSL_DATA_TYPE_LIST_DELIM
+    // TDSL_DATA_TYPE_DECL(DECIMALNTYPE  , 0x6A) TDSL_DATA_TYPE_LIST_DELIM
+    // TDSL_DATA_TYPE_DECL(NUMERICNTYPE  , 0x6C) TDSL_DATA_TYPE_LIST_DELIM
+    // TDSL_DATA_TYPE_DECL(FLTNTYPE      , 0x6D) TDSL_DATA_TYPE_LIST_DELIM
+    // TDSL_DATA_TYPE_DECL(DATETIMNTYPE  , 0x6F) TDSL_DATA_TYPE_LIST_DELIM
+    // TDSL_DATA_TYPE_DECL(MONEYNTYPE    , 0x6E) TDSL_DATA_TYPE_LIST_DELIM
+    // TDSL_DATA_TYPE_DECL(BIGVARBINTYPE , 0xA5) TDSL_DATA_TYPE_LIST_DELIM
+    // TDSL_DATA_TYPE_DECL(BIGBINARYTYPE , 0xAD) TDSL_DATA_TYPE_LIST_DELIM
+    // TDSL_DATA_TYPE_DECL(BIGCHARTYPE   , 0xAF) TDSL_DATA_TYPE_LIST_DELIM
+    // TDSL_DATA_TYPE_DECL(NCHARTYPE     , 0xEF) TDSL_DATA_TYPE_LIST_DELIM
+    // TDSL_DATA_TYPE_DECL(TEXTTYPE      , 0x23) TDSL_DATA_TYPE_LIST_DELIM
+    // TDSL_DATA_TYPE_DECL(IMAGETYPE     , 0x22) TDSL_DATA_TYPE_LIST_DELIM
+    // TDSL_DATA_TYPE_DECL(NTEXTTYPE     , 0x63)
+
+    using sql_parameter_bit      = sql_parameter<e_tds_data_type::BITTYPE>;
     using sql_parameter_tinyint  = sql_parameter<e_tds_data_type::INT1TYPE>;
     using sql_parameter_smallint = sql_parameter<e_tds_data_type::INT2TYPE>;
     using sql_parameter_int      = sql_parameter<e_tds_data_type::INT4TYPE>;
     using sql_parameter_bigint   = sql_parameter<e_tds_data_type::INT8TYPE>;
+    using sql_parameter_float4   = sql_parameter<e_tds_data_type::FLT4TYPE>;
+    using sql_parameter_float8   = sql_parameter<e_tds_data_type::FLT8TYPE>;
     using sql_parameter_varchar  = sql_parameter<e_tds_data_type::BIGVARCHRTYPE>;
     using sql_parameter_nvarchar = sql_parameter<e_tds_data_type::NVARCHARTYPE>;
+
+    // float & real
 
 }} // namespace tdsl::detail
 

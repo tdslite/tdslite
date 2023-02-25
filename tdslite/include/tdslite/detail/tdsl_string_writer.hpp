@@ -1,5 +1,7 @@
 /**
  * ____________________________________________________
+ * Helper type for writing strings with different
+ * character sizes transparently to a TDS message.
  *
  * @file   tdsl_string_writer.hpp
  * @author Mustafa Kemal GILOR <mustafagilor@gmail.com>

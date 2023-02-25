@@ -38,6 +38,7 @@ namespace tdsl { namespace detail {
         using sql_command_rpc_mode       = e_rpc_mode;
         using sql_command_rpc_result     = typename sql_command_type::execute_rpc_result;
         using sql_command_row_callback   = typename sql_command_type::row_callback_fn_t;
+        using sql_command_query_result   = typename sql_command_type::query_result;
 
         // --------------------------------------------------------------------------------
 
@@ -173,7 +174,7 @@ namespace tdsl { namespace detail {
             T command,
             sql_command_row_callback row_callback = +[](void *, const tds_colmetadata_token &,
                                                         const tdsl_row &) -> void {},
-            void * uptr                           = nullptr) noexcept -> tdsl::uint32_t {
+            void * uptr                           = nullptr) noexcept -> sql_command_query_result {
             TDSL_ASSERT(tds_ctx.is_authenticated());
             return sql_command_type{tds_ctx, command_options}.execute_query(command, row_callback,
                                                                             uptr);
