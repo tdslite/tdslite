@@ -167,7 +167,7 @@ void initTdsliteDriver() {
 // --------------------------------------------------------------------------------
 
 void initDatabase() {
-    const int r = driver.execute_query(TDSL_PMEMSTR("CREATE TABLE #hello_world(a int, b int);"));
+    const auto r = driver.execute_query(TDSL_PMEMSTR("CREATE TABLE #hello_world(a int, b int);"));
     (void) r;
     SERIAL_PRINTLNF("... init database %d...", r);
     SERIAL_PRINTLNF("... init database end...");
@@ -179,9 +179,9 @@ inline void tdslite_loop() {
     static int i = 0;
     driver.execute_query(TDSL_PMEMSTR("INSERT INTO #hello_world VALUES(1,2)"));
     if (i++ % 10 == 0) {
-        const auto row_count =
+        const auto result =
             driver.execute_query(TDSL_PMEMSTR("SELECT * FROM #hello_world;"), row_callback);
-        (void) row_count;
+        (void) result;
         SERIAL_PRINTLNF(">> Report: row count [%d], free RAM [%d] <<", row_count, freeMemory());
         SERIAL_PRINTLNF("%d", freeMemory());
     }

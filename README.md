@@ -14,16 +14,18 @@ tdslite is a standalone library with no external dependencies, and it does not r
 
 ## Roadmap
 
-- Add support for send buffer fragmentation depending on negotiated packet size
+- Add support for send buffer fragmentation depending on negotiated packet size [DONE]
 - Add different SQL server versions to integration tests besides MSSQL 2017
-- Add CI pipeline with matrix build (different platforms, toolchains and  versions)
-- Add as many board simulators as possible & run tests on them (if possible)
-- Write use cases and example applications
-- Write example code for target platforms (arduino, espressif, raspberry etc.)
-- Implement networking code for popular network hardware (Ethernet, WiFi)
+- Add CI pipeline with matrix build (different platforms, toolchains and  versions) [DONE]
+- Add as many board simulators as possible & run tests on them (if possible) [DONE]
+- Write use cases and example applications [IN PROGRESS]
+- Write example code for target platforms (arduino, espressif, raspberry etc.) [IN PROGRESS]
+- Implement networking code for popular network hardware (Ethernet, WiFi) [DONE]
 - Network implementation MUST read negotiated packet size and send packets accordingly -- [DONE]
-- Use platform-specific size_t & ssize_t instead of using int64_t's for space
-- Implement an arduino program memory string view type
+- Use platform-specific size_t & ssize_t instead of using int64_t's for space [DONE]
+- Implement an arduino program memory string view type [DONE]
+- Beautify README.md
+- Publish to GitHub Releases, Arduino Libraries and PlatformIO Libraries 
 
 ## Notes
 

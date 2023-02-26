@@ -145,6 +145,7 @@ struct tds_command_ctx_it_fixture : public ::testing::Test {
 
             auto result =
                 command_ctx.execute_query(static_cast<tdsl::string_view>(query), rcb, uptr);
+
             total_rows_affected += result.affected_rows;
         }
         return total_rows_affected;
@@ -169,6 +170,12 @@ struct tds_command_ctx_it_fixture : public ::testing::Test {
 
     tds_ctx_t tds_ctx;
     uut_t command_ctx{tds_ctx};
+    tdsl::size_t validator_called_times = {0};
+
+    static inline void validator_called(void * v) noexcept {
+        *reinterpret_cast<decltype(validator_called_times) *>(v) =
+            *reinterpret_cast<decltype(validator_called_times) *>(v) + 1;
+    }
 };
 
 TEST_F(tds_command_ctx_it_fixture, ct_int_int) {
@@ -253,7 +260,8 @@ TEST_F(tds_command_ctx_it_fixture, ctis_long_query_test) {
 
 // --------------------------------------------------------------------------------
 TEST_F(tds_command_ctx_it_fixture, exact_numerics_bit) {
-    auto validator = +[](void *, uut_t::column_metadata_cref c, uut_t::row_cref r) {
+    auto validator = +[](void * b, uut_t::column_metadata_cref c, uut_t::row_cref r) {
+        validator_called(b);
         ASSERT_EQ(c.columns.size(), 2);
         ASSERT_EQ(r.size(), 2);
         EXPECT_EQ(r [0].as<bool>(), true);
@@ -261,12 +269,14 @@ TEST_F(tds_command_ctx_it_fixture, exact_numerics_bit) {
     };
     ASSERT_EQ(0, exec(cq("q bit", "y bit")));
     ASSERT_EQ(1, exec(iq("'true'", "'false'")));
-    ASSERT_EQ(1, exec(sq(), validator));
+    ASSERT_EQ(1, exec(sq(), validator, &validator_called_times));
+    ASSERT_EQ(1, validator_called_times);
 }
 
 // --------------------------------------------------------------------------------
 TEST_F(tds_command_ctx_it_fixture, exact_numerics_tinyint) {
-    auto validator = +[](void *, uut_t::column_metadata_cref c, uut_t::row_cref r) {
+    auto validator = +[](void * b, uut_t::column_metadata_cref c, uut_t::row_cref r) {
+        validator_called(b);
         ASSERT_EQ(c.columns.size(), 2);
         ASSERT_EQ(r.size(), 2);
         EXPECT_EQ(r [0].as<tdsl::uint8_t>(), tdsl::numeric_limits::min_value<tdsl::uint8_t>());
@@ -274,12 +284,14 @@ TEST_F(tds_command_ctx_it_fixture, exact_numerics_tinyint) {
     };
     ASSERT_EQ(0, exec(cq("q tinyint", "y tinyint")));
     ASSERT_EQ(1, exec(iq("0", "255")));
-    ASSERT_EQ(1, exec(sq(), validator));
+    ASSERT_EQ(1, exec(sq(), validator, &validator_called_times));
+    ASSERT_EQ(1, validator_called_times);
 }
 
 // --------------------------------------------------------------------------------
 TEST_F(tds_command_ctx_it_fixture, exact_numerics_smallint) {
-    auto validator = +[](void *, uut_t::column_metadata_cref c, uut_t::row_cref r) {
+    auto validator = +[](void * b, uut_t::column_metadata_cref c, uut_t::row_cref r) {
+        validator_called(b);
         ASSERT_EQ(c.columns.size(), 2);
         ASSERT_EQ(r.size(), 2);
         EXPECT_EQ(r [0].as<tdsl::int16_t>(), tdsl::numeric_limits::min_value<tdsl::int16_t>());
@@ -287,12 +299,14 @@ TEST_F(tds_command_ctx_it_fixture, exact_numerics_smallint) {
     };
     ASSERT_EQ(0, exec(cq("q smallint", "y smallint")));
     ASSERT_EQ(1, exec(iq("-32768", "32767")));
-    ASSERT_EQ(1, exec(sq(), validator));
+    ASSERT_EQ(1, exec(sq(), validator, &validator_called_times));
+    ASSERT_EQ(1, validator_called_times);
 }
 
 // --------------------------------------------------------------------------------
 TEST_F(tds_command_ctx_it_fixture, exact_numerics_int) {
-    auto validator = +[](void *, uut_t::column_metadata_cref c, uut_t::row_cref r) {
+    auto validator = +[](void * b, uut_t::column_metadata_cref c, uut_t::row_cref r) {
+        validator_called(b);
         ASSERT_EQ(c.columns.size(), 2);
         ASSERT_EQ(r.size(), 2);
         EXPECT_EQ(r [0].as<tdsl::int32_t>(), tdsl::numeric_limits::min_value<tdsl::int32_t>());
@@ -300,12 +314,14 @@ TEST_F(tds_command_ctx_it_fixture, exact_numerics_int) {
     };
     ASSERT_EQ(0, exec(cq("q int", "y int")));
     ASSERT_EQ(1, exec(iq("-2147483648", "2147483647")));
-    ASSERT_EQ(1, exec(sq(), validator));
+    ASSERT_EQ(1, exec(sq(), validator, &validator_called_times));
+    ASSERT_EQ(1, validator_called_times);
 }
 
 // --------------------------------------------------------------------------------
 TEST_F(tds_command_ctx_it_fixture, exact_numerics_bigint) {
-    auto validator = +[](void *, uut_t::column_metadata_cref c, uut_t::row_cref r) {
+    auto validator = +[](void * b, uut_t::column_metadata_cref c, uut_t::row_cref r) {
+        validator_called(b);
         ASSERT_EQ(c.columns.size(), 2);
         ASSERT_EQ(r.size(), 2);
         EXPECT_EQ(r [0].as<tdsl::int64_t>(), tdsl::numeric_limits::min_value<tdsl::int64_t>());
@@ -313,7 +329,8 @@ TEST_F(tds_command_ctx_it_fixture, exact_numerics_bigint) {
     };
     ASSERT_EQ(0, exec(cq("q bigint", "y bigint")));
     ASSERT_EQ(1, exec(iq("-9223372036854775808", "9223372036854775807")));
-    ASSERT_EQ(1, exec(sq(), validator));
+    ASSERT_EQ(1, exec(sq(), validator, &validator_called_times));
+    ASSERT_EQ(1, validator_called_times);
 }
 
 // --------------------------------------------------------------------------------
@@ -420,7 +437,8 @@ TEST_F(tds_command_ctx_it_fixture, exact_numerics_numeric) {
 
 // --------------------------------------------------------------------------------
 TEST_F(tds_command_ctx_it_fixture, exact_numerics_smallmoney) {
-    auto validator = +[](void *, uut_t::column_metadata_cref c, uut_t::row_cref r) {
+    auto validator = +[](void * b, uut_t::column_metadata_cref c, uut_t::row_cref r) {
+        validator_called(b);
         ASSERT_EQ(c.columns.size(), 2);
         ASSERT_EQ(r.size(), 2);
         ASSERT_EQ(r [0].size_bytes(), 4);
@@ -434,12 +452,15 @@ TEST_F(tds_command_ctx_it_fixture, exact_numerics_smallmoney) {
     // smallmoney	- 214,748.3648 to 214,748.3647
     ASSERT_EQ(0, exec(cq("q smallmoney", "y smallmoney")));
     ASSERT_EQ(1, exec(iq("-214748.3648", "214748.3647")));
-    ASSERT_EQ(1, exec(sq(), validator));
+    ASSERT_EQ(1, exec(sq(), validator, &validator_called_times));
+    ASSERT_EQ(1, validator_called_times);
 }
 
 // --------------------------------------------------------------------------------
 TEST_F(tds_command_ctx_it_fixture, exact_numerics_money) {
-    auto validator = +[](void *, uut_t::column_metadata_cref c, uut_t::row_cref r) {
+
+    auto validator = +[](void * b, uut_t::column_metadata_cref c, uut_t::row_cref r) {
+        validator_called(b);
         ASSERT_EQ(c.columns.size(), 2);
         ASSERT_EQ(r.size(), 2);
         ASSERT_EQ(r [0].size_bytes(), 8);
@@ -456,21 +477,24 @@ TEST_F(tds_command_ctx_it_fixture, exact_numerics_money) {
     // smallmoney	- 214,748.3648 to 214,748.3647
     ASSERT_EQ(0, exec(cq("q money", "y money")));
     ASSERT_EQ(1, exec(iq("-922337203685477.5808", "922337203685477.5807")));
-    ASSERT_EQ(1, exec(sq(), validator));
+    ASSERT_EQ(1, exec(sq(), validator, &validator_called_times));
+    ASSERT_EQ(1, validator_called_times);
 }
 
-// // --------------------------------------------------------------------------------
-// TEST_F(tds_command_ctx_it_fixture, exact_numerics_real) {
-//     auto validator = +[](void *, uut_t::column_metadata_cref c, uut_t::row_cref r) {
-//         ASSERT_EQ(c.columns.size(), 2);
-//         ASSERT_EQ(r.size(), 2);
-//         EXPECT_EQ(r [0].as<tdsl::float_>(), tdsl::int64_t{-0x7FFFFFFFFFFFFFFF - 1});
-//         EXPECT_EQ(r [1].as<tdsl::int64_t>(), tdsl::int64_t{+0x7FFFFFFFFFFFFFFF});
-//     };
-//     ASSERT_EQ(0, exec(cq("q bigint", "y bigint")));
-//     ASSERT_EQ(1, exec(iq("-9223372036854775808", "9223372036854775807")));
-//     ASSERT_EQ(1, exec(sq(), nullptr, validator));
-// }
+// --------------------------------------------------------------------------------
+TEST_F(tds_command_ctx_it_fixture, exact_numerics_real) {
+    auto validator = +[](void * b, uut_t::column_metadata_cref c, uut_t::row_cref r) {
+        validator_called(b);
+        ASSERT_EQ(c.columns.size(), 2);
+        ASSERT_EQ(r.size(), 2);
+        EXPECT_EQ(r [0].as<float>(), float{1.17549e-038f});
+        EXPECT_EQ(r [1].as<float>(), float{3.40282e+038f});
+    };
+    ASSERT_EQ(0, exec(cq("q real", "y real")));
+    ASSERT_EQ(1, exec(iq("1.17549e-038", "3.40282e+038")));
+    ASSERT_EQ(1, exec(sq(), validator, &validator_called_times));
+    ASSERT_EQ(1, validator_called_times);
+}
 
 // --------------------------------------------------------------------------------
 
@@ -484,10 +508,9 @@ TEST_F(tds_command_ctx_it_fixture, test_rpc_inttype) {
     // The binding order determines the variable name, e.g. bound parameter 0 is p0
     // and bound parameter 1 is p1 and so on.
     tdsl::detail::sql_parameter_binding params [] = {px, p1, p2, p3, p4};
-    tdsl::size_t validator_called_times           = {0};
 
     auto validator = +[](void * b, uut_t::column_metadata_cref c, uut_t::row_cref r) {
-        *reinterpret_cast<tdsl::size_t *>(b) = *reinterpret_cast<tdsl::size_t *>(b) + 1;
+        validator_called(b);
         ASSERT_EQ(c.columns.size(), 5);
         ASSERT_EQ(r.size(), 5);
         ASSERT_EQ(r [0].size_bytes(), 1);
@@ -559,7 +582,8 @@ TEST_F(tds_command_ctx_it_fixture, test_rpc_varchar) {
     // and bound parameter 1 is p1 and so on.
     tdsl::detail::sql_parameter_binding params [] = {p1};
 
-    auto validator = +[](void *, uut_t::column_metadata_cref c, uut_t::row_cref r) {
+    auto validator = +[](void * b, uut_t::column_metadata_cref c, uut_t::row_cref r) {
+        validator_called(b);
         ASSERT_EQ(c.columns.size(), 1);
         ASSERT_EQ(r.size(), 1);
         ASSERT_EQ(c.columns [0].type, tdsl::detail::e_tds_data_type::BIGVARCHRTYPE);
@@ -573,7 +597,9 @@ TEST_F(tds_command_ctx_it_fixture, test_rpc_varchar) {
     command_ctx.execute_query(tdsl::string_view{"INSERT INTO #test_rpc VALUES('abc')"});
 
     command_ctx.execute_rpc(tdsl::string_view{"SELECT * FROM #test_rpc WHERE a=@p0"}, params,
-                            tdsl::detail::e_rpc_mode::executesql, validator);
+                            tdsl::detail::e_rpc_mode::executesql, validator,
+                            &validator_called_times);
+    ASSERT_EQ(1, validator_called_times);
 }
 
 // --------------------------------------------------------------------------------
@@ -589,7 +615,8 @@ TEST_F(tds_command_ctx_it_fixture, test_rpc_nvarchar) {
     // and bound parameter 1 is p1 and so on.
     tdsl::detail::sql_parameter_binding params [] = {p1};
 
-    auto validator = +[](void *, uut_t::column_metadata_cref c, uut_t::row_cref r) {
+    auto validator = +[](void * b, uut_t::column_metadata_cref c, uut_t::row_cref r) {
+        validator_called(b);
         ASSERT_EQ(c.columns.size(), 1);
         ASSERT_EQ(r.size(), 1);
         ASSERT_EQ(c.columns [0].type, tdsl::detail::e_tds_data_type::NVARCHARTYPE);
@@ -603,7 +630,9 @@ TEST_F(tds_command_ctx_it_fixture, test_rpc_nvarchar) {
     command_ctx.execute_query(tdsl::string_view{"INSERT INTO #test_rpc VALUES(N'abc')"});
 
     command_ctx.execute_rpc(tdsl::string_view{"SELECT * FROM #test_rpc WHERE a=@p0"}, params,
-                            tdsl::detail::e_rpc_mode::executesql, validator);
+                            tdsl::detail::e_rpc_mode::executesql, validator,
+                            &validator_called_times);
+    ASSERT_EQ(1, validator_called_times);
 }
 
 // --------------------------------------------------------------------------------
@@ -622,7 +651,7 @@ TEST_F(tds_command_ctx_it_fixture, test_rpc_float) {
     tdsl::detail::sql_parameter_binding params [] = {p1, p2};
     tdsl::size_t validator_called_times           = {0};
     auto validator = +[](void * b, uut_t::column_metadata_cref c, uut_t::row_cref r) {
-        *reinterpret_cast<tdsl::size_t *>(b) = *reinterpret_cast<tdsl::size_t *>(b) + 1;
+        validator_called(b);
         ASSERT_EQ(c.columns.size(), 2);
         ASSERT_EQ(r.size(), 2);
         ASSERT_EQ(c.columns [0].type, tdsl::detail::e_tds_data_type::FLTNTYPE);
@@ -662,6 +691,173 @@ TEST_F(tds_command_ctx_it_fixture, test_rpc_float) {
 
     command_ctx.execute_rpc(tdsl::string_view{"SELECT * FROM #test_rpc WHERE a=@p0 AND b=@p1"},
                             params, tdsl::detail::e_rpc_mode::executesql, validator,
+                            &validator_called_times);
+    ASSERT_EQ(1, validator_called_times);
+}
+
+// --------------------------------------------------------------------------------
+
+TEST_F(tds_command_ctx_it_fixture, test_rpc_guid) {
+    tdsl::detail::sql_parameter_guid p1{};
+
+    static constexpr std::uint8_t buf [] = {0x76, 0x6D, 0xE8, 0xE2, 0xE1, 0x8F, 0x28, 0x47,
+                                            0xAC, 0x9D, 0x1C, 0xED, 0x7E, 0xFE, 0xA9, 0xD2};
+    static constexpr tdsl::byte_view bv{buf};
+    p1                                            = bv;
+
+    tdsl::detail::sql_parameter_binding params [] = {p1};
+    tdsl::size_t validator_called_times           = {0};
+    auto validator = +[](void * b, uut_t::column_metadata_cref c, uut_t::row_cref r) {
+        validator_called(b);
+        ASSERT_EQ(c.columns.size(), 1);
+        ASSERT_EQ(r.size(), 1);
+        ASSERT_EQ(c.columns [0].type, tdsl::detail::e_tds_data_type::GUIDTYPE);
+        ASSERT_EQ(c.columns [0].typeprops.u8l.length, 16);
+        ASSERT_EQ(r [0].size_bytes(), 16);
+        ASSERT_THAT(r [0].as<tdsl::byte_view>(), testing::ElementsAreArray(bv));
+    };
+
+    // Create the table
+    auto r1 =
+        command_ctx.execute_query(tdsl::string_view{"CREATE TABLE #test_rpc(a uniqueidentifier)"});
+
+    ASSERT_TRUE(r1);
+    ASSERT_FALSE(r1.status.count_valid());
+    ASSERT_FALSE(r1.status.attn());
+    ASSERT_FALSE(r1.status.error());
+    ASSERT_FALSE(r1.status.in_xact());
+    ASSERT_FALSE(r1.status.more());
+    ASSERT_FALSE(r1.status.srverror());
+    ASSERT_EQ(0, r1.affected_rows);
+
+    // Fill some data
+    auto r2 = command_ctx.execute_query(
+        tdsl::string_view{"INSERT INTO #test_rpc VALUES('E2E86D76-8FE1-4728-AC9D-1CED7EFEA9D2')"});
+    ASSERT_TRUE(r2);
+    ASSERT_TRUE(r2.status.count_valid());
+    ASSERT_FALSE(r2.status.attn());
+    ASSERT_FALSE(r2.status.error());
+    ASSERT_FALSE(r2.status.in_xact());
+    ASSERT_FALSE(r2.status.more());
+    ASSERT_FALSE(r2.status.srverror());
+    ASSERT_EQ(1, r2.affected_rows);
+
+    command_ctx.execute_rpc(tdsl::string_view{"SELECT * FROM #test_rpc WHERE a=@p0"}, params,
+                            tdsl::detail::e_rpc_mode::executesql, validator,
+                            &validator_called_times);
+    ASSERT_EQ(1, validator_called_times);
+}
+
+// --------------------------------------------------------------------------------
+
+TEST_F(tds_command_ctx_it_fixture, test_rpc_char) {
+    tdsl::detail::sql_parameter_char p1{};
+    p1                                            = tdsl::string_view{"abc"};
+
+    tdsl::detail::sql_parameter_binding params [] = {p1};
+
+    auto validator = +[](void * b, uut_t::column_metadata_cref c, uut_t::row_cref r) {
+        validator_called(b);
+        ASSERT_EQ(c.columns.size(), 1);
+        ASSERT_EQ(r.size(), 1);
+        ASSERT_EQ(c.columns [0].type, tdsl::detail::e_tds_data_type::BIGCHARTYPE);
+        ASSERT_EQ(r [0].as<tdsl::char_view>().size(), 3);
+        ASSERT_EQ(r [0].as<tdsl::char_view>().size_bytes(), 3);
+    };
+
+    // Create the table
+    command_ctx.execute_query(tdsl::string_view{"CREATE TABLE #test_rpc(a char(3))"});
+    // Fill some data
+    command_ctx.execute_query(tdsl::string_view{"INSERT INTO #test_rpc VALUES('abc')"});
+
+    command_ctx.execute_rpc(tdsl::string_view{"SELECT * FROM #test_rpc WHERE a=@p0"}, params,
+                            tdsl::detail::e_rpc_mode::executesql, validator,
+                            &validator_called_times);
+    ASSERT_EQ(1, validator_called_times);
+}
+
+// --------------------------------------------------------------------------------
+
+TEST_F(tds_command_ctx_it_fixture, test_rpc_nchar) {
+    tdsl::detail::sql_parameter_nchar p1{};
+    p1                                            = tdsl::wstring_view{u"abc"};
+
+    tdsl::detail::sql_parameter_binding params [] = {p1};
+
+    auto validator = +[](void * b, uut_t::column_metadata_cref c, uut_t::row_cref r) {
+        validator_called(b);
+        ASSERT_EQ(c.columns.size(), 1);
+        ASSERT_EQ(r.size(), 1);
+        ASSERT_EQ(c.columns [0].type, tdsl::detail::e_tds_data_type::NCHARTYPE);
+        ASSERT_EQ(r [0].as<tdsl::u16char_view>().size(), 3);
+        ASSERT_EQ(r [0].as<tdsl::u16char_view>().size_bytes(), 6);
+    };
+
+    // Create the table
+    command_ctx.execute_query(tdsl::string_view{"CREATE TABLE #test_rpc(a nchar(3))"});
+    // Fill some data
+    command_ctx.execute_query(tdsl::string_view{"INSERT INTO #test_rpc VALUES(N'abc')"});
+
+    command_ctx.execute_rpc(tdsl::string_view{"SELECT * FROM #test_rpc WHERE a=@p0"}, params,
+                            tdsl::detail::e_rpc_mode::executesql, validator,
+                            &validator_called_times);
+    ASSERT_EQ(1, validator_called_times);
+}
+
+// --------------------------------------------------------------------------------
+
+TEST_F(tds_command_ctx_it_fixture, test_rpc_binary) {
+    tdsl::detail::sql_parameter_binary p1{};
+    tdsl::uint8_t binary []                       = {0x01, 0x02, 0x03, 0x04, 0x05};
+    p1                                            = tdsl::byte_view{binary};
+
+    tdsl::detail::sql_parameter_binding params [] = {p1};
+
+    auto validator = +[](void * b, uut_t::column_metadata_cref c, uut_t::row_cref r) {
+        validator_called(b);
+        ASSERT_EQ(c.columns.size(), 1);
+        ASSERT_EQ(r.size(), 1);
+        ASSERT_EQ(c.columns [0].type, tdsl::detail::e_tds_data_type::BIGBINARYTYPE);
+        ASSERT_EQ(r [0].as<tdsl::byte_view>().size(), 5);
+        ASSERT_EQ(r [0].as<tdsl::byte_view>().size_bytes(), 5);
+    };
+
+    // Create the table
+    command_ctx.execute_query(tdsl::string_view{"CREATE TABLE #test_rpc(a binary(5))"});
+    // Fill some data
+    command_ctx.execute_query(tdsl::string_view{"INSERT INTO #test_rpc VALUES(0x0102030405)"});
+
+    command_ctx.execute_rpc(tdsl::string_view{"SELECT * FROM #test_rpc WHERE a=@p0"}, params,
+                            tdsl::detail::e_rpc_mode::executesql, validator,
+                            &validator_called_times);
+    ASSERT_EQ(1, validator_called_times);
+}
+
+// --------------------------------------------------------------------------------
+
+TEST_F(tds_command_ctx_it_fixture, test_rpc_varbinary) {
+    tdsl::detail::sql_parameter_varbinary p1{};
+    tdsl::uint8_t binary []                       = {0x01, 0x02, 0x03, 0x04, 0x05};
+    p1                                            = tdsl::byte_view{binary};
+
+    tdsl::detail::sql_parameter_binding params [] = {p1};
+
+    auto validator = +[](void * b, uut_t::column_metadata_cref c, uut_t::row_cref r) {
+        validator_called(b);
+        ASSERT_EQ(c.columns.size(), 1);
+        ASSERT_EQ(r.size(), 1);
+        ASSERT_EQ(c.columns [0].type, tdsl::detail::e_tds_data_type::BIGVARBINTYPE);
+        ASSERT_EQ(r [0].as<tdsl::byte_view>().size(), 5);
+        ASSERT_EQ(r [0].as<tdsl::byte_view>().size_bytes(), 5);
+    };
+
+    // Create the table
+    command_ctx.execute_query(tdsl::string_view{"CREATE TABLE #test_rpc(a varbinary(5))"});
+    // Fill some data
+    command_ctx.execute_query(tdsl::string_view{"INSERT INTO #test_rpc VALUES(0x0102030405)"});
+
+    command_ctx.execute_rpc(tdsl::string_view{"SELECT * FROM #test_rpc WHERE a=@p0"}, params,
+                            tdsl::detail::e_rpc_mode::executesql, validator,
                             &validator_called_times);
     ASSERT_EQ(1, validator_called_times);
 }

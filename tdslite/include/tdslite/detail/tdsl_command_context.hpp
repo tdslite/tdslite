@@ -1,6 +1,6 @@
 /**
  * ____________________________________________________
- * FIXME: Description?
+ * tdslite's SQL command execution context
  *
  * @file   tdsl_command_context.hpp
  * @author Mustafa Kemal GILOR <mustafagilor@gmail.com>
@@ -35,6 +35,9 @@ namespace tdsl { namespace detail {
 
     /**
      * Helper type to execute SQL commands
+     *
+     * The context is designed to be constructed
+     * on demand.
      *
      * @tparam NetImpl Network implementation type
      */
@@ -184,6 +187,8 @@ namespace tdsl { namespace detail {
                     return execute_rpc_result::unexpected(e_rpc_error_code::invalid_mode);
             }
 
+            // 0xffff means we're going to use special procedure id
+            // instead of a procedure name.
             tds_ctx.write_le(tdsl::uint16_t{0xffff});            // procedure name length
             tds_ctx.write_le(static_cast<tdsl::uint16_t>(mode)); // stored procedure id
             tds_ctx.write_le(tdsl::uint16_t{0});                 // option flags
@@ -218,60 +223,7 @@ namespace tdsl { namespace detail {
                 tds_ctx.write(tdsl::uint32_t{0}); // collation
 
                 // put a placeholder
-                auto param_decl_sz_ph     = tds_ctx.put_placeholder(tdsl::uint16_t{0});
-
-                auto write_param_type_str = [](const sql_parameter_binding & pb,
-                                               typename string_writer_type::write_counter & wc) {
-                    /**
-                     * Write string representation of the type @ref pb.type
-                     */
-                    switch (var_to_fixed(pb.type, pb.type_size)) {
-                        case e_tds_data_type::BITTYPE:
-                            wc.write("BIT");
-                            break;
-                        case e_tds_data_type::INT1TYPE:
-                            wc.write("TINYINT");
-                            break;
-                        case e_tds_data_type::INT2TYPE:
-                            wc.write("SMALLINT");
-                            break;
-                        case e_tds_data_type::INT4TYPE:
-                            wc.write("INT");
-                            break;
-                        case e_tds_data_type::INT8TYPE:
-                            wc.write("BIGINT");
-                            break;
-                        case e_tds_data_type::NVARCHARTYPE:
-                            wc.write("NVARCHAR(MAX)");
-                            break;
-                        case e_tds_data_type::BIGVARCHRTYPE:
-                            wc.write("VARCHAR(MAX)");
-                            break;
-                        case e_tds_data_type::FLT4TYPE:
-                            wc.write("REAL");
-                            break;
-                        case e_tds_data_type::FLT8TYPE:
-                            wc.write("FLOAT");
-                            break;
-                        case e_tds_data_type::DATETIM4TYPE:
-                            wc.write("SMALLDATETIME");
-                            break;
-                        case e_tds_data_type::DATETIMETYPE:
-                            wc.write("DATETIME");
-                            break;
-                        case e_tds_data_type::INTNTYPE:
-                        case e_tds_data_type::FLTNTYPE:
-                        case e_tds_data_type::DATETIMNTYPE:
-                        case e_tds_data_type::MONEYNTYPE:
-                        case e_tds_data_type::DECIMALNTYPE:
-                        case e_tds_data_type::NUMERICNTYPE:
-                            TDSL_CANNOT_HAPPEN;
-                            break;
-                        default:
-                            TDSL_NOT_YET_IMPLEMENTED;
-                            break;
-                    }
-                };
+                auto param_decl_sz_ph  = tds_ctx.put_placeholder(tdsl::uint16_t{0});
 
                 auto cw                = string_writer_type::make_counted_writer(tds_ctx);
                 tdsl::size_t param_idx = {0};
@@ -280,11 +232,13 @@ namespace tdsl { namespace detail {
                     // written output should look like this
                     // @p1 int, @p2 varchar(30), @p3 int
                     tdsl::string_view param_decl{/*str=*/"@p"};
+                    tdsl::string_view param_idx_str{tdsl::utos(param_idx++, utos_buf)};
                     cw.write(param_decl);
-                    cw.write(tdsl::string_view{tdsl::utos(param_idx++, utos_buf)});
+                    cw.write(param_idx_str);
                     cw.write(" ");
                     write_param_type_str(param, cw);
-                    // TODO: Handle data types with variable length (e.g. varchar(30))
+                    write_param_len_str(param, cw);
+
                     if (param_idx == params.size()) {
                         break;
                     }
@@ -327,6 +281,7 @@ namespace tdsl { namespace detail {
                 auto maybe_write_collation = [&]() {
                     if (dprops.flags.has_collation) {
                         // put collation data as well
+                        // FIXME: Put proper collation data!
                         tds_ctx.write_le(tdsl::uint32_t{0});
                         tds_ctx.write_le(tdsl::uint8_t{0});
                     }
@@ -357,8 +312,7 @@ namespace tdsl { namespace detail {
                         TDSL_NOT_YET_IMPLEMENTED;
                         break;
                     case e_tds_data_size_type::unknown:
-                        TDSL_TRAP;
-                        TDSL_UNREACHABLE;
+                        TDSL_CANNOT_HAPPEN;
                         break;
                 }
 
@@ -777,15 +731,18 @@ namespace tdsl { namespace detail {
             return result;
         }
 
+        // --------------------------------------------------------------------------------
+
         /**
-         * Convert variable type to equivalent fixed type
+         * Convert a variable type to equivalent fixed type
          *
          * @param [in] type Variable type
          * @param [in] type_size Variable type size
          *
          * @return e_tds_data_type Equivalent fixed type
          */
-        static inline auto var_to_fixed(e_tds_data_type type, tdsl::size_t type_size) noexcept
+        TDSL_NODISCARD static inline auto var_to_fixed(e_tds_data_type type,
+                                                       tdsl::size_t type_size) noexcept
             -> e_tds_data_type {
 
             switch (type) {
@@ -839,15 +796,130 @@ namespace tdsl { namespace detail {
                             return e_tds_data_type::MONEYTYPE;
                     }
                 } break;
-                case e_tds_data_type::DECIMALNTYPE:
-                case e_tds_data_type::NUMERICNTYPE:
-                    TDSL_NOT_YET_IMPLEMENTED;
-                    break;
                 default:
                     return type;
             }
             TDSL_CANNOT_HAPPEN;
         }
+
+        // --------------------------------------------------------------------------------
+
+        /**
+         * Write parameter type string
+         *
+         * @param [in] pb Parameter binding
+         * @param [in] wc Target counted writer
+         */
+        static inline void
+        write_param_type_str(const sql_parameter_binding & pb,
+                             typename string_writer_type::counted_writer & wc) noexcept {
+            /**
+             * Write string representation of the type @ref pb.type
+             */
+            switch (var_to_fixed(pb.type, pb.type_size)) {
+                case e_tds_data_type::BITTYPE:
+                    wc.write("BIT");
+                    break;
+                case e_tds_data_type::INT1TYPE:
+                    wc.write("TINYINT");
+                    break;
+                case e_tds_data_type::INT2TYPE:
+                    wc.write("SMALLINT");
+                    break;
+                case e_tds_data_type::INT4TYPE:
+                    wc.write("INT");
+                    break;
+                case e_tds_data_type::INT8TYPE:
+                    wc.write("BIGINT");
+                    break;
+                case e_tds_data_type::NVARCHARTYPE:
+                    wc.write("N");
+                    TDSL_FALLTHROUGH;
+                case e_tds_data_type::BIGVARCHRTYPE:
+                    wc.write("VARCHAR");
+                    break;
+                case e_tds_data_type::FLT4TYPE:
+                    wc.write("REAL");
+                    break;
+                case e_tds_data_type::FLT8TYPE:
+                    wc.write("FLOAT");
+                    break;
+                case e_tds_data_type::DATETIM4TYPE:
+                    wc.write("SMALL");
+                    TDSL_FALLTHROUGH;
+                case e_tds_data_type::DATETIMETYPE:
+                    wc.write("DATETIME");
+                    break;
+                case e_tds_data_type::GUIDTYPE:
+                    wc.write("UNIQUEIDENTIFIER");
+                    break;
+                case e_tds_data_type::NCHARTYPE:
+                    wc.write("N");
+                    TDSL_FALLTHROUGH;
+                case e_tds_data_type::BIGCHARTYPE:
+                    wc.write("CHAR");
+                    break;
+                case e_tds_data_type::BIGVARBINTYPE:
+                    wc.write("VAR");
+                    TDSL_FALLTHROUGH;
+                case e_tds_data_type::BIGBINARYTYPE:
+                    wc.write("BINARY");
+                    break;
+                case e_tds_data_type::INTNTYPE:
+                case e_tds_data_type::FLTNTYPE:
+                case e_tds_data_type::DATETIMNTYPE:
+                case e_tds_data_type::MONEYNTYPE:
+                case e_tds_data_type::DECIMALNTYPE:
+                case e_tds_data_type::NUMERICNTYPE:
+                    TDSL_CANNOT_HAPPEN;
+                    break;
+                default:
+                    TDSL_NOT_YET_IMPLEMENTED;
+                    break;
+            }
+        };
+
+        // --------------------------------------------------------------------------------
+
+        /**
+         * Write parameter binding @p pb's length to @p wc
+         * if applicable
+         *
+         * @param [in] pb Parameter binding
+         * @param [in] wc Target counted writer
+         */
+        static inline void
+        write_param_len_str(const sql_parameter_binding & pb,
+                            typename string_writer_type::counted_writer & wc) noexcept {
+            auto write_explicit_length = [&wc](tdsl::size_t len) {
+                char utos_buf [10] = {0};
+                wc.write("(");
+                wc.write(tdsl::string_view{tdsl::utos(len, utos_buf)});
+                wc.write(")");
+            };
+
+            switch (pb.type) {
+                case e_tds_data_type::BIGVARBINTYPE: // varbinary
+                case e_tds_data_type::BIGBINARYTYPE: // binary
+                case e_tds_data_type::BIGVARCHRTYPE: // varchar
+                case e_tds_data_type::BIGCHARTYPE:   // char(N)
+                {
+                    // For char types, use data length if user not specified a length
+                    // explicitly. Otherwise, respect specified length.
+                    write_explicit_length(pb.type_size ? pb.type_size : pb.value.size_bytes());
+                } break;
+                case e_tds_data_type::NVARCHARTYPE: // nvarchar
+                case e_tds_data_type::NCHARTYPE:    // nchar(N)
+                {
+                    // For char types, use data length if user not specified a length
+                    // explicitly. Otherwise, respect specified length.
+                    write_explicit_length(
+                        pb.type_size ? pb.type_size : (pb.value.size_bytes() / sizeof(char16_t)));
+                } break;
+                default:
+                    break;
+            }
+        };
     };
 }} // namespace tdsl::detail
 

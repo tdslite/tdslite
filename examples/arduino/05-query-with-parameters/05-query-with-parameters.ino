@@ -238,15 +238,16 @@ static void row_callback(void * u, const tdsl::tds_colmetadata_token & colmd,
  * 1 second, and SELECT query every 10 seconds.
  */
 void loop() {
+
     // Your queries goes here.
 
     auto query{TDSL_PMEMSTR("INSERT INTO #example_table VALUES('test', 1)")};
 
     SERIAL_PRINTF("Executing query: ");
     SERIAL_PRINTLNF_PROGMEM(query.raw_data());
-    // `ra` is rows_affected
-    int ra = driver.execute_query(query);
-    SERIAL_PRINTLNF("Result: %d", ra);
+
+    auto result = driver.execute_query(query);
+    SERIAL_PRINTLNF("Rows affected: %d", result.affected_rows);
 
     // Execute SELECT query on every tenth loop.
     if (0 == (loop_counter % 10)) {

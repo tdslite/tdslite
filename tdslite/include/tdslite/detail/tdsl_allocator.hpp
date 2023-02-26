@@ -26,10 +26,10 @@ namespace tdsl {
 /**
  * tdslite placement new
  *
- * Some platforms do not have <new> header in their standard libraries.
- * In order to avoid including <new>, we're providing a placement new
- * overload of our own. We're `overloading` the placement new because
- * the standard prohibits overriding the original placement new functions.
+ * Some platforms do not have <new> header in their standard libraries,
+ * hence, we're providing a placement new overload of our own.
+ * We're `overloading` the placement new because the standard prohibits
+ * overriding the original placement new functions.
  *
  * @param [in] p Object
  * @return p
@@ -67,7 +67,7 @@ namespace tdsl {
 
         // Since we're a header-only library we cannot use a global
         // static variable or static inline since we're targeting
-        // C++11. So we use a static variable inside non-static,
+        // C++11. We use a static variable inside non-static,
         // inline function to leverage the following fact from the
         // C++ standard: 7.1.2/4 - C++98/C++14 (n3797):
         //

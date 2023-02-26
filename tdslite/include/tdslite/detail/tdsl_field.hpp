@@ -1,5 +1,6 @@
 /**
  * ____________________________________________________
+ * FIXME: Description
  *
  * @file   tdsl_field.hpp
  * @author Mustafa Kemal GILOR <mustafagilor@gmail.com>
@@ -263,7 +264,7 @@ namespace tdsl {
     } // namespace detail
 
     /**
-     * Non-owning field view.
+     * Non-owning view of a row field.
      */
     struct tdsl_field : public byte_view {
         using byte_view::span;

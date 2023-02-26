@@ -253,9 +253,8 @@ void loop() {
     for (tdsl::uint8_t idx = 0; idx < sizeof(queries) / sizeof(tdsl::progmem_string_view); idx++) {
         SERIAL_PRINTF("Executing query: ");
         SERIAL_PRINTLNF_PROGMEM(queries [idx].raw_data());
-        // `ra` is rows_affected
-        int ra = driver.execute_query(queries [idx]);
-        SERIAL_PRINTLNF("Result: %d", ra);
+        auto result = driver.execute_query(queries [idx]);
+        SERIAL_PRINTLNF("Rows affected: %d", result.affected_rows);
     }
 
     // Execute SELECT and DELETE queries on every tenth loop.
@@ -271,9 +270,8 @@ void loop() {
              idx++) {
             SERIAL_PRINTF("Executing query: ");
             SERIAL_PRINTLNF_PROGMEM(queries [idx].raw_data());
-            // `ra` is rows_affected
-            int ra = driver.execute_query(queries [idx]);
-            SERIAL_PRINTLNF("Result: %d", ra);
+            auto result = driver.execute_query(queries [idx]);
+            SERIAL_PRINTLNF("Rows affected: %d", result.affected_rows);
         }
     }
 

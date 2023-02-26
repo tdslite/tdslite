@@ -1,7 +1,7 @@
 /**
  * ____________________________________________________
- * Example code for illustrating how to get row data from
- * a table using row callback function.
+ * Example code for illustrating how to use non-default
+ * user provided memory management functions.
  *
  * Prerequisites:
  * - A board with an Ethernet shield
@@ -13,16 +13,21 @@
  *
  * Tested with Arduino Uno w/ Ethernet shield.
  *
- * @file   03-select-rows.ino
+ * @file   06-custom-malloc.ino
  * @author Mustafa Kemal GILOR <mustafagilor@gmail.com>
- * @date   06.01.2023
+ * @date   26.02.2023
  *
  * SPDX-License-Identifier:    MIT
  * ____________________________________________________
  */
 
 #include <Ethernet.h>
+
+// Define this to disable default memory management functions.
+#define TDSL_DISABLE_DEFAULT_ALLOCATOR
+
 #include <tdslite.h>
+#include <stdlib.h>
 
 // Serial output uses ~175 bytes of SRAM space
 // and ~840 bytes of program memory.
@@ -69,51 +74,29 @@
 
 // --------------------------------------------------------------------------------
 
-/**
- * The network buffer.
- *
- * The library will use this buffer for network I/O.
- *
- * The buffer must be at least 512 bytes in size.
- * In order to have some headroom for fragmentation
- * it is recommended to allocate 768 bytes at least.
- *
- * The actual size need for network buffer is depends
- * on your use case.
- *
- *
- * TODO: Extend this section
- */
-tdsl::uint8_t net_buf [768] = {};
+tdsl::uint8_t net_buf [768]                 = {};
+tdsl::arduino_driver<EthernetClient> driver = {net_buf};
+byte mac []                                 = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xEB};
+IPAddress ip                                = {192, 168, 1, 246};
 
 // --------------------------------------------------------------------------------
 
 /**
- * The tdslite driver object.
- *
- * tdsl::arduino_driver class is a templated type
- * where the template argument is the TCP client
- * implementation compatible with Arduino's
- * EthernetClient interface.
- *
- * The client will be initialized internally.
+ * Custom malloc to trace memory allocations
+ * over serial output
  */
-tdsl::arduino_driver<EthernetClient> driver{net_buf};
+inline void * my_malloc(unsigned long amount) noexcept {
+    auto alloc = ::malloc(amount);
+    SERIAL_PRINTLNF("alloc req %lu, result %p", amount, alloc);
+    return alloc;
+}
 
 // --------------------------------------------------------------------------------
 
-/**
- * MAC address for the ethernet interface
- */
-byte mac [] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xEE};
-
-// --------------------------------------------------------------------------------
-
-/**
- * IP address for the ethernet interface.
- * Change it according to your network address space
- */
-IPAddress ip(192, 168, 1, 244);
+inline void my_free(void * ptr) noexcept {
+    SERIAL_PRINTLNF("free req %p", ptr);
+    return ::free(ptr);
+}
 
 // --------------------------------------------------------------------------------
 
@@ -133,15 +116,6 @@ void setup() {
     // Initialize ethernet interface
     //////////////////////////
 
-    // The reason we're not using DHCP here is, this is
-    // a minimal example with absolute minimum space
-    // requirements, so the code can work on boards with
-    // tight memory constraints (i.e. Arduino Uno/Nano)
-    //
-    // DHCP requires UDP, UDP requires extra space.
-    // We're not using DHCP here to save some program
-    // memory and SRAM space.
-
     SERIAL_PRINTLNF("Initializing ethernet interface");
     // Try to configure ethernet interface
     // with given MAC and IP
@@ -160,31 +134,19 @@ void setup() {
     // Initialize tdslite
     //////////////////////////
 
-    // Declare a connection parameters struct. We will fill this struct
-    // with the details of the SQL server/database we want to connect to.
-    // We're using progmem_connection_parameters here, because we want to
-    // store database connection parameters in program memory in order to
-    // save some precious SRAM space.
+    // set malloc/free functions for tdslite
+    tdsl::tdslite_malloc_free(my_malloc, my_free);
+
     decltype(driver)::progmem_connection_parameters params;
     // Server's hostname or IP address.
-    params.server_name = TDSL_PMEMSTR("192.168.1.22"); // WL
+    params.server_name = TDSL_PMEMSTR("192.168.1.45"); // WL
     // SQL server port number
     params.port        = 14333; // default port is 1433
     // SQL server login user
     params.user_name   = TDSL_PMEMSTR("sa");
     // SQL server login user password
     params.password    = TDSL_PMEMSTR("2022-tds-lite-test!");
-    // Client name(optional)
-    params.client_name = TDSL_PMEMSTR("arduino mega");
-    // App name(optional)
-    params.app_name    = TDSL_PMEMSTR("sketch");
-    // Database name(optional)
-    params.db_name     = TDSL_PMEMSTR("master");
     // TDS packet size
-    // Recommendation: Half of the network buffer.
-    // This is the PDU size that TDS protocol will use.
-    // Given that the example has 768 bytes of network buffer space,
-    // we set this to 512 to allow some headroom for fragmentation.
     params.packet_size = {512};
 
     SERIAL_PRINTLNF("Initializing tdslite");
@@ -212,53 +174,20 @@ void setup() {
 // --------------------------------------------------------------------------------
 
 /**
- * How many times the loop function has
- * been invoked.
- */
-static int loop_counter = {0};
-
-// --------------------------------------------------------------------------------
-
-/**
- * Handle row data coming from tdsl driver
- *
- * @param [in] u user pointer (table_context)
- * @param [in] colmd Column metadata
- * @param [in] row Row information
- */
-static void row_callback(void * u, const tdsl::tds_colmetadata_token & colmd,
-                         const tdsl::tdsl_row & row) {
-    SERIAL_PRINTLNF("row: %.4s %d", row [0].as<tdsl::char_view>().data(),
-                    row [1].as<tdsl::int32_t>());
-}
-
-// --------------------------------------------------------------------------------
-
-/**
  * The loop function executes INSERT query every
  * 1 second, and SELECT query every 10 seconds.
  */
 void loop() {
+
     // Your queries goes here.
 
     auto query{TDSL_PMEMSTR("INSERT INTO #example_table VALUES('test', 1)")};
+
     SERIAL_PRINTF("Executing query: ");
     SERIAL_PRINTLNF_PROGMEM(query.raw_data());
+    // `ra` is rows_affected
     auto result = driver.execute_query(query);
     SERIAL_PRINTLNF("Rows affected: %d", result.affected_rows);
 
-    // Execute SELECT query on every tenth loop.
-    if (0 == (loop_counter % 10)) {
-        auto query{TDSL_PMEMSTR("SELECT * FROM #example_table")};
-        SERIAL_PRINTF("Executing query: ");
-        SERIAL_PRINTLNF_PROGMEM(query.raw_data());
-        // We're using the row
-        auto result = driver.execute_query(query, row_callback);
-        SERIAL_PRINTLNF("Rows affected: %d", result.affected_rows);
-    }
-
     delay(1000);
-
-    // Increment the loop counter.
-    loop_counter++;
 }

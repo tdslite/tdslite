@@ -1,5 +1,6 @@
 /**
  * ____________________________________________________
+ * The default memory allocation functions for tdslite.
  *
  * @file   tdsl_default_allocator.hpp
  * @author Mustafa Kemal Gilor <mustafagilor@gmail.com>
@@ -15,6 +16,8 @@
 
 #include <tdslite/util/tdsl_macrodef.hpp>
 
+// Define TDSL_DISABLE_DEFAULT_ALLOCATOR to
+// disable default alloc/dealloc functions.
 #ifndef TDSL_DISABLE_DEFAULT_ALLOCATOR
 
 #include <stdlib.h> // for default malloc-free
@@ -26,7 +29,7 @@ namespace tdsl {
     /**
      * Default malloc function.
      *
-     * Calls std::malloc internally.
+     * Calls ::malloc internally.
      *
      * @param [in] amount Amount of bytes to allocate
      *
@@ -44,7 +47,7 @@ namespace tdsl {
     /**
      * Default free function
      *
-     * Calls std::free internally.
+     * Calls ::free internally.
      *
      * @param [in] ptr Pointer to memory to be freed.
      *

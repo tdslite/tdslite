@@ -33,8 +33,8 @@ namespace tdsl { namespace detail {
     template <typename TDSCTX>
     struct string_parameter_writer {
 
-        struct write_counter {
-            write_counter(TDSCTX & tds_ctx) : tds_ctx(tds_ctx) {}
+        struct counted_writer {
+            counted_writer(TDSCTX & tds_ctx) : tds_ctx(tds_ctx) {}
 
             // --------------------------------------------------------------------------------
 
@@ -57,7 +57,7 @@ namespace tdsl { namespace detail {
         // --------------------------------------------------------------------------------
 
         static inline TDSL_NODISCARD auto make_counted_writer(TDSCTX & tds_ctx) noexcept
-            -> write_counter {
+            -> counted_writer {
             return {tds_ctx};
         }
 

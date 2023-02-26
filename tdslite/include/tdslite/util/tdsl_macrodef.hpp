@@ -55,6 +55,11 @@
 #define TDSL_CANNOT_HAPPEN TDSL_ASSERT(0), TDSL_TRAP, TDSL_UNREACHABLE
 
 /**
+ * Explicit, intentional fallthrough.
+ */
+#define TDSL_FALLTHROUGH __attribute__((fallthrough));
+
+/**
  * @brief [intrinsics.gcc] Specify minimum alignment for given type. This causes target type to
  * be allocated and aligned at least Alignment bytes boundary.
  *
