@@ -20,6 +20,7 @@ services:
       ACCEPT_EULA: "Y"
     networks:
       - tds-devenv-network
+    container_name: tdslite-mssql-2017
   devenv:
     image: ghcr.io/mustafakemalgilor/tdslite/tdslite-devenv:0.1.0
     dns:
@@ -49,6 +50,7 @@ services:
     device_cgroup_rules:
       - 'c 188:* rmw'
       - 'c 166:* rmw'
+    container_name: tdslite-devenv
 
 networks:
   tds-devenv-network:
