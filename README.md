@@ -4,7 +4,7 @@
 
 ----
 <p align="center">
-<img src="https://img.shields.io/badge/contributions-welcome-orange.svg"/> <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/license-MIT-blue.svg"/></a> <a href="https://github.com/mustafakemalgilor/tdslite/issues"><img src="https://img.shields.io/github/issues/mustafakemalgilor/tdslite.svg"/></a> <img src="https://img.shields.io/github/stars/mustafakemalgilor/tdslite"/> <img src="https://img.shields.io/github/downloads/mustafakemalgilor/tdslite/total"/> <img src="https://img.shields.io/github/v/release/mustafakemalgilor/tdslite?display_name=tag"/>  <a href="https://github.com/mustafakemalgilor/tdslite/actions/workflows/pipeline.yml"><img src="https://github.com/mustafakemalgilor/tdslite/actions/workflows/pipeline.yml/badge.svg"></a> <img src="https://img.shields.io/github/repo-size/mustafakemalgilor/tdslite"/>
+<img src="https://img.shields.io/badge/contributions-welcome-orange.svg"/> <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/license-MIT-blue.svg"/></a> <a href="https://github.com/mustafakemalgilor/tdslite/issues"><img src="https://img.shields.io/github/issues/mustafakemalgilor/tdslite.svg"/></a> <img src="https://img.shields.io/github/stars/mustafakemalgilor/tdslite"/> <img src="https://img.shields.io/github/downloads/mustafakemalgilor/tdslite/total"/> <img src="https://img.shields.io/github/v/release/mustafakemalgilor/tdslite?include_prereleases"/>  <a href="https://github.com/mustafakemalgilor/tdslite/actions/workflows/pipeline.yml"><img src="https://github.com/mustafakemalgilor/tdslite/actions/workflows/pipeline.yml/badge.svg"></a> <img src="https://img.shields.io/github/repo-size/mustafakemalgilor/tdslite"/>
 
 </p>
 <p align="center">
