@@ -50,13 +50,17 @@ Learn how to set user-defined malloc/free functions for tdslite's memory allocat
 
 It's a playground to try sql commands. Compile the project, and just run `./build/bin/tdslite.examples.minimal` executable.
 
+[➤ 08 - Sketches](https://github.com/mustafakemalgilor/tdslite/tree/main/tests/sketches)
+
+Verificaton sketches for the library
+
 ----
 
 ## Key features
 
 - Header-only
 - Pure C++11
-- Intuitive API
+- Dead simple, intuitive API
 - *Zero* external dependencies
 - Permissive open-source license (MIT)
 - Suitable for embedded development
@@ -138,7 +142,7 @@ tdslite is a self-contained library with no external dependencies, and it does n
 
 ----
 
-### The tech stack
+## The tech stack
 
 The below are the tools and libraries that used for developing this project:
 
@@ -151,6 +155,40 @@ The below are the tools and libraries that used for developing this project:
 - `pio`: Platform.IO CLI, used for HW CI tests
 
 ----
+
+## Testing
+
+Tests are under the [tests](tests/) folder. The tests are primarily separated to four categories:
+
+- [unit](tests/unit/) Unit tests.
+- [integration](tests/integration/) tdslite - MSSQL integration tests. These tests use the internal MSSQL server.
+- [cxxcompat](tests/cxxcompat/) All unit tests and integrations tests curated and compiled with C++11/14/17/20 modes.
+- [sketches](tests/sketches/) Verification sketches for real hardware tests
+
+### The release process
+
+There are a few simple criterias before releasing the new version of the `tdslite`.
+
+- All unit, integration and cxxcompat tests must be green.
+- The CI pipeline must be green.
+- The sketches* must run stable for at least 3 days straight in the device farm**, with
+  - No freezes
+  - No restarts
+  - No memory leaks
+
+### Sketches
+
+[sketches](tests/sketches/) that are intended for real hardware testing. These sketches are used for performing stability testing before the releases. The sketches and the used hardware list is as follows.
+
+- [Arduino sketch](tests/sketches/arduino/arduino.cpp):
+  - Arduino Mega
+  - Arduino Nano
+  - Arduino Uno
+- [ESP sketch](tests/sketches/esp/esp.cpp)
+  - NodeMCU-32 (ESP32S)
+  - NodeMCU V3 (ESP8266MOD)
+
+We're intending to make this grow larger with more hardware and different kinds of tests. You can donate real hardware or a few bucks in order to make this list grow bigger.
 
 ## Contributing
 
