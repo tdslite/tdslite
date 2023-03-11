@@ -14,7 +14,7 @@
  * Tested with Arduino Uno w/ Ethernet shield.
  *
  * @file   06-custom-malloc.ino
- * @author Mustafa Kemal GILOR <mustafagilor@gmail.com>
+ * @author mkg <me@mustafagilor.com>
  * @date   26.02.2023
  *
  * SPDX-License-Identifier:    MIT

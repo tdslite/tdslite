@@ -3,7 +3,7 @@
  * command_context integration tests
  *
  * @file   it_tdsl_command_context.cpp
- * @author Mustafa Kemal GILOR <mustafagilor@gmail.com>
+ * @author mkg <me@mustafagilor.com>
  * @date   23.05.2022
  *
  * SPDX-License-Identifier:    MIT
@@ -662,7 +662,7 @@ TEST_F(tds_command_ctx_it_fixture, test_rpc_float) {
         ASSERT_EQ(r [0].size_bytes(), 4);
         ASSERT_EQ(r [0].as<float>(), float{0.3f});
         ASSERT_EQ(r [1].size_bytes(), 8);
-        ASSERT_EQ(r [1].as<double>(), double{2.4});
+        ASSERT_EQ(r [1].as<double>(), double{0.3});
     };
 
     // Create the table
@@ -690,8 +690,8 @@ TEST_F(tds_command_ctx_it_fixture, test_rpc_float) {
     ASSERT_FALSE(r2.status.srverror());
     ASSERT_EQ(1, r2.affected_rows);
 
-    command_ctx.execute_rpc(tdsl::string_view{"SELECT * FROM #test_rpc WHERE a=@p0 AND b=@p0"},
-                            params, tdsl::detail::e_rpc_mode::executesql, validator,
+    command_ctx.execute_rpc(tdsl::string_view{"SELECT * FROM #test_rpc WHERE a=@p0"}, params,
+                            tdsl::detail::e_rpc_mode::executesql, validator,
                             &validator_called_times);
     ASSERT_EQ(1, validator_called_times);
 }

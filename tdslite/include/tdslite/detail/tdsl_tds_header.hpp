@@ -2,7 +2,7 @@
  * ____________________________________________________
  *
  * @file   tdsl_tds_header.hpp
- * @author Mustafa Kemal GILOR <mustafagilor@gmail.com>
+ * @author mkg <me@mustafagilor.com>
  * @date   19.10.2022
  *
  * SPDX-License-Identifier:    MIT

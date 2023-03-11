@@ -3,7 +3,7 @@
  * tdsl_buffer_object class unit tests
  *
  * @file   ut_buffer_object.cpp
- * @author Mustafa Kemal GILOR <mustafagilor@gmail.com>
+ * @author mkg <me@mustafagilor.com>
  * @date   18.11.2022
  *
  * SPDX-License-Identifier:    MIT

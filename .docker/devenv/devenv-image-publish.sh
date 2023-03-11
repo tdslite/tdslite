@@ -4,7 +4,7 @@
 # tdslite devenv image publish script
 #
 # @file   CMakeLists.txt
-# @author Mustafa K. GILOR <mustafagilor@gmail.com>
+# @author mkg <me@mustafagilor.com>
 # @date   17.04.2022
 #
 # SPDX-License-Identifier:    MIT

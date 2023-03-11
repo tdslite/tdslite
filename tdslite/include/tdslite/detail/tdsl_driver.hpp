@@ -4,7 +4,7 @@
  * to provide a TDS driver.
  *
  * @file   tdsl_driver.hpp
- * @author Mustafa Kemal GILOR <mustafagilor@gmail.com>
+ * @author mkg <me@mustafagilor.com>
  * @date   25.04.2022
  *
  * SPDX-License-Identifier:    MIT
@@ -199,7 +199,7 @@ namespace tdsl { namespace detail {
             const char (&command) [N],
             sql_command_row_callback row_callback = +[](void *, const tds_colmetadata_token &,
                                                         const tdsl_row &) -> void {},
-            void * uptr                           = nullptr) noexcept -> tdsl::uint32_t {
+            void * uptr                           = nullptr) noexcept -> sql_command_query_result {
             TDSL_ASSERT(tds_ctx.is_authenticated());
             return execute_query(tdsl::string_view{command}, row_callback, uptr);
         }

@@ -4,7 +4,7 @@
  * backported from C++23
  *
  * @file   tdsl_expected.hpp
- * @author Mustafa Kemal GILOR <mustafagilor@gmail.com>
+ * @author mkg <me@mustafagilor.com>
  * @date   16.09.2022
  *
  * SPDX-License-Identifier:    MIT

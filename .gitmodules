@@ -1,4 +1,4 @@
 [submodule ".hadouken"]
 	path = .hadouken
-	url = git@github.com:nettsi/hadouken.git
+	url = git@github.com:mustafakemalgilor/hadouken.git
 	branch = master

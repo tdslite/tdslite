@@ -3,7 +3,7 @@
  * SQL RPC parameter types
  *
  * @file   tdsl_sql_parameter.hpp
- * @author Mustafa Kemal GILOR <mustafagilor@gmail.com>
+ * @author mkg <me@mustafagilor.com>
  * @date   10.01.2023
  *
  * SPDX-License-Identifier:    MIT

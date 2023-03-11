@@ -17,7 +17,7 @@
  *
  *
  * @file   tdsl_tds_context.hpp
- * @author Mustafa K. GILOR <mustafagilor@gmail.com>
+ * @author mkg <me@mustafagilor.com>
  * @date   25.04.2022
  *
  * SPDX-License-Identifier:    MIT

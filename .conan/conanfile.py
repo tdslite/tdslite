@@ -2,7 +2,7 @@
 # conanfile of the tdslite project
 #
 # @file   conanfile.py
-# @author Mustafa K. GILOR <mustafagilor@gmail.com>
+# @author mkg <me@mustafagilor.com>
 # @date   20.04.2022
 #
 # SPDX-License-Identifier:    MIT
@@ -61,7 +61,7 @@ class ConanPkgInfo(ConanFile):
             self.generators += ('cmake_find_package',
                                 'virtualrunenv', 'markdown')
 
-        self.build_requires("boost/1.80.0")
+        self.build_requires("boost/1.81.0")
 
     def init(self):
         on_recipe_folder = os.path.join(

@@ -3,7 +3,7 @@
  * Network implementation for tdslite using boost::asio.
  *
  * @file   tdsl_netimpl_asio.hpp
- * @author Mustafa Kemal GILOR <mustafagilor@gmail.com>
+ * @author mkg <me@mustafagilor.com>
  * @date   20.04.2022
  *
  * SPDX-License-Identifier:    MIT

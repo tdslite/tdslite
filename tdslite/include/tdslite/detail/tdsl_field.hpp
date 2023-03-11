@@ -3,7 +3,7 @@
  * FIXME: Description
  *
  * @file   tdsl_field.hpp
- * @author Mustafa Kemal GILOR <mustafagilor@gmail.com>
+ * @author mkg <me@mustafagilor.com>
  * @date   05.10.2022
  *
  * SPDX-License-Identifier:    MIT

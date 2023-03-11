@@ -3,7 +3,7 @@
  * The default memory allocation functions for tdslite.
  *
  * @file   tdsl_default_allocator.hpp
- * @author Mustafa Kemal Gilor <mustafagilor@gmail.com>
+ * @author mkg <me@mustafagilor.com>
  *
  * @date   05.10.2022
  *

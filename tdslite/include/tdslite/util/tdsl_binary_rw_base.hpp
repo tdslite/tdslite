@@ -3,7 +3,7 @@
  * Base class implementation for binary_<reader/writer>
  *
  * @file   tdsl_binary_rw_base.hpp
- * @author Mustafa Kemal GILOR <mustafagilor@gmail.com>
+ * @author mkg <me@mustafagilor.com>
  * @date   18.11.2022
  *
  * SPDX-License-Identifier:    MIT

@@ -3,7 +3,7 @@
  * tdslite byte swap utility function unit tests
  *
  * @file   ut_byte_swap.cpp
- * @author Mustafa K. GILOR <mustafagilor@gmail.com>
+ * @author mkg <me@mustafagilor.com>
  * @date   12.04.2022
  *
  * SPDX-License-Identifier:    MIT

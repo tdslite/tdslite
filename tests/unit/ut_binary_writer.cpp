@@ -3,7 +3,7 @@
  * binary_writer class unit tests
  *
  * @file   ut_binary_writer.cpp
- * @author Mustafa Kemal GILOR <mustafagilor@gmail.com>
+ * @author mkg <me@mustafagilor.com>
  * @date   12.04.2022
  *
  * SPDX-License-Identifier:    MIT

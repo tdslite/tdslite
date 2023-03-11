@@ -1,8 +1,8 @@
 # _______________________________________________________
 # CMake module containing utility functions for project
 #
-# @file   project-dependencies.cmake
-# @author Mustafa K. GILOR <mustafagilor@gmail.com>
+# @file   project-functions.cmake
+# @author mkg <me@mustafagilor.com>
 # @date   20.04.2022
 #
 # SPDX-License-Identifier:    MIT
@@ -62,9 +62,8 @@ endfunction()
 
 function(enable_sanitizers)
     if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
-        # FIXME: Undefined Behaviour Sanitizer will add asap. (Current linker can't link it.)
         add_compile_options(-fsanitize=address,undefined,leak -fsanitize-recover=address -fno-omit-frame-pointer -fstack-protector -fstack-check -D_FORTIFY_SOURCE=3 -mllvm -asan-use-private-alias=1) 
-        add_link_options(-static-libsan -lubsan -fsanitize=address,undefined,leak -fsanitize-recover=address -fno-omit-frame-pointer -fstack-protector -fstack-check -D_FORTIFY_SOURCE=3)
+        add_link_options(-fsanitize=address,undefined,leak -fsanitize-recover=address -fno-omit-frame-pointer -fstack-protector -fstack-check -D_FORTIFY_SOURCE=3)
     else()
         add_compile_options(-static-libasan -static-liblsan -static-libubsan -fsanitize=address,undefined,leak -fsanitize-recover=address -fno-omit-frame-pointer -fstack-protector -fstack-check -D_FORTIFY_SOURCE=3) 
         add_link_options(-static-libasan -static-liblsan -static-libubsan -fsanitize=address,undefined,leak -fsanitize-recover=address -fno-omit-frame-pointer -fstack-protector -fstack-check -D_FORTIFY_SOURCE=3)

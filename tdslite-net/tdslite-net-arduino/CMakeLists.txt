@@ -1,21 +1,16 @@
 # _______________________________________________________
-# tdslite library cmakelists file
+# tdslite arduino network impl. CMakeLists file
 #
 # @file   CMakeLists.txt
 # @author mkg <me@mustafagilor.com>
-# @date   12.04.2022
+# @date   20.04.2022
 #
 # SPDX-License-Identifier:    MIT
 # _______________________________________________________
 
 make_component(
-    tdslite
+    tdslite.net
     TARGET TYPE INTERFACE
-)
-
-set_target_properties(
-    tdslite
-    PROPERTIES CXX_STANDARD 11
-               CXX_STANDARD_REQUIRED YES
-               CXX_EXTENSIONS NO
+           SUFFIX .arduino
+           LINK INTERFACE tdslite.net.base
 )

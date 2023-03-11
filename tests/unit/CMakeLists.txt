@@ -2,7 +2,7 @@
 # tdslite unit tests
 #
 # @file   CMakeLists.txt
-# @author Mustafa K. GILOR <mustafagilor@gmail.com>
+# @author mkg <me@mustafagilor.com>
 # @date   12.04.2022
 #
 # SPDX-License-Identifier:    MIT
@@ -65,6 +65,11 @@ make_component(
     TARGET  TYPE UNIT_TEST
             SUFFIX .string_view
             SOURCES ut_string_view.cpp
+
+    TARGET  TYPE UNIT_TEST
+            SUFFIX .arduino_driver
+            SOURCES ut_arduino_driver.cpp
+            LINK tdslite.net.arduino
 
     ALL_NO_AUTO_COMPILATION_UNIT
     ALL_WITH_COVERAGE

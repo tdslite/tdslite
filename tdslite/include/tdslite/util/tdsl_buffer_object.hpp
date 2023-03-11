@@ -3,7 +3,7 @@
  * tdsl_buffer_object implementation
  *
  * @file   tdsl_buffer_object.hpp
- * @author Mustafa Kemal GILOR <mustafagilor@gmail.com>
+ * @author mkg <me@mustafagilor.com>
  * @date   19.11.2022
  *
  * SPDX-License-Identifier:    MIT

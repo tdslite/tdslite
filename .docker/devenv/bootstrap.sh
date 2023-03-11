@@ -4,7 +4,7 @@
 # tdslite devenv bootstrap script
 #
 # @file   CMakeLists.txt
-# @author Mustafa K. GILOR <mustafagilor@gmail.com>
+# @author mkg <me@mustafagilor.com>
 # @date   12.04.2022
 #
 # SPDX-License-Identifier:    MIT
@@ -45,7 +45,7 @@ readonly apt_package_list=(
     # Install GCC Toolchain, version 11
     gcc-${GCC_VERSION} g++-${GCC_VERSION}
     # Install LLVM Toolchain, version 13
-    llvm-${LLVM_VERSION} lld-${LLVM_VERSION} clang-${LLVM_VERSION} libc++-${LLVM_VERSION}-dev libc++abi-${LLVM_VERSION}-dev libunwind-${LLVM_VERSION}-dev clang-format-${LLVM_VERSION} clang-tidy-${LLVM_VERSION} clangd-${LLVM_VERSION}
+    llvm-${LLVM_VERSION} lld-${LLVM_VERSION} clang-${LLVM_VERSION} libclang-rt-${LLVM_VERSION}-dev libc++-${LLVM_VERSION}-dev libc++abi-${LLVM_VERSION}-dev libunwind-${LLVM_VERSION}-dev clang-format-${LLVM_VERSION} clang-tidy-${LLVM_VERSION} clangd-${LLVM_VERSION}
     # Install debugger, build generator & dependency resolution and build accelarator tools
     gdb make ninja-build autoconf automake libtool m4 cmake ccache rpm
     # Install python & pip
@@ -66,12 +66,13 @@ readonly apt_package_list=(
 # PIP
 # _________________________________________________________
 readonly pip_command='pip3'
-readonly pip_args='install'
+readonly pip_args='install --break-system-packages'
 # Packages to be installed via pip
 readonly pip_package_list=(
     'conan<2'
     requests
     gcovr
+    platformio
 )
 
 # _________________________________________________________
@@ -81,7 +82,7 @@ readonly conan_command='conan'
 # Packages to be installed via Conan
 readonly conan_package_list=(
     gtest/1.12.1
-    benchmark/1.7.0
+    benchmark/1.7.1
 )
 
 echo "Current user is $(whoami)"

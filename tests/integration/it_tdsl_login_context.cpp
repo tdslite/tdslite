@@ -3,7 +3,7 @@
  * TDS login context integration tests
  *
  * @file   it_tdsl_login_context.cpp
- * @author Mustafa K. GILOR <mustafagilor@gmail.com>
+ * @author mkg <me@mustafagilor.com>
  * @date   20.04.2022
  *
  * SPDX-License-Identifier:    MIT

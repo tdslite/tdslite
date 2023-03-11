@@ -4,7 +4,7 @@
  * integers for different endianness.
  *
  * @file   tdsl_byte_swap.hpp
- * @author Mustafa Kemal GILOR <mustafagilor@gmail.com>
+ * @author mkg <me@mustafagilor.com>
  * @date   12.04.2022
  *
  * SPDX-License-Identifier:    MIT

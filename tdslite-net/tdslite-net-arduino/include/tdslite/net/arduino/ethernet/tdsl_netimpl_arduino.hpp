@@ -6,7 +6,7 @@
  * (e.g. WiFiClient)
  *
  * @file   tdsl_netimpl_arduino.hpp
- * @author Mustafa Kemal GILOR <mustafagilor@gmail.com>
+ * @author mkg <me@mustafagilor.com>
  * @date   20.04.2022
  *
  * SPDX-License-Identifier: MIT
@@ -47,6 +47,7 @@ namespace tdsl { namespace net {
      */
     template <typename EthernetClientType>
     struct tdsl_netimpl_arduino : public network_io_base<tdsl_netimpl_arduino<EthernetClientType>> {
+
         using network_io_result =
             typename network_io_base<tdsl_netimpl_arduino<EthernetClientType>>::network_io_result;
 
@@ -160,10 +161,6 @@ namespace tdsl { namespace net {
          * Send byte_views @p header and @p bufs sequentially to the connected endpoint
          *
          * (scatter-gather I/O)
-         *
-         * @returns 0 when asynchronous send is in progress
-         * @returns -1 when asynchronous send is not called due to  another
-         *           asynchronous send is already in progress
          */
         TDSL_SYMBOL_VISIBLE void do_send(byte_view header, byte_view message) noexcept {
             client.write(header.data(), header.size_bytes());
@@ -260,7 +257,7 @@ namespace tdsl { namespace net {
                     return network_io_result::unexpected(-2);
                 }
                 TDSL_DEBUG_PRINTLN("tdsl_netimpl_arduino::wait_for_bytes(...) --> still polling "
-                                   "[avail:`%d`, need:`%d`]",
+                                   "[avail:`%d`, need:`%ld`]",
                                    bytes_avail, bytes_need);
                 delay(poll_interval / 2);
             }

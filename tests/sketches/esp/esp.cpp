@@ -99,7 +99,7 @@ tdsl::arduino_driver<WiFiClient> driver{net_buf};
 
 void tdslite_database_init() noexcept {
     SERIAL_PRINTLNF("... init database begin...");
-    const int r = driver.execute_query("CREATE TABLE #hello_world(a int, b int, c varchar(255));");
+    const auto r = driver.execute_query("CREATE TABLE #hello_world(a int, b int, c varchar(255));");
     (void) r;
     SERIAL_PRINTLNF("... init database end, result `%d`...", r);
 }
@@ -150,8 +150,8 @@ inline void tdslite_loop() noexcept {
         "incididunt ut labore et dolore magna aliqua. Semper viverra nam libero justo laoreet sit "
         "amet. Fringilla ut morbi tincidunt augue interdum velit.')");
     if (i++ % 10 == 0) {
-        const auto row_count = driver.execute_query("SELECT * FROM #hello_world;", row_callback);
-        SERIAL_PRINTLNF(">> Report: row count [%d] <<", row_count);
+        const auto result = driver.execute_query("SELECT * FROM #hello_world;", row_callback);
+        SERIAL_PRINTLNF(">> Report: row count [%d] <<", result.affected_rows);
     }
 }
 

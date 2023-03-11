@@ -3,7 +3,7 @@
  * Data types for TDS
  *
  * @file   tds_data_type.hpp
- * @author Mustafa Kemal GILOR <mustafagilor@gmail.com>
+ * @author mkg <me@mustafagilor.com>
  * @date   12.04.2022
  *
  * SPDX-License-Identifier:    MIT
@@ -42,7 +42,7 @@ namespace tdsl { namespace detail {
     data_type_to_str(e_tds_data_type type) noexcept {
 
         switch (type) {
-            // clang-format off
+// clang-format off
             #define TDSL_DATA_TYPE_DECL(NAME, VALUE)                                                           \
                 case e_tds_data_type::NAME:                                                                    \
                     return #NAME "(" #VALUE ")";

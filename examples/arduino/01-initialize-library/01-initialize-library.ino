@@ -13,7 +13,7 @@
  * Tested with Arduino Uno w/ Ethernet shield.
  *
  * @file   initialize-library.ino
- * @author Mustafa Kemal GILOR <mustafagilor@gmail.com>
+ * @author mkg <me@mustafagilor.com>
  * @date   06.01.2023
  *
  * SPDX-License-Identifier:    MIT

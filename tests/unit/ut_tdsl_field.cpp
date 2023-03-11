@@ -3,7 +3,7 @@
  * tdsl_field class unit tests
  *
  * @file   ut_tdsl_field.cpp
- * @author Mustafa Kemal GILOR <mustafagilor@gmail.com>
+ * @author mkg <me@mustafagilor.com>
  * @date   05.10.2022
  *
  * SPDX-License-Identifier:    MIT

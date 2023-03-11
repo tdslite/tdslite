@@ -2,7 +2,7 @@
 # tdslite devenv dockerfile
 #
 # @file   CMakeLists.txt
-# @author Mustafa K. GILOR <mustafagilor@gmail.com>
+# @author mkg <me@mustafagilor.com>
 # @date   12.04.2022
 #
 # SPDX-License-Identifier:    MIT
@@ -12,7 +12,7 @@
 FROM debian:sid-slim as build_temp
 
 # Labels
-LABEL version="1.0.0" maintainer="Mustafa Kemal GILOR <mustafagilor@gmail.com>" license="MIT"
+LABEL version="1.0.0" maintainer="mkg <me@mustafagilor.com>" license="MIT"
 
 # Avoid warnings by switching to noninteractive
 ENV DEBIAN_FRONTEND=noninteractive

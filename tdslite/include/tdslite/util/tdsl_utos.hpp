@@ -3,7 +3,7 @@
  * Unsigned to string conversion utilitites
  *
  * @file   tdsl_utos.hpp
- * @author Mustafa Kemal GILOR <mustafagilor@gmail.com>
+ * @author mkg <me@mustafagilor.com>
  * @date   20.01.2023
  *
  * SPDX-License-Identifier:    MIT

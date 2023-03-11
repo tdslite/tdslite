@@ -2,7 +2,7 @@
  * ____________________________________________________
  *
  * @file   tdsl_net_tx_mixin.hpp
- * @author Mustafa Kemal GILOR <mustafagilor@gmail.com>
+ * @author mkg <me@mustafagilor.com>
  * @date   04.10.2022
  *
  * SPDX-License-Identifier:    MIT

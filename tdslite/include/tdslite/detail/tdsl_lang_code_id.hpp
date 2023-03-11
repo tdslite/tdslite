@@ -3,7 +3,7 @@
  * Microsoft product language ID list
  *
  * @file   ms_lang_code_id.hpp
- * @author Mustafa K. GILOR <mustafagilor@gmail.com>
+ * @author mkg <me@mustafagilor.com>
  * @date   17.04.2022
  *
  * SPDX-License-Identifier:    MIT

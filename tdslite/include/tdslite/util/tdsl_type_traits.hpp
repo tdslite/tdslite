@@ -8,7 +8,7 @@
  * so these are mostly here for cross-platform compatibility.
  *
  * @file   tds_type_traits.hpp
- * @author Mustafa Kemal GILOR <mustafagilor@gmail.com>
+ * @author mkg <me@mustafagilor.com>
  * @date   12.04.2022
  *
  * SPDX-License-Identifier: MIT

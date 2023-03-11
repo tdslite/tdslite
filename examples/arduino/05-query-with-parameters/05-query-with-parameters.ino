@@ -15,7 +15,7 @@
  * Tested with Arduino Uno w/ Ethernet shield.
  *
  * @file   05-query-with-parameters.ino
- * @author Mustafa Kemal GILOR <mustafagilor@gmail.com>
+ * @author mkg <me@mustafagilor.com>
  * @date   22.01.2023
  *
  * SPDX-License-Identifier:    MIT

@@ -3,7 +3,7 @@
  * Unit tests for span<> type
  *
  * @file   ut_span.cpp
- * @author Mustafa K. GILOR <mustafagilor@gmail.com>
+ * @author mkg <me@mustafagilor.com>
  * @date   14.04.2022
  *
  * SPDX-License-Identifier:    MIT

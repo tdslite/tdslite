@@ -5,28 +5,28 @@ pio lib --global uninstall CrashMonitor
 pio lib --global uninstall MemoryFree
 
 bash tdslite/platform/arduino/prep-lib.sh
-
+pio lib --global install arduino-libraries/Ethernet@2.0.1
 pio lib --global install ./build/arduino-libpack-root/tdslite.zip
 pio lib --global install ./vendor/MemoryFree
 
 set -eu
 
-# PLATFORMIO_BUILD_FLAGS=-DCI_BUILD pio ci \
-# --project-option="lib_ignore=CrashMonitor" \
-# --board nanorp2040connect \
-# --board nanoatmega328 \
-# --board uno \
-# --board megaatmega1280 \
-# --board megaatmega2560 \
-# --board miniatmega328 \
-# --board micro \
-# --board yun \
-# --board nanoatmega328new \
-# --board pro8MHzatmega328 \
-# --board ethernet \
-# --board nano_every \
-# --board uno_wifi_rev2 \
-# tests/sketches/arduino/arduino.cpp
+PLATFORMIO_BUILD_FLAGS=-DCI_BUILD pio ci \
+--project-option="lib_ignore=CrashMonitor" \
+--board nanorp2040connect \
+--board nanoatmega328 \
+--board uno \
+--board megaatmega1280 \
+--board megaatmega2560 \
+--board miniatmega328 \
+--board micro \
+--board yun \
+--board nanoatmega328new \
+--board pro8MHzatmega328 \
+--board ethernet \
+--board nano_every \
+--board uno_wifi_rev2 \
+tests/sketches/arduino/arduino.cpp
 
 # Test Arduino SAMD boards 
 PLATFORMIO_BUILD_FLAGS=-DCI_BUILD pio ci \
@@ -56,4 +56,13 @@ PLATFORMIO_BUILD_FLAGS=-DCI_BUILD pio ci \
 --board nano33ble \
 --board nicla_sense_me \
 tests/sketches/arduino/arduino.cpp
+
+# Test ESP based boards
+
+PLATFORMIO_BUILD_FLAGS=-DCI_BUILD pio ci \
+--project-option="lib_ignore=CrashMonitor" \
+--board nodemcu-32s \
+--board nodemcuv2 \
+tests/sketches/esp/esp.cpp
+
 

@@ -2,7 +2,7 @@
 # tds-lite project top level CMakeLists.txt file
 #
 # @file   CMakeLists.txt
-# @author Mustafa Kemal GILOR <mustafagilor@gmail.com>
+# @author mkg <me@mustafagilor.com>
 # @date   12.04.2022
 #
 # SPDX-License-Identifier:    MIT
@@ -49,6 +49,7 @@ include(.cmake/project-configuration.cmake)
 add_subdirectory(tdslite)
 add_subdirectory(tdslite-net/tdslite-net-base)
 add_subdirectory(tdslite-net/tdslite-net-asio)
+add_subdirectory(tdslite-net/tdslite-net-arduino)
 add_subdirectory(tests/unit)
 add_subdirectory(tests/integration)
 add_subdirectory(tests/cxxcompat)

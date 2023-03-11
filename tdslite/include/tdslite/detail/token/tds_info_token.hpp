@@ -2,7 +2,7 @@
  * ____________________________________________________
  *
  * @file   tds_info_token.hpp
- * @author Mustafa Kemal GILOR <mustafagilor@gmail.com>
+ * @author mkg <me@mustafagilor.com>
  * @date   22.05.2022
  *
  * SPDX-License-Identifier:    MIT

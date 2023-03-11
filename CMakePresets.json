@@ -415,7 +415,7 @@
                 },
                 "TDSLITE_PROJECT_HADOUKEN_CONAN_GOOGLE_BENCHMARK_VERSION": {
                     "type": "STRING",
-                    "value": "1.7.0"
+                    "value": "1.7.1"
                 }
             }
         },

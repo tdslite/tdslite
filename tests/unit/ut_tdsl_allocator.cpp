@@ -3,7 +3,7 @@
  * unit tests for tdsl_allocator and tdsl_malloc_free
  *
  * @file   ut_tds_allocator.cpp
- * @author Mustafa Kemal GILOR <mustafagilor@gmail.com>
+ * @author mkg <me@mustafagilor.com>
  * @date   01.10.2022
  *
  * SPDX-License-Identifier:    MIT

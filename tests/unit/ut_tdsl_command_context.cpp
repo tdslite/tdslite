@@ -3,7 +3,7 @@
  * Unit tests for tdslite command context
  *
  * @file   ut_tdsl_command_context.cpp
- * @author Mustafa K. GILOR <mustafagilor@gmail.com>
+ * @author mkg <me@mustafagilor.com>
  * @date   05.10.2022
  *
  * SPDX-License-Identifier:    MIT

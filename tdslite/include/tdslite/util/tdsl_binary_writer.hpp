@@ -3,7 +3,7 @@
  * binary_writer<> utility class implementation
  *
  * @file   tdsl_binary_writer.hpp
- * @author Mustafa Kemal GILOR <mustafagilor@gmail.com>
+ * @author mkg <me@mustafagilor.com>
  * @date   18.11.2022
  *
  * SPDX-License-Identifier: MIT

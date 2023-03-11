@@ -3,7 +3,7 @@
  * Result set row type
  *
  * @file   tdsl_row.hpp
- * @author Mustafa Kemal GILOR <mustafagilor@gmail.com>
+ * @author mkg <me@mustafagilor.com>
  * @date   29.09.2022
  *
  * SPDX-License-Identifier:    MIT

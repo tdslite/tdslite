@@ -3,7 +3,7 @@
  * Unit tests for string_view and wstring_view types
  *
  * @file   ut_string_view.cpp
- * @author Mustafa Kemal GILOR <mustafagilor@gmail.com>
+ * @author mkg <me@mustafagilor.com>
  * @date   21.01.2023
  *
  * SPDX-License-Identifier:    MIT

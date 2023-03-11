@@ -3,7 +3,7 @@
  * noncopyable base class implementation
  *
  * @file   tdsl_noncopyable.hpp
- * @author Mustafa Kemal GILOR <mustafagilor@gmail.com>
+ * @author mkg <me@mustafagilor.com>
  * @date   17.08.2022
  *
  * SPDX-License-Identifier:    MIT

@@ -4,7 +4,7 @@
  * types
  *
  * @file   ut_sql_parameter.cpp
- * @author Mustafa Kemal GILOR <mustafagilor@gmail.com>
+ * @author mkg <me@mustafagilor.com>
  * @date   10.01.2023
  *
  * SPDX-License-Identifier:    MIT

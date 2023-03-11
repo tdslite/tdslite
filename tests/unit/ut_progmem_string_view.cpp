@@ -3,7 +3,7 @@
  * progmem_string_view class unit tests
  *
  * @file   ut_progmem_string_view.cpp
- * @author Mustafa Kemal GILOR <mustafagilor@gmail.com>
+ * @author mkg <me@mustafagilor.com>
  * @date   04.12.2022
  *
  * SPDX-License-Identifier:    MIT

@@ -2,7 +2,7 @@
 # tdslite mock network impl. CMakeLists file
 #
 # @file   CMakeLists.txt
-# @author Mustafa K. GILOR <mustafagilor@gmail.com>
+# @author mkg <me@mustafagilor.com>
 # @date   20.04.2022
 #
 # SPDX-License-Identifier:    MIT
@@ -15,7 +15,4 @@ make_component(
            LINK PUBLIC  tdslite.net.base
                 PRIVATE tdslite 
                         Boost::Boost 
-    TARGET TYPE INTERFACE
-           SUFFIX .ethernet
-           LINK INTERFACE tdslite.net.base
 )

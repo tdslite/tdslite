@@ -3,7 +3,7 @@
  * Tabular Data Stream protocol login operations
  *
  * @file   tdsl_login_context.hpp
- * @author Mustafa Kemal GILOR <mustafagilor@gmail.com>
+ * @author mkg <me@mustafagilor.com>
  * @date   14.04.2022
  *
  * SPDX-License-Identifier:    MIT

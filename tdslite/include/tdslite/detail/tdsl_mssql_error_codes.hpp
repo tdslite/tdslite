@@ -2,7 +2,7 @@
  * ____________________________________________________
  *
  * @file   tdsl_mssql_error_codes.hpp
- * @author Mustafa Kemal GILOR <mustafagilor@gmail.com>
+ * @author mkg <me@mustafagilor.com>
  * @date   23.05.2022
  *
  * SPDX-License-Identifier:    MIT

@@ -21,6 +21,7 @@ jobs:
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.github_token }}
+      options: --user root
     steps:
       - uses: actions/checkout@v3
         with:
@@ -72,6 +73,7 @@ jobs:
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.github_token }}
+      options: --user root
     steps:
       - name: Wait for 90 seconds until SQL server is online
         # We don't need any external tools since mssql docker

@@ -4,7 +4,7 @@
  * tdslite's capabilities
  *
  * @file   minimal.cpp
- * @author Mustafa Kemal GILOR <mustafagilor@gmail.com>
+ * @author mkg <me@mustafagilor.com>
  * @date   06.10.2022
  *
  * SPDX-License-Identifier:    MIT

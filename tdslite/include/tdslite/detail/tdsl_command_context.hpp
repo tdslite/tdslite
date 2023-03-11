@@ -3,7 +3,7 @@
  * tdslite's SQL command execution context
  *
  * @file   tdsl_command_context.hpp
- * @author Mustafa Kemal GILOR <mustafagilor@gmail.com>
+ * @author mkg <me@mustafagilor.com>
  * @date   23.05.2022
  *
  * SPDX-License-Identifier:    MIT

@@ -3,7 +3,7 @@
  * Sketch to check memory usage of tdslite
  *
  * @file   absolutemin.ino
- * @author Mustafa Kemal GILOR <mustafagilor@gmail.com>
+ * @author mkg <me@mustafagilor.com>
  * @date   04.12.2022
  *
  * SPDX-License-Identifier:    MIT

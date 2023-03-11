@@ -3,7 +3,7 @@
  * Compile-time checker for network I/O type constraints
  *
  * @file   network_io_contract.hpp
- * @author Mustafa Kemal GILOR <mustafagilor@gmail.com>
+ * @author mkg <me@mustafagilor.com>
  * @date   19.10.2022
  *
  * SPDX-License-Identifier:    MIT
@@ -100,9 +100,10 @@ namespace tdsl { namespace net {
                           "do_connect(tdsl::char_view, "
                           "tdsl::uint16_t)` function!");
 
-            static_assert(traits::dependent_bool<has_do_connect_fn<Implementation>::value>::value,
-                          "The type ConcreteNetImpl must implement `tdsl::int32_t "
-                          "do_disconnect()` function!");
+            static_assert(
+                traits::dependent_bool<has_do_disconnect_fn<Implementation>::value>::value,
+                "The type ConcreteNetImpl must implement `tdsl::int32_t "
+                "do_disconnect()` function!");
         }
     };
 }} // namespace tdsl::net
