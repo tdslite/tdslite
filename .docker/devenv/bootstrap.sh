@@ -206,8 +206,8 @@ function install_arduino_cli {
     # Install libraries
     sudo su ${1} -c "arduino-cli lib install ethernet@2.0.1"
     sudo su ${1} -c "ln -sf /workspace/build/arduino-libpack-root/tdslite /home/${1}/arduino/libraries/tdslite"
-    sudo su ${1} -c "ln -sf /workspace/vendor/CrashMonitor /home/${1}/arduino/libraries/CrashMonitor"
-    sudo su ${1} -c "ln -sf /workspace/vendor/MemoryFree /home/${1}/arduino/libraries/MemoryFree"
+    sudo su ${1} -c "ln -sf /workspace/extras/vendor/CrashMonitor /home/${1}/arduino/libraries/CrashMonitor"
+    sudo su ${1} -c "ln -sf /workspace/extras/vendor/MemoryFree /home/${1}/arduino/libraries/MemoryFree"
     # Add non-superuser to dialout so it can access dev/tty*
     sudo usermod -a -G dialout dev
 }

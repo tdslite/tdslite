@@ -12,7 +12,6 @@ make_component(
     tdslite.net
     TARGET TYPE SHARED
            SUFFIX .asio 
-           LINK PUBLIC  tdslite.net.base
-                PRIVATE tdslite 
+           LINK PRIVATE tdslite 
                         Boost::Boost 
 )

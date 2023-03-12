@@ -20,8 +20,8 @@
 // acts as a top-level header.
 
 #include <tdslite/tdslite.hpp>
-#include <tdslite/net/base/network_io_base.hpp>
-#include <tdslite/net/arduino/ethernet/tdsl_netimpl_arduino.hpp>
+#include <tdslite-net/base/network_io_base.hpp>
+#include <tdslite-net/arduino/tdsl_netimpl_arduino.hpp>
 
 namespace tdsl {
     /**

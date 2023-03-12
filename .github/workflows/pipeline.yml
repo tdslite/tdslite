@@ -1,6 +1,7 @@
 name: CI
 on:
   push:
+  pull_request:
     branches: [main]
 
 permissions:
@@ -50,10 +51,10 @@ jobs:
           /usr/bin/ccache --set-config cache_dir="${GITHUB_WORKSPACE}/.ccache"
           /usr/bin/ccache -sv
       - name: Configure
-        run: ./hadouken --configure --preset ${{ matrix.cmake_preset }}
+        run: cmake --preset ${{ matrix.cmake_preset }}
       - name: Build
         run: |
-          ./hadouken --build
+          cmake --build --preset ${{ matrix.cmake_preset }}
           /usr/bin/ccache -sv
   Test:
     needs: Build
@@ -111,10 +112,10 @@ jobs:
         run: pip install --upgrade platformio
       - name: Install PlatformIO libraries
         run: |
-          bash tdslite/platform/arduino/prep-lib.sh
+          pio pkg pack -o tdslite.tar.gz
+          pio lib --global install ./tdslite.tar.gz
           pio lib --global install arduino-libraries/Ethernet
-          pio lib --global install ./build/arduino-libpack-root/tdslite.zip
-          pio lib --global install ./vendor/MemoryFree
+          pio lib --global install ./extras/vendor/MemoryFree
       - name: build-avr
         run: pio ci --project-option="lib_ignore=CrashMonitor" --board nanoatmega328 --board uno --board megaatmega1280 --board megaatmega2560 --board miniatmega328 --board micro --board yun --board nanoatmega328new --board pro8MHzatmega328 --board ethernet tests/sketches/arduino/arduino.cpp
       - name: build-esp
@@ -127,3 +128,15 @@ jobs:
         run: pio ci --project-option="lib_ignore=CrashMonitor" --board portenta_h7_m4 --board uno --board portenta_h7_m7 tests/sketches/arduino/arduino.cpp
       - name: build-samd
         run: pio ci --project-option="lib_ignore=CrashMonitor" --board zero tests/sketches/arduino/arduino.cpp
+
+  Arduino-Library-Lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: arduino/arduino-lint-action@v1.0.2
+        with:
+          library-manager: submit
+          compliance: strict
+          project-type: library
+          recursive: false
+          verbose: true

@@ -11,7 +11,7 @@
  * ____________________________________________________
  */
 
-#include <tdslite/net/asio/tdsl_netimpl_asio.hpp> // network implementation to use
+#include <tdslite-net/asio/tdsl_netimpl_asio.hpp> // network implementation to use
 #include <tdslite/tdslite.hpp>                    // main tdslite header
 #include <fort.hpp>
 #include <string>

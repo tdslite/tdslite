@@ -69,7 +69,7 @@ make_component(
     TARGET  TYPE UNIT_TEST
             SUFFIX .arduino_driver
             SOURCES ut_arduino_driver.cpp
-            LINK tdslite.net.arduino
+            LINK tdslite
 
     ALL_NO_AUTO_COMPILATION_UNIT
     ALL_WITH_COVERAGE

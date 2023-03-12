@@ -14,7 +14,7 @@
 
 #include <tdslite/detail/tdsl_login_context.hpp>
 #include <tdslite/detail/tdsl_command_context.hpp>
-#include <tdslite/net/asio/tdsl_netimpl_asio.hpp>
+#include <tdslite-net/asio/tdsl_netimpl_asio.hpp>
 #include <tdslite/util/tdsl_expected.hpp>
 #include <tdslite/util/tdsl_hex_dump.hpp>
 

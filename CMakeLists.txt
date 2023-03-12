@@ -46,10 +46,8 @@ include(.cmake/project-dependencies.cmake)
 include(.cmake/project-configuration.cmake)
 
 # Components of the project
-add_subdirectory(tdslite)
-add_subdirectory(tdslite-net/tdslite-net-base)
-add_subdirectory(tdslite-net/tdslite-net-asio)
-add_subdirectory(tdslite-net/tdslite-net-arduino)
+add_subdirectory(src)
+add_subdirectory(src/tdslite-net/asio)
 add_subdirectory(tests/unit)
 add_subdirectory(tests/integration)
 add_subdirectory(tests/cxxcompat)

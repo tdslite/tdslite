@@ -18,7 +18,7 @@ unsigned long millis() {
     return 0;
 }
 
-#include <tdslite/net/arduino/ethernet/tdsl_netimpl_arduino.hpp>
+#include <tdslite-net/arduino/tdsl_netimpl_arduino.hpp>
 #include <tdslite/util/tdsl_string_view.hpp>
 #include <gtest/gtest.h>
 

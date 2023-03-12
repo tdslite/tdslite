@@ -15,7 +15,7 @@
 // #define TDSL_DEBUG_PRINT_ENABLED
 // #define BOOST_ASIO_ENABLE_HANDLER_TRACKING 1
 
-#include <tdslite/net/asio/tdsl_netimpl_asio.hpp>
+#include <tdslite-net/asio/tdsl_netimpl_asio.hpp>
 #include <tdslite/util/tdsl_hex_dump.hpp>
 #include <tdslite/util/tdsl_debug_print.hpp>
 

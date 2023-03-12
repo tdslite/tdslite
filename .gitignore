@@ -555,6 +555,9 @@ MigrationBackup/
 
 # Tar archives
 *.tar.*
+# ZIP archives
+*.zip
+
 # PDF files
 *.pdf
 
