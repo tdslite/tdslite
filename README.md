@@ -1,5 +1,5 @@
 <p align="center">
-  <img width="600" height="213" src="./.misc/markdown-assets/img/banner.png">
+  <img width="600" height="213" src="./extras/markdown-assets/img/banner.png">
 </p>
 
 ----
@@ -97,7 +97,7 @@ The main design goal of the project is to enable a wide variety of constrained d
 
 `tdslite` is made from two main parts: the `tdslite` library, and the networking implementation. They're located at `tdslite` and `tdslite-net` folders respectively.
 
-The main user-facing class of `tdslite` is the `tdslite::driver<T>` class, where the `T` is the networking implementation of choice. `tdslite` does not depend on any concrete networking implementation and can work with anything that satisfies the constraints defined in the [network_io_contract](tdslite-net/tdslite-net-base/include/tdslite/net/base/network_io_contract.hpp#L79) class.
+The main user-facing class of `tdslite` is the `tdslite::driver<T>` class, where the `T` is the networking implementation of choice. `tdslite` does not depend on any concrete networking implementation and can work with anything that satisfies the constraints defined in the [network_io_contract](src/tdslite-net/base/network_io_contract.hpp#L79) class.
 
 The `tdslite-net` library provides two of such networking implementations; one of them is based on `Boost.ASIO` (tdslite-net-asio), and the other one being `Arduino EthernetClient` interface compatible one(tdslite-net-arduino). ASIO-based networking implementation is used for the integration tests and the [example `sql shell` application](examples/minimal-sql-shell/minimal.cpp). `tdslite-net-arduino` can work with anything that implements the `EthernetClient` interface (e.g. EthernetClient, WiFiClient):
 

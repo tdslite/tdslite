@@ -1,0 +1,76 @@
+{
+    "name": "tdslite",
+    "version": "0.2.0",
+    "description": "Lightweight, platform independent MS-TDS implementation written in pure C++11 that can work with just 2kB of SRAM. Built around C++s zero cost / only pay for what you use mantra. The implementation is based on Microsoft `MS-TDS: Tabular Data Stream Protocol` technical specification (revision number 33).",
+    "keywords": "database, connector, communication",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/mustafakemalgilor/tdslite.git"
+    },
+    "authors": [
+        {
+            "name": "Mustafa Kemal Gilor",
+            "email": "me@mustafagilor.com",
+            "url": "https://mkg.dev/",
+            "maintainer": true
+        }
+    ],
+    "license": "MIT",
+    "homepage": "https://github.com/mustafakemalgilor/tdslite",
+    "frameworks": "*",
+    "platforms": "*",
+    "headers": "tdslite.h",
+    "examples": [
+        {
+            "name": "initialize",
+            "base": "examples/arduino/01-initialize-library",
+            "files": [
+                "01-initialize-library.ino"
+            ]
+        },
+        {
+            "name": "create-select-update-delete",
+            "base": "examples/arduino/02-create-insert-select-delete",
+            "files": [
+                "02-create-insert-select-delete.ino"
+            ]
+        },
+        {
+            "name": "select-rows",
+            "base": "examples/arduino/03-select-rows",
+            "files": [
+                "03-select-rows.ino"
+            ]
+        },
+        {
+            "name": "callbacks",
+            "base": "examples/arduino/04-callbacks",
+            "files": [
+                "04-callbacks.ino"
+            ]
+        },
+        {
+            "name": "query-with-parameters",
+            "base": "examples/arduino/05-query-with-parameters",
+            "files": [
+                "05-query-with-parameters.ino"
+            ]
+        },
+        {
+            "name": "custom-memory-allocator",
+            "base": "examples/arduino/06-custom-malloc",
+            "files": [
+                "06-custom-malloc.ino"
+            ]
+        }
+    ],
+    "export": {
+        "include": [
+            "src/*",
+            "examples/*"
+        ],
+        "exclude": [
+            "src/tdslite-net/asio"
+        ]
+    }
+}

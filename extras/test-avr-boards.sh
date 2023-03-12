@@ -7,7 +7,7 @@ pio lib --global uninstall MemoryFree
 bash tdslite/platform/arduino/prep-lib.sh
 pio lib --global install arduino-libraries/Ethernet@2.0.1
 pio lib --global install ./build/arduino-libpack-root/tdslite.zip
-pio lib --global install ./vendor/MemoryFree
+pio lib --global install ./extras/vendor/MemoryFree
 
 set -eu
 

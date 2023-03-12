@@ -11,7 +11,10 @@
 make_component(
     tdslite
     TARGET TYPE INTERFACE
+    ALL_NO_AUTO_COMPILATION_UNIT
 )
+
+target_include_directories(tdslite INTERFACE ${CMAKE_CURRENT_LIST_DIR})
 
 set_target_properties(
     tdslite

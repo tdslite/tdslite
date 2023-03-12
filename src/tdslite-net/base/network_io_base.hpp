@@ -13,7 +13,7 @@
 #ifndef TDSL_NET_NETWORK_IO_BASE_HPP
 #define TDSL_NET_NETWORK_IO_BASE_HPP
 
-#include <tdslite/net/base/network_io_contract.hpp>
+#include <tdslite-net/base/network_io_contract.hpp>
 
 #include <tdslite/detail/tdsl_callback.hpp>
 #include <tdslite/detail/tdsl_message_type.hpp>

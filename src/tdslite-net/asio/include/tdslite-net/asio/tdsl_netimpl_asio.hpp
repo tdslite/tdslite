@@ -13,7 +13,7 @@
 #ifndef TDSL_NET_NETIMPL_ASIO_HPP
 #define TDSL_NET_NETIMPL_ASIO_HPP
 
-#include <tdslite/net/base/network_io_base.hpp>
+#include <tdslite-net/base/network_io_base.hpp>
 
 #include <tdslite/util/tdsl_span.hpp>
 #include <tdslite/util/tdsl_macrodef.hpp>
