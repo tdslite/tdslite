@@ -4,11 +4,11 @@
 
 ----
 <p align="center">
-<img src="https://img.shields.io/badge/contributions-welcome-orange.svg"/> <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/license-MIT-blue.svg"/></a> <a href="https://github.com/mustafakemalgilor/tdslite/issues"><img src="https://img.shields.io/github/issues/mustafakemalgilor/tdslite.svg"/></a> <img src="https://img.shields.io/github/stars/mustafakemalgilor/tdslite"/> <img src="https://img.shields.io/github/downloads/mustafakemalgilor/tdslite/total"/> <img src="https://img.shields.io/github/v/release/mustafakemalgilor/tdslite?include_prereleases"/>  <a href="https://github.com/mustafakemalgilor/tdslite/actions/workflows/pipeline.yml"><img src="https://github.com/mustafakemalgilor/tdslite/actions/workflows/pipeline.yml/badge.svg"></a> <img src="https://img.shields.io/github/repo-size/mustafakemalgilor/tdslite"/>
+<img src="https://www.ardu-badge.com/badge/tdslite.svg" alt="Arduino Library Index" /> <img src="https://badges.registry.platformio.org/packages/mustafakemalgilor/library/tdslite.svg" alt="PlatformIO Registry" /></a> <img src="https://img.shields.io/badge/contributions-welcome-orange.svg"/> <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/license-MIT-blue.svg"/></a> <a href="https://github.com/mustafakemalgilor/tdslite/issues"><img src="https://img.shields.io/github/issues/mustafakemalgilor/tdslite.svg"/></a> <img src="https://img.shields.io/github/stars/mustafakemalgilor/tdslite"/> <img src="https://img.shields.io/github/downloads/mustafakemalgilor/tdslite/total"/> <img src="https://img.shields.io/github/v/release/mustafakemalgilor/tdslite?include_prereleases"/>  <a href="https://github.com/mustafakemalgilor/tdslite/actions/workflows/pipeline.yml"><img src="https://github.com/mustafakemalgilor/tdslite/actions/workflows/pipeline.yml/badge.svg"></a> <img src="https://img.shields.io/github/repo-size/mustafakemalgilor/tdslite"/> <a href="https://registry.platformio.org/libraries/mustafakemalgilor/tdslite">
 
 </p>
 <p align="center">
-    <i>Lightweight</i>, platform independent MS-TDS implementation written in pure C++11 that can work with just <strong>2kB</strong> of SRAM!
+    <i>Lightweight</i>, platform independent Microsoft SQL Server (MSSQL) connector (MS-TDS implementation) written in pure C++11 that can work with just <strong>2kB</strong> of SRAM!
 <br />
 </p>
 
@@ -79,7 +79,21 @@ Verificaton sketches for the library
 
 Import the `tdslite-<version>.zip` into your libraries. See [releases](https://github.com/mustafakemalgilor/tdslite/releases).
 
-### ... via the Arduino IDE
+### ... via Platform IO
+
+```bash
+    pio pkg install --library "mustafakemalgilor/tdslite"
+```
+
+See [the official PlatformIO registry page](https://registry.platformio.org/libraries/mustafakemalgilor/tdslite/installation) for details.
+
+### ... via the Arduino IDE library manager
+
+Just search for `tdslite`, and install it.
+
+Also, take a look at [ardu-badge](https://www.ardu-badge.com/tdslite) page for a detailed installation guide.
+
+### ... via the Arduino IDE, manually
 
 `Sketch -> Include Library -> Add .ZIP Library...` and then select the downloaded `tdslite-<version>.zip` file.
 
