@@ -27,9 +27,9 @@
 - PlatformIO CI try to compile for all Arduino boards:
 
   ```bash
-     bash tdslite/platform/arduino/prep-lib.sh
+     pio pkg pack -o build/tdslite.tar.gz
+     pio lib --global install ./build/tdslite.tar.gz
      pio lib --global install arduino-libraries/Ethernet
-     pio lib --global install build/arduino-libpack-root/tdslite.zip
      pio boards --json-output | jq -c '.[] | select(.name|contains("Arduino")) | .id' | xargs printf -- '--board\0%s\0' | tr '\n' '\0' | xargs -0 pio ci examples/arduino/arduino.cpp
   ```
 

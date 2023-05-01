@@ -4,7 +4,8 @@ pio lib --global uninstall tdslite
 pio lib --global uninstall CrashMonitor
 pio lib --global uninstall MemoryFree
 
-bash tdslite/platform/arduino/prep-lib.sh
+pio pkg pack -o build/tdslite.tar.gz
+pio lib --global install ./build/tdslite.tar.gz
 pio lib --global install arduino-libraries/Ethernet@2.0.1
 pio lib --global install ./build/arduino-libpack-root/tdslite.zip
 pio lib --global install ./extras/vendor/MemoryFree
