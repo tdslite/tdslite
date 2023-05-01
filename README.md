@@ -34,9 +34,9 @@ The four basic operations: Create, read, update, delete.
 
 Retrieve a result set with a query (a.k.a `SELECT`ing rows)
 
-[➤ 04 - Library callback functions](https://github.com/mustafakemalgilor/tdslite/tree/main/examples/arduino/04-callbacks)
+[➤ 04 - Read info/error messages](https://github.com/mustafakemalgilor/tdslite/tree/main/examples/arduino/04-info-callback)
 
-How to use callback functions to read info/error messages sent by the server.
+How to use info callback function to read info/error messages sent by the server.
 
 [➤ 05 - Execute query with parameters](https://github.com/mustafakemalgilor/tdslite/tree/main/examples/arduino/05-query-with-parameters)
 
@@ -46,11 +46,15 @@ Learn how to use and bind parameters in queries with tdslite.
 
 Learn how to set user-defined malloc/free functions for tdslite's memory allocation.
 
-[➤ 07 - Fiddle with minimal-sql-shell](https://github.com/mustafakemalgilor/tdslite/tree/main/examples/minimal-sql-shell)
+[➤ ESP WiFi example](https://github.com/mustafakemalgilor/tdslite/tree/main/tests/sketches/esp/esp.cpp)
+
+tdslite, but with WiFiClient instead of EthernetClient.
+
+[➤ Fiddle with minimal-sql-shell](https://github.com/mustafakemalgilor/tdslite/tree/main/examples/minimal-sql-shell)
 
 It's a playground to try sql commands. Compile the project, and just run `./build/bin/tdslite.examples.minimal` executable.
 
-[➤ 08 - Sketches](https://github.com/mustafakemalgilor/tdslite/tree/main/tests/sketches)
+[➤ Sketches](https://github.com/mustafakemalgilor/tdslite/tree/main/tests/sketches)
 
 Verificaton sketches for the library
 
