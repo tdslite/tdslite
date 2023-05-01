@@ -107,7 +107,7 @@ inline void my_free(void * ptr) noexcept {
  */
 void setup() {
 #ifdef SKETCH_ENABLE_SERIAL_OUTPUT
-    Serial.begin(112500);
+    Serial.begin(115200);
     while (!Serial)
         ;
 #endif
