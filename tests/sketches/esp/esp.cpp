@@ -166,7 +166,7 @@ inline void initDatabase() {}
 // --------------------------------------------------------------------------------
 
 inline bool init_serial() {
-    Serial.begin(112500);
+    Serial.begin(115200);
     while (!Serial)
         ;
     return true;
