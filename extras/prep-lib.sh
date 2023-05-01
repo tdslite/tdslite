@@ -9,20 +9,13 @@ while [ -h "$SOURCE" ]; do # resolve $SOURCE until the file is no longer a symli
 done
 
 SCRIPT_ROOT="$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd )"
-PROJECT_ROOT=$SCRIPT_ROOT/../../..
+PROJECT_ROOT=$SCRIPT_ROOT/..
 BUILD_FOLDER=$PROJECT_ROOT/build
-ARDUINO_LIBPACK_ROOT=$BUILD_FOLDER/arduino-libpack-root
-rm -r $ARDUINO_LIBPACK_ROOT
-mkdir -p $ARDUINO_LIBPACK_ROOT/tdslite/src
-cd $ARDUINO_LIBPACK_ROOT/tdslite
-touch tdslite.h
-cp $SCRIPT_ROOT/src/library.properties .
-cp $SCRIPT_ROOT/src/tdslite.h src/
-cp -r $PROJECT_ROOT/tdslite/include/* src/
-cp -r $PROJECT_ROOT/tdslite-net/tdslite-net-base/include/* src/
-cp -r $PROJECT_ROOT/tdslite-net/tdslite-net-arduino/include/* src/
-cd $ARDUINO_LIBPACK_ROOT
-rm tdslite.zip || true
-zip -r tdslite.zip tdslite/
+PACK_TMP=$BUILD_FOLDER/arduino-libpack-root/tdslite
+rm $PACK_TMP &> /dev/null || true
+mkdir -p $PACK_TMP
+cd $PROJECT_ROOT
+pio pkg pack -o $PACK_TMP/tdslite.tar.gz
+cd $PACK_TMP
+tar xzf tdslite.tar.gz && zip -q tdslite.zip $(tar tf tdslite.tar.gz)
 ls -lrah tdslite.zip
-

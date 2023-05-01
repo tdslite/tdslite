@@ -1,7 +1,7 @@
 {
     "board": "arduino:avr:uno",
     "sketch": "examples/arduino/03-select-rows/03-select-rows.ino",
-    "prebuild": "bash /workspace/tdslite/platform/arduino/prep-lib.sh &> /dev/null",
+    "prebuild": "bash /workspace/extras/prep-lib.sh &> /dev/null",
     "output": "/workspace/build/arduino-build",
     "port": "/dev/ttyUSB0"
 }
