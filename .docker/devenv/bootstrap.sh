@@ -38,8 +38,8 @@ readonly apt_package_list=(
     apt-utils dialog sudo curl
     # Editors
     nano vim
-    # Shell & locale
-    zsh locales less zip
+    # Shell & locale & system utils
+    zsh locales less zip udev
     # Verify ssh, git, git-lfs process tools, lsb-release (useful for CLI installs) installed
     ssh git git-extras git-lfs iproute2 procps lsb-release
     # Install GCC Toolchain, version 11
