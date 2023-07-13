@@ -127,10 +127,10 @@ namespace tdsl { namespace net {
                                    destination_host.data(), port, retries);
                 cr = client.connect(destination_host.data(), port);
                 if (cr == 1) {
-                    TDSL_DEBUG_PRINTLN("... connected, %d --> %d.%d.%d.%d:%d ...",
-                                       client.localPort(), client.remoteIP() [0],
-                                       client.remoteIP() [1], client.remoteIP() [2],
-                                       client.remoteIP() [3], client.remotePort());
+                    TDSL_DEBUG_PRINTLN("... connected to --> %d.%d.%d.%d:%d ...",
+                                       client.remoteIP() [0], client.remoteIP() [1],
+                                       client.remoteIP() [2], client.remoteIP() [3],
+                                       client.remotePort());
                     break;
                 }
 
@@ -178,24 +178,87 @@ namespace tdsl { namespace net {
         TDSL_SYMBOL_VISIBLE auto do_recv(tdsl::uint32_t transfer_exactly, byte_span dst_buf)
             -> network_io_result {
 
+            enum class errc : int
+            {
+                disconnected           = -1,
+                timeout                = -2,
+                not_enough_capacity    = -3,
+                unexpected_read_amount = -99
+            };
+
+            const tdsl::uint32_t poll_interval = 300, timeout = 30000;
+
             if (transfer_exactly > dst_buf.size_bytes()) {
-                return network_io_result::unexpected(-3); // error case
-            }
-            const auto wfb_r = wait_for_bytes(transfer_exactly);
-            if (wfb_r) {
-                // Transfer `exactly` @p transfer_exactly bytes
-                client.read(dst_buf.data(), transfer_exactly);
-                return transfer_exactly;
+                // Destination buffer does not have the capacity
+                return network_io_result::unexpected(static_cast<int>(errc::not_enough_capacity));
             }
 
-            // There is an error, we should handle it appropriately
-            TDSL_DEBUG_PRINTLN("tdsl_netimpl_arduino::do_recv(...) -> error, wait for bytes value "
-                               "(%d) < (%d) aborting and "
-                               "disconnecting",
-                               wfb_r.error(), transfer_exactly);
+            // When we should give up on trying to receive
+            const tdsl::uint32_t wait_till = millis() + timeout;
 
-            do_disconnect();
-            return network_io_result::unexpected(-1); // error case
+            // amount of bytes we've been able to
+            // pull from the client so far
+            tdsl::uint32_t bytes_recvd     = {0};
+
+            do {
+
+                if (not client.available()) {
+                    delay(poll_interval);
+                }
+                else {
+
+                    const auto amount_demanded = transfer_exactly - bytes_recvd;
+
+                    // Read as much data as we can right now.
+                    const auto read_amount =
+                        client.read(dst_buf.data() + bytes_recvd, amount_demanded);
+
+                    TDSL_DEBUG_PRINTLN(
+                        "tdsl_netimpl_arduino::do_recv(...) -> read amount: %u, demanded:%u",
+                        read_amount, amount_demanded);
+
+                    if (read_amount > amount_demanded) {
+                        TDSL_ASSERT(false);
+                        // This cannot happen in a normal implementation
+                        // i.e. the client's read() function is buggy.
+                        return network_io_result::unexpected(
+                            static_cast<int>(errc::unexpected_read_amount));
+                    }
+
+                    if (read_amount == 0) {
+                        TDSL_DEBUG_PRINTLN(
+                            "tdsl_netimpl_arduino::do_recv(...) -> ret 0, disconnected");
+                        // disconnected
+                        do_disconnect();
+                        return network_io_result::unexpected(
+                            static_cast<int>(errc::disconnected)); // error case
+                    }
+                    else if (read_amount < 0) {
+                        TDSL_DEBUG_PRINTLN(
+                            "tdsl_netimpl_arduino::do_recv(...) -> ret <0, no data avail, waiting");
+                        // No data available, so wait for some time
+                        delay(poll_interval);
+                    }
+                    else {
+                        TDSL_ASSERT((bytes_recvd + read_amount) <= transfer_exactly);
+                        // Data received
+                        bytes_recvd += read_amount;
+                    }
+                }
+
+                if (millis() >= wait_till) {
+                    // timeout
+                    TDSL_DEBUG_PRINTLN("tdsl_netimpl_arduino::do_recv(...) -> error, time out!");
+                    return network_io_result::unexpected(static_cast<int>(errc::timeout));
+                }
+
+            } while (!(bytes_recvd == transfer_exactly));
+
+            TDSL_DEBUG_PRINTLN("tdsl_netimpl_arduino::do_recv(...) -> received %u bytes",
+                               bytes_recvd);
+
+            TDSL_ASSERT(bytes_recvd == transfer_exactly);
+            return bytes_recvd;
         }
 
         // --------------------------------------------------------------------------------
@@ -223,50 +286,6 @@ namespace tdsl { namespace net {
         }
 
     private:
-        /**
-         * Wait for bytes to arrive
-         *
-         * @param [in] bytes_need Amount of bytes needed
-         * @param [in] poll_interval How often client.available() should be checked
-         * @param [in] timeout When to give up
-         *
-         * @returns amount of bytes available when successful
-         * @returns -1 if client is disconnected during poll
-         * @returns -2 if operation could not be completed in time
-         */
-        inline network_io_result wait_for_bytes(tdsl::size_t bytes_need,
-                                                tdsl::uint32_t poll_interval = 300,
-                                                tdsl::uint32_t timeout       = 30000) noexcept {
-            const tdsl::uint32_t wait_till = millis() + timeout;
-
-            while (client.connected()) {
-                delay(poll_interval / 2);
-                const auto bytes_avail = client.available();
-
-                if (bytes_avail < 0) {
-                    return -1;
-                }
-
-                if (static_cast<tdsl::size_t>(bytes_avail) >= bytes_need) {
-                    return static_cast<tdsl::size_t>(bytes_avail);
-                }
-                if (millis() >= wait_till) {
-                    // timeout
-                    TDSL_DEBUG_PRINTLN(
-                        "tdsl_netimpl_arduino::wait_for_bytes(...) -> error, time out!");
-                    return network_io_result::unexpected(-2);
-                }
-                TDSL_DEBUG_PRINTLN("tdsl_netimpl_arduino::wait_for_bytes(...) --> still polling "
-                                   "[avail:`%d`, need:`%ld`]",
-                                   bytes_avail, bytes_need);
-                delay(poll_interval / 2);
-            }
-
-            TDSL_DEBUG_PRINTLN("tdsl_netimpl_arduino::wait_for_bytes(...) -> error, disconnected!");
-            do_disconnect();
-            return network_io_result::unexpected(-1);
-        }
-
         // --------------------------------------------------------------------------------
 
         /**
