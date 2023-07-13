@@ -174,6 +174,7 @@ namespace tdsl {
                     static constexpr auto k_max_length = 32767;
                     const auto length                  = thdr_rdr.read<tdsl::uint16_t>();
                     if (length < sizeof(detail::tds_header) || length > k_max_length) {
+                        TDSL_DEBUG_PRINTLN("invalid tds message length %u", length);
                         // invalid length
                         TDSL_ASSERT_MSG(0, "Invalid tds message length!");
                         return processed_tds_message_count;
@@ -237,10 +238,12 @@ namespace tdsl {
                         // TODO: check if downstream consumed the message
                         // TODO: Check if we got enough space to pull the next message
                         const auto needed_bytes = packet_data_cb(message_type, *nmsg_rdr);
+                        if (needed_bytes) {
+                            TDSL_DEBUG_PRINTLN("network_impl_base::do_receive_tds_pdu(...) -> "
+                                               "packet_data_cb needs `%d` more bytes",
+                                               needed_bytes);
+                        }
 
-                        TDSL_DEBUG_PRINTLN("network_impl_base::do_receive_tds_pdu(...) -> "
-                                           "packet_data_cb needs `%d` more bytes",
-                                           needed_bytes);
                         (void) needed_bytes;
                     }
 
