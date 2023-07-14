@@ -213,7 +213,7 @@ namespace tdsl { namespace net {
                     const auto read_amount =
                         client.read(dst_buf.data() + bytes_recvd, amount_demanded);
 
-                    TDSL_DEBUG_PRINTLN(
+                    TDSL_TRACE_PRINTLN(
                         "tdsl_netimpl_arduino::do_recv(...) -> read amount: %u, demanded:%u",
                         read_amount, amount_demanded);
 
@@ -226,7 +226,7 @@ namespace tdsl { namespace net {
                             static_cast<int>(errc::disconnected)); // error case
                     }
                     else if (read_amount < 0) {
-                        TDSL_DEBUG_PRINTLN(
+                        TDSL_TRACE_PRINTLN(
                             "tdsl_netimpl_arduino::do_recv(...) -> ret <0, no data avail, waiting");
                         // No data available, so wait for some time
                         delay(poll_interval);
@@ -253,7 +253,7 @@ namespace tdsl { namespace net {
 
             } while (!(bytes_recvd == transfer_exactly));
 
-            TDSL_DEBUG_PRINTLN("tdsl_netimpl_arduino::do_recv(...) -> received %u bytes",
+            TDSL_TRACE_PRINTLN("tdsl_netimpl_arduino::do_recv(...) -> received %u bytes",
                                bytes_recvd);
 
             TDSL_ASSERT(bytes_recvd == transfer_exactly);
