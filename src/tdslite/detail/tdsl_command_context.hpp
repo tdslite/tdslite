@@ -498,7 +498,7 @@ namespace tdsl { namespace detail {
                         result.status       = token_handler_status::not_enough_bytes;
                         result.needed_bytes = k_collation_info_size - rr.remaining_bytes();
                         TDSL_DEBUG_PRINTLN(
-                            "not enough bytes to read collation information, need %d, have %ld",
+                            "not enough bytes to read collation information, need %d, have %zu",
                             k_collation_info_size, rr.remaining_bytes());
                         return result;
                     }
@@ -529,7 +529,7 @@ namespace tdsl { namespace detail {
                         }
                         result.status       = token_handler_status::not_enough_bytes;
                         result.needed_bytes = k_table_name_size_len - rr.remaining_bytes();
-                        TDSL_DEBUG_PRINTLN("not enough bytes to read table name, need %d, have %ld",
+                        TDSL_DEBUG_PRINTLN("not enough bytes to read table name, need %d, have %zu",
                                            tname_needed_bytes, rr.remaining_bytes());
                         return result;
                     } while (0);
@@ -541,7 +541,7 @@ namespace tdsl { namespace detail {
                 if (not rr.has_bytes((colname_len_in_bytes))) {
                     result.status       = token_handler_status::not_enough_bytes;
                     result.needed_bytes = colname_len_in_bytes - rr.remaining_bytes();
-                    TDSL_DEBUG_PRINTLN("not enough bytes to read column name, need %d, have %ld",
+                    TDSL_DEBUG_PRINTLN("not enough bytes to read column name, need %d, have %zu",
                                        colname_len_in_bytes, rr.remaining_bytes());
                     return result;
                 }
@@ -637,7 +637,7 @@ namespace tdsl { namespace detail {
                         }
 
                         TDSL_DEBUG_PRINTLN("handle_row_token() --> not enough bytes for reading "
-                                           "field textptr, %lu more bytes needed",
+                                           "field textptr, %zu more bytes needed",
                                            textptr_need_bytes - rr.remaining_bytes());
                         result.status       = token_handler_status::not_enough_bytes;
                         result.needed_bytes = textptr_need_bytes - rr.remaining_bytes();
@@ -705,7 +705,7 @@ namespace tdsl { namespace detail {
 
                 if (not rr.has_bytes(field_length)) {
                     TDSL_DEBUG_PRINTLN("handle_row_token() --> not enough bytes for reading field, "
-                                       "%lu more bytes needed",
+                                       "%zu more bytes needed",
                                        field_length - rr.remaining_bytes());
                     result.status       = token_handler_status::not_enough_bytes;
                     result.needed_bytes = field_length - rr.remaining_bytes();
