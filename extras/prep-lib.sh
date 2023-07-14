@@ -12,10 +12,13 @@ SCRIPT_ROOT="$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd )"
 PROJECT_ROOT=$SCRIPT_ROOT/..
 BUILD_FOLDER=$PROJECT_ROOT/build
 PACK_TMP=$BUILD_FOLDER/arduino-libpack-root/tdslite
-rm $PACK_TMP &> /dev/null || true
+rm -rf $BUILD_FOLDER/arduino-libpack-root &> /dev/null || true
 mkdir -p $PACK_TMP
 cd $PROJECT_ROOT
 pio pkg pack -o $PACK_TMP/tdslite.tar.gz
 cd $PACK_TMP
-tar xzf tdslite.tar.gz && zip -q tdslite.zip $(tar tf tdslite.tar.gz)
+tar xzf tdslite.tar.gz
+mv tdslite.tar.gz $BUILD_FOLDER/arduino-libpack-root
+cd $BUILD_FOLDER/arduino-libpack-root
+zip -q -r tdslite.zip tdslite/
 ls -lrah tdslite.zip
