@@ -16,6 +16,14 @@
 #include <tdslite/util/tdsl_type_traits.hpp>
 #include <assert.h>
 
+#if SIZE_MAX == 0xFFFF
+#define TDSL_SIZET_FORMAT_SPECIFIER "%u"
+#elif SIZE_MAX == 0xFFFFFFFF
+#define TDSL_SIZET_FORMAT_SPECIFIER "%u"
+#else
+#define TDSL_SIZET_FORMAT_SPECIFIER "%lu"
+#endif
+
 /**
  * Mark a line of code as unreachable. If code flow reaches
  * a line marked with TDSL_UNREACHABLE, the program will

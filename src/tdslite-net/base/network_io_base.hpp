@@ -192,10 +192,12 @@ namespace tdsl {
                     // network
 
                     if (packet_data_size > network_buffer.get_writer()->remaining_bytes()) {
-                        TDSL_DEBUG_PRINTLN(
-                            "Cannot fit complete message into network buffer %zu > %zu "
-                            "will try partial pull",
-                            packet_data_size, network_buffer.get_writer()->remaining_bytes());
+                        TDSL_DEBUG_PRINTLN("Cannot fit complete message into network "
+                                           "buffer " TDSL_SIZET_FORMAT_SPECIFIER
+                                           " > " TDSL_SIZET_FORMAT_SPECIFIER " "
+                                           "will try partial pull",
+                                           packet_data_size,
+                                           network_buffer.get_writer()->remaining_bytes());
                         do {
                             if (network_buffer.get_writer()->remaining_bytes() == 0) {
                                 TDSL_DEBUG_PRINTLN(
@@ -226,7 +228,9 @@ namespace tdsl {
                         if (not nmsg_rdr->has_bytes(packet_data_size)) {
                             TDSL_DEBUG_PRINTLN(
                                 "network_io_base::do_receive_tds_pdu(...) -> error, receive buffer "
-                                "does not contain expected amount of bytes (%zu < %zu) ",
+                                "does not contain expected amount of bytes "
+                                "(" TDSL_SIZET_FORMAT_SPECIFIER " < " TDSL_SIZET_FORMAT_SPECIFIER
+                                ") ",
                                 nmsg_rdr->remaining_bytes(), packet_data_size);
                             // this should not happen
                             TDSL_ASSERT_MSG(
@@ -259,7 +263,7 @@ namespace tdsl {
                     auto rbuf_reader = network_buffer.get_reader();
                     if (rbuf_reader->remaining_bytes()) {
                         TDSL_DEBUG_PRINTLN("Although the EOM is received, receive buffer still "
-                                           "contains %zu bytes of "
+                                           "contains " TDSL_SIZET_FORMAT_SPECIFIER " bytes of "
                                            "data which means packet handler failed to handle "
                                            "all the data in the "
                                            "message. Discarding the data.",
