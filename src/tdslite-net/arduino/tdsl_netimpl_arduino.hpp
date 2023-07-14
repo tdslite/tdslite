@@ -217,14 +217,6 @@ namespace tdsl { namespace net {
                         "tdsl_netimpl_arduino::do_recv(...) -> read amount: %u, demanded:%u",
                         read_amount, amount_demanded);
 
-                    if (read_amount > amount_demanded) {
-                        TDSL_ASSERT(false);
-                        // This cannot happen in a normal implementation
-                        // i.e. the client's read() function is buggy.
-                        return network_io_result::unexpected(
-                            static_cast<int>(errc::unexpected_read_amount));
-                    }
-
                     if (read_amount == 0) {
                         TDSL_DEBUG_PRINTLN(
                             "tdsl_netimpl_arduino::do_recv(...) -> ret 0, disconnected");
@@ -240,6 +232,13 @@ namespace tdsl { namespace net {
                         delay(poll_interval);
                     }
                     else {
+                        if (static_cast<tdsl::uint32_t>(read_amount) > amount_demanded) {
+                            TDSL_ASSERT(false);
+                            // This cannot happen in a normal implementation
+                            // i.e. the client's read() function is buggy.
+                            return network_io_result::unexpected(
+                                static_cast<int>(errc::unexpected_read_amount));
+                        }
                         TDSL_ASSERT((bytes_recvd + read_amount) <= transfer_exactly);
                         // Data received
                         bytes_recvd += read_amount;
@@ -270,7 +269,7 @@ namespace tdsl { namespace net {
 
             if (transfer_exactly > rem_space) {
                 TDSL_DEBUG_PRINTLN("tdsl_netimpl_arduino::do_recv(...) -> error, not enough "
-                                   "space in recv buffer (%u vs %ld)",
+                                   "space in recv buffer (%u vs %zu)",
                                    transfer_exactly, rem_space);
                 TDSL_ASSERT(0);
                 return network_io_result::unexpected(-2);

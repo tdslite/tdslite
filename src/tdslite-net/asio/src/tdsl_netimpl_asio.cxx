@@ -205,7 +205,7 @@ namespace tdsl { namespace net {
             if (transfer_exactly > rem_space) {
                 TDSL_DEBUG_PRINTLN(
                     "tdsl_netimpl_asio::do_recv(tdsl::uint32_t) -> error, not enough "
-                    "space in recv buffer (%u vs %ld)",
+                    "space in recv buffer (%u vs %zu)",
                     transfer_exactly, rem_space);
                 TDSL_ASSERT(0);
                 return network_io_result::unexpected(-2); // error case;

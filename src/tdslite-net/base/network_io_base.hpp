@@ -259,7 +259,7 @@ namespace tdsl {
                     auto rbuf_reader = network_buffer.get_reader();
                     if (rbuf_reader->remaining_bytes()) {
                         TDSL_DEBUG_PRINTLN("Although the EOM is received, receive buffer still "
-                                           "contains %ld bytes of "
+                                           "contains %zu bytes of "
                                            "data which means packet handler failed to handle "
                                            "all the data in the "
                                            "message. Discarding the data.",
