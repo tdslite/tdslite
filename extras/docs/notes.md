@@ -10,9 +10,9 @@
 - Network implementation MUST read negotiated packet size and send packets accordingly -- [DONE]
 - Use platform-specific size_t & ssize_t instead of using int64_t's for space [DONE]
 - Implement an arduino program memory string view type [DONE]
-- Beautify README.md
-- Publish to GitHub Releases, Arduino Libraries and PlatformIO Libraries
-- add badges for arduino, platform.io, snap and ci pipeline status
+- Beautify README.md [~DONE]
+- Publish to GitHub Releases [DONE], Arduino Libraries [DONE] and PlatformIO Libraries [DONE]
+- add badges for arduino [DONE], platform.io [DONE], snap and ci pipeline status [DONE]
 
 ----
 
@@ -34,3 +34,5 @@
   ```
 
   - For all boards with ESP MCU's : `pio boards --json-output | jq -c '.[] | select(.mcu|contains("ESP")) | .id' | xargs printf -- '--board\0%s\0' | tr '\n' '\0' | xargs -0 pio ci examples/esp/esp.cpp`
+
+  - To find which macro is defined for a specific arduino board: [boards.txt](https://github.com/arduino/ArduinoCore-megaavr/blob/5e639ee40afa693354d3d056ba7fb795a8948c11/boards.txt#L25) (see build.board field of each respective board)

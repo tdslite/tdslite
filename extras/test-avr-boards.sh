@@ -3,11 +3,11 @@
 pio lib --global uninstall tdslite
 pio lib --global uninstall CrashMonitor
 pio lib --global uninstall MemoryFree
+pio lib --global uninstall arduino-libraries/WiFiNINA
 
 pio pkg pack -o build/tdslite.tar.gz
 pio lib --global install ./build/tdslite.tar.gz
 pio lib --global install arduino-libraries/Ethernet@2.0.1
-pio lib --global install ./build/arduino-libpack-root/tdslite.zip
 pio lib --global install ./extras/vendor/MemoryFree
 
 set -eu
@@ -36,14 +36,12 @@ PLATFORMIO_BUILD_FLAGS=-DCI_BUILD pio ci \
 tests/sketches/arduino/arduino.cpp
 
 # Test Arduino RPi boards
-
 PLATFORMIO_BUILD_FLAGS=-DCI_BUILD pio ci \
 --project-option="lib_ignore=CrashMonitor" \
 --board nanorp2040connect \
 tests/sketches/arduino/arduino.cpp
 
 # Test Arduino STM boards
-
 PLATFORMIO_BUILD_FLAGS=-DCI_BUILD pio ci \
 --project-option="lib_ignore=CrashMonitor" \
 --board portenta_h7_m4 \
@@ -51,7 +49,6 @@ PLATFORMIO_BUILD_FLAGS=-DCI_BUILD pio ci \
 tests/sketches/arduino/arduino.cpp
 
 # Test Arduino nRF boards
-
 PLATFORMIO_BUILD_FLAGS=-DCI_BUILD pio ci \
 --project-option="lib_ignore=CrashMonitor" \
 --board nano33ble \
@@ -59,11 +56,18 @@ PLATFORMIO_BUILD_FLAGS=-DCI_BUILD pio ci \
 tests/sketches/arduino/arduino.cpp
 
 # Test ESP based boards
-
 PLATFORMIO_BUILD_FLAGS=-DCI_BUILD pio ci \
---project-option="lib_ignore=CrashMonitor" \
+--project-option="lib_ignore=WiFiNINA" \
 --board nodemcu-32s \
 --board nodemcuv2 \
+tests/sketches/esp/esp.cpp
+
+pio lib --global install arduino-libraries/WiFiNINA
+
+# Test Arduino WiFi boards
+PLATFORMIO_BUILD_FLAGS=-DCI_BUILD pio ci \
+--project-option="lib_ignore=CrashMonitor" \
+--board uno_wifi_rev2 \
 tests/sketches/esp/esp.cpp
 
 
