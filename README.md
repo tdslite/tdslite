@@ -58,6 +58,10 @@ It's a playground to try sql commands. Compile the project, and just run `./buil
 
 Verificaton sketches for the library
 
+[➤ Board-specific examples](https://github.com/mustafakemalgilor/tdslite/tree/main/examples/boards)
+
+- [Arduino Uno WiFi rev.2](https://github.com/mustafakemalgilor/tdslite/tree/main/examples/boards/uno_wifi_r2/uno_wifi_r2.ino): Uses WiFiNINA & tdslite to perform INSERT & SELECT.
+
 ----
 
 ## Key features

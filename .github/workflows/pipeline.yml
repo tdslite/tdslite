@@ -1,6 +1,5 @@
 name: CI
 on:
-  push:
   pull_request:
     branches: [main]
 
@@ -115,11 +114,12 @@ jobs:
           pio pkg pack -o tdslite.tar.gz
           pio lib --global install ./tdslite.tar.gz
           pio lib --global install arduino-libraries/Ethernet
+          pio lib --global install arduino-libraries/WiFiNINA
           pio lib --global install ./extras/vendor/MemoryFree
       - name: build-avr
         run: pio ci --project-option="lib_ignore=CrashMonitor" --board nanoatmega328 --board uno --board megaatmega1280 --board megaatmega2560 --board miniatmega328 --board micro --board yun --board nanoatmega328new --board pro8MHzatmega328 --board ethernet tests/sketches/arduino/arduino.cpp
       - name: build-esp
-        run: pio ci --project-option="lib_ignore=CrashMonitor" --board nodemcu-32s --board nodemcuv2 tests/sketches/esp/esp.cpp
+        run: pio ci --project-option="lib_ignore=WiFiNINA" --board nodemcu-32s --board nodemcuv2 tests/sketches/esp/esp.cpp
       - name: build-rpi
         run: pio ci --project-option="lib_ignore=CrashMonitor" --board nanorp2040connect tests/sketches/arduino/arduino.cpp
       - name: build-nrf
@@ -128,7 +128,32 @@ jobs:
         run: pio ci --project-option="lib_ignore=CrashMonitor" --board portenta_h7_m4 --board uno --board portenta_h7_m7 tests/sketches/arduino/arduino.cpp
       - name: build-samd
         run: pio ci --project-option="lib_ignore=CrashMonitor" --board zero tests/sketches/arduino/arduino.cpp
-
+      - name: build-arduino-uno-wifi-r2
+        run: pio ci --project-option="lib_ignore=CrashMonitor" --board uno_wifi_rev2 tests/sketches/esp/esp.cpp
+  Build-Examples:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/pip
+            ~/.platformio/.cache
+          key: ${{ runner.os }}-pio
+      - uses: actions/setup-python@v4
+        with:
+          python-version: "3.9"
+      - name: Install PlatformIO Core
+        run: pip install --upgrade platformio
+      - name: Install PlatformIO libraries
+        run: |
+          pio pkg pack -o tdslite.tar.gz
+          pio lib --global install ./tdslite.tar.gz
+          pio lib --global install arduino-libraries/Ethernet
+          pio lib --global install ./extras/vendor/MemoryFree
+          pio lib --global install arduino-libraries/WiFiNINA
+      - name: board-example-uno-wifi-r2
+        run: pio ci --project-option="lib_ignore=CrashMonitor" --board uno_wifi_rev2 examples/boards/uno_wifi_r2/uno_wifi_r2.ino
   Arduino-Library-Lint:
     runs-on: ubuntu-latest
     steps:
