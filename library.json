@@ -44,9 +44,9 @@
         },
         {
             "name": "basics/callbacks",
-            "base": "examples/arduino/04-callbacks",
+            "base": "examples/arduino/04-info-callback",
             "files": [
-                "04-callbacks.ino"
+                "04-info-callback.ino"
             ]
         },
         {
