@@ -168,7 +168,8 @@ namespace tdsl { namespace net {
 
             const auto bytes_written = asio::write(*as_socket(socket_handle), bufs, ec);
             if (not ec) {
-                TDSL_DEBUG_PRINT("tdsl_netimpl_asio::do_send(byte_view, byte_view) -> sent %zu "
+                TDSL_DEBUG_PRINT("tdsl_netimpl_asio::do_send(byte_view, byte_view) -> "
+                                 "sent " TDSL_SIZET_FORMAT_SPECIFIER " "
                                  "byte(s), ec %d (%s)\n",
                                  bytes_written, ec.value(), ec.what().c_str());
             }
@@ -185,9 +186,9 @@ namespace tdsl { namespace net {
                 } break;
             }
 
-            TDSL_DEBUG_PRINTLN(
-                "tdsl_netimpl_asio::do_send(byte_view, byte_view) -> exit, bytes written %zu",
-                bytes_written);
+            TDSL_DEBUG_PRINTLN("tdsl_netimpl_asio::do_send(byte_view, byte_view) -> exit, bytes "
+                               "written " TDSL_SIZET_FORMAT_SPECIFIER "",
+                               bytes_written);
             (void) bytes_written;
             return e_result::success;
         }
@@ -205,7 +206,7 @@ namespace tdsl { namespace net {
             if (transfer_exactly > rem_space) {
                 TDSL_DEBUG_PRINTLN(
                     "tdsl_netimpl_asio::do_recv(tdsl::uint32_t) -> error, not enough "
-                    "space in recv buffer (%u vs %zu)",
+                    "space in recv buffer (%u vs " TDSL_SIZET_FORMAT_SPECIFIER ")",
                     transfer_exactly, rem_space);
                 TDSL_ASSERT(0);
                 return network_io_result::unexpected(-2); // error case;
@@ -222,7 +223,9 @@ namespace tdsl { namespace net {
                 TDSL_ASSERT(adv_r);
                 (void) adv_r;
                 TDSL_DEBUG_PRINTLN(
-                    "tdsl_netimpl_asio::do_recv(...) -> read bytes(%zu), consumable bytes (%zu)",
+                    "tdsl_netimpl_asio::do_recv(...) -> read bytes(" TDSL_SIZET_FORMAT_SPECIFIER
+                    "), consumable "
+                    "bytes (" TDSL_SIZET_FORMAT_SPECIFIER ")",
                     *result, writer->inuse_span().size_bytes());
                 TDSL_ASSERT(*result == transfer_exactly);
             }
@@ -241,8 +244,10 @@ namespace tdsl { namespace net {
                                          asio::buffer(dst_buf.data(), dst_buf.size_bytes()),
                                          asio::transfer_exactly(transfer_amount), ec);
             if (not ec) {
-                TDSL_DEBUG_PRINTLN("tdsl_netimpl_asio::do_recv(...) success, read %zu bytes",
-                                   read_bytes);
+                TDSL_DEBUG_PRINTLN(
+                    "tdsl_netimpl_asio::do_recv(...) success, read " TDSL_SIZET_FORMAT_SPECIFIER
+                    " bytes",
+                    read_bytes);
                 return read_bytes;
             }
 

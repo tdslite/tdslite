@@ -269,7 +269,7 @@ namespace tdsl { namespace net {
 
             if (transfer_exactly > rem_space) {
                 TDSL_DEBUG_PRINTLN("tdsl_netimpl_arduino::do_recv(...) -> error, not enough "
-                                   "space in recv buffer (%u vs %zu)",
+                                   "space in recv buffer (%u vs " TDSL_SIZET_FORMAT_SPECIFIER ")",
                                    transfer_exactly, rem_space);
                 TDSL_ASSERT(0);
                 return network_io_result::unexpected(-2);

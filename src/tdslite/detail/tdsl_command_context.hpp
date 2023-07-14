@@ -404,9 +404,9 @@ namespace tdsl { namespace detail {
             if (not rr.has_bytes(k_min_colmetadata_bytes)) {
                 result.status       = token_handler_status::not_enough_bytes;
                 result.needed_bytes = k_min_colmetadata_bytes - rr.remaining_bytes();
-                TDSL_DEBUG_PRINTLN(
-                    "received COLMETADATA token, not enough bytes need (at least) %d, have %zu",
-                    k_min_colmetadata_bytes, rr.remaining_bytes());
+                TDSL_DEBUG_PRINTLN("received COLMETADATA token, not enough bytes need (at least) "
+                                   "%d, have " TDSL_SIZET_FORMAT_SPECIFIER,
+                                   k_min_colmetadata_bytes, rr.remaining_bytes());
                 return result;
             }
 
@@ -497,9 +497,9 @@ namespace tdsl { namespace detail {
                     if (not rr.has_bytes(k_collation_info_size)) {
                         result.status       = token_handler_status::not_enough_bytes;
                         result.needed_bytes = k_collation_info_size - rr.remaining_bytes();
-                        TDSL_DEBUG_PRINTLN(
-                            "not enough bytes to read collation information, need %d, have %zu",
-                            k_collation_info_size, rr.remaining_bytes());
+                        TDSL_DEBUG_PRINTLN("not enough bytes to read collation information, need "
+                                           "%d, have " TDSL_SIZET_FORMAT_SPECIFIER "",
+                                           k_collation_info_size, rr.remaining_bytes());
                         return result;
                     }
                     // FIXME: Read this info into current_column
@@ -529,7 +529,8 @@ namespace tdsl { namespace detail {
                         }
                         result.status       = token_handler_status::not_enough_bytes;
                         result.needed_bytes = k_table_name_size_len - rr.remaining_bytes();
-                        TDSL_DEBUG_PRINTLN("not enough bytes to read table name, need %d, have %zu",
+                        TDSL_DEBUG_PRINTLN("not enough bytes to read table name, need %d, "
+                                           "have " TDSL_SIZET_FORMAT_SPECIFIER,
                                            tname_needed_bytes, rr.remaining_bytes());
                         return result;
                     } while (0);
@@ -541,7 +542,8 @@ namespace tdsl { namespace detail {
                 if (not rr.has_bytes((colname_len_in_bytes))) {
                     result.status       = token_handler_status::not_enough_bytes;
                     result.needed_bytes = colname_len_in_bytes - rr.remaining_bytes();
-                    TDSL_DEBUG_PRINTLN("not enough bytes to read column name, need %d, have %zu",
+                    TDSL_DEBUG_PRINTLN("not enough bytes to read column name, need %d, "
+                                       "have " TDSL_SIZET_FORMAT_SPECIFIER "",
                                        colname_len_in_bytes, rr.remaining_bytes());
                     return result;
                 }
@@ -561,8 +563,9 @@ namespace tdsl { namespace detail {
                 ++colindex;
             }
 
-            TDSL_DEBUG_PRINTLN("received COLMETADATA token -> column count [%zu]",
-                               qstate.colmd.columns.size());
+            TDSL_DEBUG_PRINTLN(
+                "received COLMETADATA token -> column count [" TDSL_SIZET_FORMAT_SPECIFIER "]",
+                qstate.colmd.columns.size());
             result.status       = token_handler_status::success;
             result.needed_bytes = 0;
             return result;
@@ -637,7 +640,8 @@ namespace tdsl { namespace detail {
                         }
 
                         TDSL_DEBUG_PRINTLN("handle_row_token() --> not enough bytes for reading "
-                                           "field textptr, %zu more bytes needed",
+                                           "field textptr, " TDSL_SIZET_FORMAT_SPECIFIER
+                                           " more bytes needed",
                                            textptr_need_bytes - rr.remaining_bytes());
                         result.status       = token_handler_status::not_enough_bytes;
                         result.needed_bytes = textptr_need_bytes - rr.remaining_bytes();
@@ -704,8 +708,8 @@ namespace tdsl { namespace detail {
                 }
 
                 if (not rr.has_bytes(field_length)) {
-                    TDSL_DEBUG_PRINTLN("handle_row_token() --> not enough bytes for reading field, "
-                                       "%zu more bytes needed",
+                    TDSL_DEBUG_PRINTLN("handle_row_token() --> not enough bytes for reading "
+                                       "field, " TDSL_SIZET_FORMAT_SPECIFIER " more bytes needed",
                                        field_length - rr.remaining_bytes());
                     result.status       = token_handler_status::not_enough_bytes;
                     result.needed_bytes = field_length - rr.remaining_bytes();

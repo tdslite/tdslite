@@ -156,7 +156,8 @@ namespace tdsl { namespace detail {
                 } break;
                 default: {
                     TDSL_DEBUG_PRINTLN(
-                        "tds_context::handle_msg: unhandled (%zu) bytes of msg with type (%d)",
+                        "tds_context::handle_msg: unhandled (" TDSL_SIZET_FORMAT_SPECIFIER
+                        ") bytes of msg with type (%d)",
                         nmsg_rdr.remaining_bytes(), static_cast<int>(message_type));
                 } break;
             }

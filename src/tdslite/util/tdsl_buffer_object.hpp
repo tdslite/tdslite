@@ -57,7 +57,9 @@ namespace tdsl {
             inline ~progressive_binary_reader() noexcept {
                 writer.shift_left(reader.offset());
                 in_use_flag = {false};
-                TDSL_DEBUG_PRINTLN("netbuf: [consumed `%zu`, inuse `%zu`, free `%zu`]",
+                TDSL_DEBUG_PRINTLN("netbuf: [consumed `" TDSL_SIZET_FORMAT_SPECIFIER
+                                   "`, inuse `" TDSL_SIZET_FORMAT_SPECIFIER
+                                   "`, free `" TDSL_SIZET_FORMAT_SPECIFIER "`]",
                                    reader.offset(), reader.remaining_bytes(),
                                    writer.remaining_bytes());
             }
