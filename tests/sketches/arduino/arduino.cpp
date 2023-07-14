@@ -2,14 +2,14 @@
 // Sketch options
 
 #ifndef CI_BUILD
-#define SKETCH_ENABLE_WATCHDOG_TIMER
+// #define SKETCH_ENABLE_WATCHDOG_TIMER
 #define SKETCH_ENABLE_SERIAL_OUTPUT
 #endif
 
 //  #define SKETCH_ENABLE_TDSL_DEBUG_LOG
 //   #define SKETCH_USE_DHCP // Increases memory usage
-#define SKETCH_TDSL_NETBUF_SIZE 512
-#define SKETCH_TDSL_PACKET_SIZE 512
+#define SKETCH_TDSL_NETBUF_SIZE 4096
+#define SKETCH_TDSL_PACKET_SIZE 2048
 // tdslite options
 #define TDSL_DISABLE_DEFAULT_ALLOCATOR 1
 
@@ -141,7 +141,7 @@ void initTdsliteDriver() {
     tdsl::tdslite_malloc_free(my_malloc, my_free);
     tdsl::arduino_driver<EthernetClient>::progmem_connection_parameters params;
     // Server's hostname or IP address.
-    params.server_name = TDSL_PMEMSTR("192.168.1.22"); // WL
+    params.server_name = TDSL_PMEMSTR("192.168.1.27"); // WL
     // params.server_name = TDSL_PMEMSTR("192.168.1.45"); // WS
     //  SQL server port number
     params.port        = 14333;
@@ -182,7 +182,8 @@ inline void tdslite_loop() {
         const auto result =
             driver.execute_query(TDSL_PMEMSTR("SELECT * FROM #hello_world;"), row_callback);
         (void) result;
-        SERIAL_PRINTLNF(">> Report: row count [%d], free RAM [%d] <<", row_count, freeMemory());
+        SERIAL_PRINTLNF(">> Report: row count [%d], free RAM [%d] <<", result.affected_rows,
+                        freeMemory());
         SERIAL_PRINTLNF("%d", freeMemory());
     }
 }

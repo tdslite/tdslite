@@ -1,14 +1,42 @@
+/**
+ * ____________________________________________________
+ * Internal test sketch for WiFi-enabled boards like
+ * ESP and Arduino WiFi
+ *
+ * Known to be compatible with the following boards:
+ *
+ * - NodeMCU-32S (ESP32S)
+ * - NodeMCU-v3 (ESP8266)
+ * - Arduino Uno WiFi R2
+ *
+ * @file   esp.cpp
+ * @author mkg <hello@mkg.dev>
+ * @date   14.07.2023
+ *
+ * SPDX-License-Identifier:    MIT
+ * ____________________________________________________
+ */
+
 #if defined ESP8266
 #include <ESP8266WiFi.h>
+#define SKETCH_TDSL_NETBUF_SIZE 512 * 16
+#define SKETCH_TDSL_PACKET_SIZE 1400 // ~tcp segment size
+
 #elif defined ESP32
 #include <WiFi.h>
 #include <esp_task_wdt.h>
-#else
-#error "Architecture unrecognized by this code."
-#endif
 
 #define SKETCH_TDSL_NETBUF_SIZE 512 * 16
 #define SKETCH_TDSL_PACKET_SIZE 1400 // ~tcp segment size
+
+#elif defined ARDUINO_AVR_UNO_WIFI_REV2
+#include <WiFiNINA.h>
+
+#define SKETCH_TDSL_NETBUF_SIZE 512 * 4
+#define SKETCH_TDSL_PACKET_SIZE 1400 // ~tcp segment size
+#else
+#error "Architecture unrecognized by this code."
+#endif
 
 /**
  * Print a formatted string to serial output.
@@ -60,7 +88,7 @@ static void info_callback(void *, const tdsl::tds_info_token & token) noexcept {
     SERIAL_PRINTF("%c: [%d/%d/%d@%d] --> ", (token.is_info() ? 'I' : 'E'), token.number,
                   token.state, token.class_, token.line_number);
     SERIAL_PRINT_U16_AS_MB(token.msgtext);
-    SERIAL_PRINTLNF("");
+    SERIAL_PRINTF("\n");
 }
 
 // --------------------------------------------------------------------------------
@@ -88,7 +116,7 @@ static void row_callback(void * u, const tdsl::tds_colmetadata_token & colmd,
     for (const auto & field : row) {
         SERIAL_PRINTF("%d\t", field.as<tdsl::uint32_t>());
     }
-    SERIAL_PRINTLNF("");
+    SERIAL_PRINTF("\n");
 }
 
 // The network buffer
@@ -101,7 +129,7 @@ void tdslite_database_init() noexcept {
     SERIAL_PRINTLNF("... init database begin...");
     const auto r = driver.execute_query("CREATE TABLE #hello_world(a int, b int, c varchar(255));");
     (void) r;
-    SERIAL_PRINTLNF("... init database end, result `%d`...", r);
+    SERIAL_PRINTLNF("... init database end, result `%d`...", r.affected_rows);
 }
 
 // --------------------------------------------------------------------------------
@@ -110,7 +138,7 @@ bool tdslite_setup() noexcept {
     SERIAL_PRINTLNF("... init tdslite ...");
     decltype(driver)::connection_parameters params;
     // Server's hostname or IP address.
-    params.server_name = "192.168.1.22"; // WL
+    params.server_name = "192.168.1.27"; // WL
     // params.server_name = PSTR("192.168.1.45"); // WS
     //  SQL server port number
     params.port        = 14333;
@@ -178,14 +206,13 @@ inline bool wifi_setup() {
     SERIAL_PRINTLNF("... wifi setup ...");
     const char * ssid     = "<>";
     const char * password = "<>";
-    WiFi.mode(WIFI_STA); // Optional
     WiFi.begin(ssid, password);
     while (not(WiFi.status() == WL_CONNECTED)) {
         SERIAL_PRINTLNF("... waiting for WiFi connection ...");
         delay(1000);
     };
-    SERIAL_PRINTLNF("Connected to the WiFi network `%s`, IP address is: %s", ssid,
-                    WiFi.localIP().toString().c_str());
+    SERIAL_PRINTLNF("Connected to the WiFi network `%s`, IP address is: %d.%d.%d.%d", ssid,
+                    WiFi.localIP() [0], WiFi.localIP() [1], WiFi.localIP() [2], WiFi.localIP() [3]);
     return true;
 }
 
