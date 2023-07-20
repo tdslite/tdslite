@@ -33,7 +33,7 @@ using tds_ctx_t = uut_t::tds_context_type;
 struct tds_login_ctx_it_fixture : public ::testing::Test {
 
     virtual void SetUp() override {
-        ASSERT_EQ(0, tds_ctx.do_connect("mssql-2017", /*port=*/1433));
+        ASSERT_EQ(true, tds_ctx.do_connect("mssql-2017", /*port=*/1433));
     }
 
     virtual void TearDown() override {}

@@ -26,16 +26,21 @@ namespace tdsl {
     // TODO: limit this to arithmetic & enum types
     // so we don't have to deal with non-triviality
     // of others.
-    // template <typename ET>
-    // struct unexpected {
-    //     unexpected() = default;
 
-    //     unexpected(ET && unexpected) : value(TDSL_MOVE(unexpected)) {}
+    namespace detail {
+        template <typename T>
+        struct unexpected_wrapper {
+            unexpected_wrapper(T v) : unexpected_v(v) {}
 
-    //     ET value;
-    //     static_assert(tdsl::traits::is_reference<ET>::value == false,
-    //                   "ET cannot be a reference type");
-    // };
+            T unexpected_v;
+        };
+
+    } // namespace detail
+
+    template <typename T>
+    TDSL_NODISCARD detail::unexpected_wrapper<T> unexpected(T error_value) {
+        return detail::unexpected_wrapper<T>(error_value);
+    }
 
     /**
      * Barebones* expected implementation
@@ -63,13 +68,7 @@ namespace tdsl {
             ST & value;
         };
 
-        struct unexpected_ctr_tag {};
-
     public:
-        static inline auto unexpected(ET v) noexcept -> self_type {
-            return self_type{v, unexpected_ctr_tag{}};
-        }
-
         union {
             ST value;
             ET unexpected_value{};
@@ -95,6 +94,29 @@ namespace tdsl {
          */
         expected(ST && expected) : value(TDSL_MOVE(expected)), has_expected(true) {}
 
+        inline expected<ST, ET> & operator=(const expected<ST, ET> & other) {
+            if (other.has_value()) {
+                value        = other.value;
+                has_expected = true;
+            }
+            else {
+                unexpected_value = unexpected_value;
+                has_expected     = false;
+            }
+            return *this;
+        }
+
+        inline expected(const expected<ST, ET> & other) {
+            if (other.has_value()) {
+                value        = other.value;
+                has_expected = true;
+            }
+            else {
+                unexpected_value = unexpected_value;
+                has_expected     = false;
+            }
+        }
+
         expected(expected<ST, ET> && other) {
             if (other.has_value()) {
                 value        = TDSL_MOVE(other.value);
@@ -107,18 +129,17 @@ namespace tdsl {
         }
 
         /**
-         * Expected constructor for unexpected
+         * Unexpected constructor
          *
-         * Only allow calls with tag dispatch, since ST == ET and
-         * it would be ambigious.
-         *
-         * @param [in] unexpected Value for unexpected
+         * @tparam T The unexpected type
+         * @param ue An instance of unexpected_wrapper<T> type
          */
-        expected(ET unexpected, unexpected_ctr_tag) :
-            unexpected_value(unexpected), has_expected(false) {}
+        template <typename T>
+        expected(detail::unexpected_wrapper<T> && ue) :
+            unexpected_value(TDSL_MOVE(ue.unexpected_v)), has_expected(false) {}
 
         inline ~expected() {
-            // ... because destructor cannot be a templated function.
+            // ... because destructor cannot be a template function.
             destructor_impl();
         }
 

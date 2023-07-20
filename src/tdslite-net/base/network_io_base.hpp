@@ -93,7 +93,8 @@ namespace tdsl {
              */
             template <typename T, traits::enable_when::same_any_of<T, string_view, wstring_view,
                                                                    progmem_string_view> = true>
-            TDSL_NODISCARD inline int connect(T host, tdsl::uint16_t port) noexcept {
+            TDSL_NODISCARD inline tdsl::expected<tdsl::traits::true_type, int>
+            connect(T host, tdsl::uint16_t port) noexcept {
                 return static_cast<Implementation &>(*this).do_connect(host, port);
             }
 

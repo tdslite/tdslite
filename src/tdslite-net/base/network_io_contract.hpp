@@ -27,7 +27,8 @@ namespace tdsl { namespace net {
      * A minimal network implementation is required to
      * implement the following functions:
      *
-     *    tdsl::int32_t do_connect(tdsl::char_view target, tdsl::uint16_t port);
+     *    tdsl::expected<tdsl::traits::true_type, int> do_connect(tdsl::char_view target,
+     *                                                            tdsl::uint16_t port);
      *    tdsl::int32_t do_disconnect() noexcept;
      *    tdsl::int32_t do_send(byte_view header, byte_view message) noexcept;
      *    expected<tdsl::uint32_t, tdsl::int32_t> do_recv(tdsl::uint32_t transfer_amount) noexcept;

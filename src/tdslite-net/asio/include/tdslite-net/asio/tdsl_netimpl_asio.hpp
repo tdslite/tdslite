@@ -60,7 +60,8 @@ namespace tdsl { namespace net {
          * @returns -2 when asynchronous resolve operation of previous @ref do_connect call is still
          * in progress
          */
-        TDSL_SYMBOL_VISIBLE tdsl::int32_t do_connect(tdsl::char_view target, tdsl::uint16_t port);
+        TDSL_SYMBOL_VISIBLE tdsl::expected<tdsl::traits::true_type, int>
+        do_connect(tdsl::char_view target, tdsl::uint16_t port);
 
         // --------------------------------------------------------------------------------
 

@@ -83,8 +83,8 @@ namespace tdsl { namespace net {
 
         // --------------------------------------------------------------------------------
 
-        tdsl::int32_t tdsl_netimpl_asio::do_connect(tdsl::span<const char> target,
-                                                    tdsl::uint16_t port) {
+        tdsl::expected<tdsl::traits::true_type, int>
+        tdsl_netimpl_asio::do_connect(tdsl::span<const char> target, tdsl::uint16_t port) {
 
             enum e_result : tdsl::int32_t
             {
@@ -97,7 +97,7 @@ namespace tdsl { namespace net {
             if (socket_handle) {
                 TDSL_DEBUG_PRINT(
                     "tdsl_netimpl_asio::do_connect(...) -> exit, socket already alive\n");
-                return e_result::socket_already_alive;
+                return tdsl::unexpected(static_cast<int>(e_result::socket_already_alive));
             }
 
             // Let's try to resolve the given address first.
@@ -132,7 +132,7 @@ namespace tdsl { namespace net {
                         socket_handle = std::move(sock);
                         // We're connected to one endpoint, stop trying
                         TDSL_DEBUG_PRINT("tdsl_netimpl_asio::do_connect(...) -> exit, connected\n");
-                        return e_result::connected;
+                        return tdsl::traits::true_type{};
                     }
                 }
 
@@ -141,11 +141,11 @@ namespace tdsl { namespace net {
             else {
                 // Otherwise, we got a resolve failure error in our hands.
                 TDSL_DEBUG_PRINT("tdsl_netimpl_asio::do_connect(...) -> exit, resolve failed!\n");
-                return e_result::resolve_failed;
+                return tdsl::unexpected(static_cast<int>(e_result::resolve_failed));
             }
 
             TDSL_DEBUG_PRINT("tdsl_netimpl_asio::do_connect(...) -> exit, connection failed\n");
-            return e_result::connection_failed;
+            return tdsl::unexpected(static_cast<int>(e_result::connection_failed));
         }
 
         // --------------------------------------------------------------------------------
@@ -209,7 +209,7 @@ namespace tdsl { namespace net {
                     "space in recv buffer (%u vs " TDSL_SIZET_FORMAT_SPECIFIER ")",
                     transfer_exactly, rem_space);
                 TDSL_ASSERT(0);
-                return network_io_result::unexpected(-2); // error case;
+                return tdsl::unexpected(-2); // error case;
             }
 
             // Retrieve the free space
@@ -258,7 +258,7 @@ namespace tdsl { namespace net {
                              ec.value(), ec.what().c_str());
 
             do_disconnect();
-            return network_io_result::unexpected(-1); // error case
+            return tdsl::unexpected(-1); // error case
         }
 
         // --------------------------------------------------------------------------------

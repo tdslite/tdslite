@@ -87,7 +87,7 @@ namespace tdsl {
             if (fields) {
                 return tdsl_row(fields, n_col);
             }
-            return make_result_t::unexpected(e_tdsl_row_make_err::MEM_ALLOC);
+            return tdsl::unexpected(e_tdsl_row_make_err::MEM_ALLOC);
         }
 
         // --------------------------------------------------------------------------------
