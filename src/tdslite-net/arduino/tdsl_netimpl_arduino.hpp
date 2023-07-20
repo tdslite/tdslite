@@ -89,7 +89,8 @@ namespace tdsl { namespace net {
          *         otherwise.
          */
         template <typename T>
-        TDSL_SYMBOL_VISIBLE int do_connect(T target, tdsl::uint16_t port) {
+        TDSL_SYMBOL_VISIBLE tdsl::expected<tdsl::traits::true_type, int>
+        do_connect(T target, tdsl::uint16_t port) {
             // Disconnect if already connected
             do_disconnect();
 
@@ -118,7 +119,7 @@ namespace tdsl { namespace net {
                 destination_host = w->inuse_span().template rebind_cast<const char>();
             }
             else {
-                return -99; // FIXME: proper error code
+                return tdsl::unexpected(-99); // FIXME: proper error code
             }
 
             // Retry up to MAX_CONNECT_ATTEMPTS times.
@@ -143,9 +144,9 @@ namespace tdsl { namespace net {
             this->network_buffer.get_writer()->reset();
 
             if (cr == 1) {
-                return 0;
+                return tdsl::traits::true_type{};
             }
-            return cr;
+            return tdsl::unexpected(cr);
         }
 
         // --------------------------------------------------------------------------------
@@ -190,7 +191,7 @@ namespace tdsl { namespace net {
 
             if (transfer_exactly > dst_buf.size_bytes()) {
                 // Destination buffer does not have the capacity
-                return network_io_result::unexpected(static_cast<int>(errc::not_enough_capacity));
+                return tdsl::unexpected(static_cast<int>(errc::not_enough_capacity));
             }
 
             // When we should give up on trying to receive
@@ -222,8 +223,7 @@ namespace tdsl { namespace net {
                             "tdsl_netimpl_arduino::do_recv(...) -> ret 0, disconnected");
                         // disconnected
                         do_disconnect();
-                        return network_io_result::unexpected(
-                            static_cast<int>(errc::disconnected)); // error case
+                        return tdsl::unexpected(static_cast<int>(errc::disconnected)); // error case
                     }
                     else if (read_amount < 0) {
                         TDSL_TRACE_PRINTLN(
@@ -236,8 +236,7 @@ namespace tdsl { namespace net {
                             TDSL_ASSERT(false);
                             // This cannot happen in a normal implementation
                             // i.e. the client's read() function is buggy.
-                            return network_io_result::unexpected(
-                                static_cast<int>(errc::unexpected_read_amount));
+                            return tdsl::unexpected(static_cast<int>(errc::unexpected_read_amount));
                         }
                         TDSL_ASSERT((bytes_recvd + read_amount) <= transfer_exactly);
                         // Data received
@@ -248,7 +247,7 @@ namespace tdsl { namespace net {
                 if (millis() >= wait_till) {
                     // timeout
                     TDSL_DEBUG_PRINTLN("tdsl_netimpl_arduino::do_recv(...) -> error, time out!");
-                    return network_io_result::unexpected(static_cast<int>(errc::timeout));
+                    return tdsl::unexpected(static_cast<int>(errc::timeout));
                 }
 
             } while (!(bytes_recvd == transfer_exactly));
@@ -272,7 +271,7 @@ namespace tdsl { namespace net {
                                    "space in recv buffer (%u vs " TDSL_SIZET_FORMAT_SPECIFIER ")",
                                    transfer_exactly, rem_space);
                 TDSL_ASSERT(0);
-                return network_io_result::unexpected(-2);
+                return tdsl::unexpected(-2);
             }
             auto free_space_span = writer->free_span();
             auto result          = do_recv(transfer_exactly, free_space_span);

@@ -163,7 +163,7 @@ namespace tdsl { namespace detail {
          * The result set returned by query @p command can be read by providing
          * a row callback function
          *
-         * @returns execute_rpc_result::unexpected(e_rpc_error_code::invalid_mode) if @p mode
+         * @returns e_rpc_error_code::invalid_mode if @p mode
          *          value is invalid
          * @returns rows_affected if successful
          */
@@ -184,7 +184,7 @@ namespace tdsl { namespace detail {
                     TDSL_NOT_YET_IMPLEMENTED;
                     break;
                 default:
-                    return execute_rpc_result::unexpected(e_rpc_error_code::invalid_mode);
+                    return tdsl::unexpected(e_rpc_error_code::invalid_mode);
             }
 
             // 0xffff means we're going to use special procedure id
