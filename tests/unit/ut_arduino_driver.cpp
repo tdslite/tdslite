@@ -21,45 +21,7 @@ unsigned long millis() {
 #include <tdslite-net/arduino/tdsl_netimpl_arduino.hpp>
 #include <tdslite/util/tdsl_string_view.hpp>
 #include <gtest/gtest.h>
-
-// class EthernetClient : public Client {
-// public:
-// 	EthernetClient() : _sockindex(MAX_SOCK_NUM), _timeout(1000) { }
-// 	EthernetClient(uint8_t s) : _sockindex(s), _timeout(1000) { }
-// 	virtual ~EthernetClient() {};
-
-// 	uint8_t status();
-// 	virtual int connect(IPAddress ip, uint16_t port);
-// 	virtual int connect(const char *host, uint16_t port);
-// 	virtual int availableForWrite(void);
-// 	virtual size_t write(uint8_t);
-// 	virtual size_t write(const uint8_t *buf, size_t size);
-// 	virtual int available();
-// 	virtual int read();
-// 	virtual int read(uint8_t *buf, size_t size);
-// 	virtual int peek();
-// 	virtual void flush();
-// 	virtual void stop();
-// 	virtual uint8_t connected();
-// 	virtual operator bool() { return _sockindex < MAX_SOCK_NUM; }
-// 	virtual bool operator==(const bool value) { return bool() == value; }
-// 	virtual bool operator!=(const bool value) { return bool() != value; }
-// 	virtual bool operator==(const EthernetClient&);
-// 	virtual bool operator!=(const EthernetClient& rhs) { return !this->operator==(rhs); }
-// 	uint8_t getSocketNumber() const { return _sockindex; }
-// 	virtual uint16_t localPort();
-// 	virtual IPAddress remoteIP();
-// 	virtual uint16_t remotePort();
-// 	virtual void setConnectionTimeout(uint16_t timeout) { _timeout = timeout; }
-
-// 	friend class EthernetServer;
-
-// 	using Print::write;
-
-// private:
-// 	uint8_t _sockindex; // MAX_SOCK_NUM means client not in use
-// 	uint16_t _timeout;
-// };
+#include <gmock/gmock.h>
 
 struct my_client {
 
@@ -115,17 +77,16 @@ struct my_client {
         return len;
     }
 
-    int connect(const char * host, unsigned short port) {
-        (void) host;
-        (void) port;
-        return 0;
+    int connect(const char *, unsigned short a) {
+        return a - 100;
     }
 
-    int read(unsigned char * buf, unsigned long amount) {
+    virtual int read(unsigned char * buf, unsigned long amount) {
         if (amount > sizeof(cb)) {
             TDSL_CANNOT_HAPPEN;
         }
-        memcpy(buf, cb, amount);
+
+        memcpy(buf, cb + (sizeof(cb) - avail), amount);
         avail -= amount;
         return static_cast<int>(amount);
     }
@@ -157,33 +118,61 @@ struct my_client {
     ip_addr remoteIP() {
         return ip_addr(192, 168, 3, 1);
     }
+
+    void reset_avail() {
+        avail = sizeof(cb);
+    }
+};
+
+struct my_client_chunked_read : public my_client {
+    virtual int read(unsigned char * buf, unsigned long amount) override {
+        if (amount > sizeof(cb)) {
+            TDSL_CANNOT_HAPPEN;
+        }
+
+        if (amount > 1) {
+            amount = 1;
+        }
+
+        memcpy(buf, cb + (sizeof(cb) - avail), amount);
+        avail -= amount;
+        return static_cast<int>(amount);
+    }
 };
 
 tdsl::uint8_t buf [512] = {0};
 
-using uut_t             = tdsl::net::tdsl_netimpl_arduino<my_client>;
+template <typename ClientType>
+using uut_t = tdsl::net::tdsl_netimpl_arduino<ClientType>;
 
 TEST(test, construct) {
-    uut_t the_client{buf};
+    uut_t<my_client> the_client{buf};
 }
 
 TEST(test, connect) {
-    uut_t the_client{buf};
-    auto r = the_client.connect(/*target=*/tdsl::string_view{"a"}, /*port=*/1555);
-    (void) r;
+    uut_t<my_client> the_client{buf};
+    for (int i = 0; i < 200; i++) {
+        auto r = the_client.connect(/*host=*/tdsl::string_view{/*str=*/"a"}, /*port=*/i);
+        ASSERT_EQ(r, i == 101);
+    }
 }
 
 TEST(test, write) {
-    uut_t the_client{buf};
-    the_client.do_write(tdsl::span<tdsl::uint8_t>{nullptr, nullptr});
+    uut_t<my_client> the_client{buf};
+    the_client.do_write(tdsl::span<tdsl::uint8_t>{/*begin=*/nullptr, /*end=*/nullptr});
 }
 
 TEST(test, receive_tds_pdu) {
-    uut_t the_client{buf};
-    the_client.do_receive_tds_pdu();
+    uut_t<my_client> the_client{buf};
+    ASSERT_EQ(1, the_client.do_receive_tds_pdu());
+}
+
+TEST(test, receive_tds_pdu_chunked) {
+    uut_t<my_client_chunked_read> the_client{buf};
+    ASSERT_EQ(1, the_client.do_receive_tds_pdu());
 }
 
 TEST(test, send_tds_pdu) {
-    uut_t the_client{buf};
+    uut_t<my_client> the_client{buf};
     the_client.do_send_tds_pdu(tdsl::detail::e_tds_message_type::login);
 }

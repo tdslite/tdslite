@@ -126,7 +126,7 @@ namespace tdsl { namespace detail {
                 return pvr;
             }
 
-            if (not(0 == tds_ctx.connect(p.server_name, p.port))) {
+            if (not tds_ctx.connect(p.server_name, p.port)) {
                 return e_driver_error_code::connection_failed;
             }
 
