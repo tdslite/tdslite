@@ -22,7 +22,7 @@ services:
       - tds-devenv-network
     container_name: tdslite-mssql-2017
   devenv:
-    image: ghcr.io/mustafakemalgilor/tdslite/tdslite-devenv:0.1.0
+    image: ghcr.io/mustafakemalgilor/tdslite/tdslite-devenv:0.3.0
     dns:
       - 8.8.8.8 # Public DNS server (google)
     volumes:

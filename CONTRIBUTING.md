@@ -47,12 +47,12 @@ It's possible to use the docker-compose file manually to bring the development e
 
 #### Building the project (command line)
 
-Replace "gcc-12-dev-debug" with the preset of your choice, see `cmake --list-presets` for all presets available.
+Replace "gcc-13-dev-debug" with the preset of your choice, see `cmake --list-presets` for all presets available.
 
 - Step -1: Get a shell from `devenv` container: `docker exec -it --user dev:dev tdslite-devenv zsh -c "cd /workspace;zsh -i"`
-- Step 0: Configure: `cmake --preset "gcc-12-dev-debug"`
-- Step 1: Build: `cmake --build --preset "gcc-12-dev-debug"`
-- Step 2: Run all tests: `ctest --preset "gcc-12-dev-debug"`
+- Step 0: Configure: `cmake --preset "gcc-13-dev-debug"`
+- Step 1: Build: `cmake --build --preset "gcc-13-dev-debug"`
+- Step 2: Run all tests: `ctest --preset "gcc-13-dev-debug"`
 
 ### Going commando
 

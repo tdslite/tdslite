@@ -14,10 +14,10 @@ jobs:
   Build:
     strategy:
       matrix:
-        cmake_preset: ["gcc-12-ci-release", "clang-15-ci-release"]
+        cmake_preset: ["gcc-13-ci-release", "clang-16-ci-release"]
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/mustafakemalgilor/tdslite/tdslite-devenv:0.1.0
+      image: ghcr.io/mustafakemalgilor/tdslite/tdslite-devenv:0.3.0
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.github_token }}
@@ -59,7 +59,7 @@ jobs:
     needs: Build
     strategy:
       matrix:
-        cmake_preset: ["gcc-12-ci-release", "clang-15-ci-release"]
+        cmake_preset: ["gcc-13-ci-release", "clang-16-ci-release"]
         mssql_version: [2017, 2019, 2022]
     runs-on: ubuntu-latest
     services:
@@ -69,7 +69,7 @@ jobs:
           MSSQL_SA_PASSWORD: "2022-tds-lite-test!"
           ACCEPT_EULA: "Y"
     container:
-      image: ghcr.io/mustafakemalgilor/tdslite/tdslite-devenv:0.1.0
+      image: ghcr.io/mustafakemalgilor/tdslite/tdslite-devenv:0.3.0
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.github_token }}
