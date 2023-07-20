@@ -444,17 +444,17 @@
             }
         },
         {
-            "name": "gcc-12",
-            "description": "GCC 12.2",
+            "name": "gcc-13",
+            "description": "GCC 13.1",
             "hidden": true,
             "cacheVariables": {
                 "CMAKE_C_COMPILER": {
                     "type": "STRING",
-                    "value": "/usr/bin/gcc-12"
+                    "value": "/usr/bin/gcc-13"
                 },
                 "CMAKE_CXX_COMPILER": {
                     "type": "STRING",
-                    "value": "/usr/bin/g++-12"
+                    "value": "/usr/bin/g++-13"
                 },
                 "TDSLITE_PROJECT_CXX_COMPILE_OPTIONS": {
                     "type": "STRING",
@@ -484,56 +484,56 @@
         },
         {
             "inherits": [
-                "gcc-12",
+                "gcc-13",
                 "build-variant-debug",
                 "settings-dev"
             ],
-            "name": "gcc-12-dev-debug",
-            "displayName": "Configure | GCC 12.2 (dev|debug)",
-            "description": "Compile with GCC 12.2 in Debug build variant with `dev` environment settings"
+            "name": "gcc-13-dev-debug",
+            "displayName": "Configure | GCC 13.1 (dev|debug)",
+            "description": "Compile with GCC 13.1 in Debug build variant with `dev` environment settings"
         },
         {
             "inherits": [
-                "gcc-12",
+                "gcc-13",
                 "build-variant-release",
                 "settings-dev"
             ],
-            "name": "gcc-12-dev-release",
-            "displayName": "Configure | GCC 12.2 (dev|release)",
-            "description": "Compile with GCC 12.2 in Release build variant with `dev` environment settings"
+            "name": "gcc-13-dev-release",
+            "displayName": "Configure | GCC 13.1 (dev|release)",
+            "description": "Compile with GCC 13.1 in Release build variant with `dev` environment settings"
         },
         {
             "inherits": [
-                "gcc-12",
+                "gcc-13",
                 "build-variant-release",
                 "settings-ci"
             ],
-            "name": "gcc-12-ci-release",
-            "displayName": "Configure | GCC 12.2 (ci|release)",
-            "description": "Compile with GCC 12.2 in Release build variant with `CI/CD` environment settings"
+            "name": "gcc-13-ci-release",
+            "displayName": "Configure | GCC 13.1 (ci|release)",
+            "description": "Compile with GCC 13.1 in Release build variant with `CI/CD` environment settings"
         },
         {
             "inherits": [
-                "gcc-12",
+                "gcc-13",
                 "build-variant-release",
                 "settings-prod"
             ],
-            "name": "gcc-12-prod-release",
-            "displayName": "Configure | GCC 12.2 (prod|release)",
-            "description": "Compile with GCC 12.2 in Release build variant with `Production` environment settings (official production)"
+            "name": "gcc-13-prod-release",
+            "displayName": "Configure | GCC 13.1 (prod|release)",
+            "description": "Compile with GCC 13.1 in Release build variant with `Production` environment settings (official production)"
         },
         {
-            "name": "clang-15",
-            "description": "Clang 15 compiler",
+            "name": "clang-16",
+            "description": "Clang 16 compiler",
             "hidden": true,
             "cacheVariables": {
                 "CMAKE_C_COMPILER": {
                     "type": "STRING",
-                    "value": "/usr/bin/clang-15"
+                    "value": "/usr/bin/clang-16"
                 },
                 "CMAKE_CXX_COMPILER": {
                     "type": "STRING",
-                    "value": "/usr/bin/clang++-15"
+                    "value": "/usr/bin/clang++-16"
                 },
                 "TDSLITE_PROJECT_CXX_COMPILE_OPTIONS": {
                     "type": "STRING",
@@ -563,43 +563,43 @@
         },
         {
             "inherits": [
-                "clang-15",
+                "clang-16",
                 "build-variant-debug",
                 "settings-dev"
             ],
-            "name": "clang-15-dev-debug",
-            "displayName": "Configure | Clang 15.0.0 (dev|debug)",
-            "description": "Compile with Clang 15.0.0 in Debug build variant with `dev` environment settings"
+            "name": "clang-16-dev-debug",
+            "displayName": "Configure | Clang 16.0.0 (dev|debug)",
+            "description": "Compile with Clang 16.0.0 in Debug build variant with `dev` environment settings"
         },
         {
             "inherits": [
-                "clang-15",
+                "clang-16",
                 "build-variant-release",
                 "settings-dev"
             ],
-            "name": "clang-15-dev-release",
-            "displayName": "Configure | Clang 15.0.0 (dev|release)",
-            "description": "Compile with Clang 15.0.0 in Release build variant with `dev` environment settings"
+            "name": "clang-16-dev-release",
+            "displayName": "Configure | Clang 16.0.0 (dev|release)",
+            "description": "Compile with Clang 16.0.0 in Release build variant with `dev` environment settings"
         },
         {
             "inherits": [
-                "clang-15",
+                "clang-16",
                 "build-variant-release",
                 "settings-ci"
             ],
-            "name": "clang-15-ci-release",
-            "displayName": "Configure | Clang 15.0.0 (ci|release)",
-            "description": "Compile with Clang 15.0.0 in Release build variant with `CI/CD` environment settings"
+            "name": "clang-16-ci-release",
+            "displayName": "Configure | Clang 16.0.0 (ci|release)",
+            "description": "Compile with Clang 16.0.0 in Release build variant with `CI/CD` environment settings"
         },
         {
             "inherits": [
-                "clang-15",
+                "clang-16",
                 "build-variant-release",
                 "settings-prod"
             ],
-            "name": "clang-15-prod-release",
-            "displayName": "Configure | Clang 15.0.0 (prod|release)",
-            "description": "Compile with Clang 15.0.0 in Release build variant with `Production` environment settings"
+            "name": "clang-16-prod-release",
+            "displayName": "Configure | Clang 16.0.0 (prod|release)",
+            "description": "Compile with Clang 16.0.0 in Release build variant with `Production` environment settings"
         }
     ],
     "buildPresets": [
@@ -612,51 +612,51 @@
         },
         {
             "inherits": "default",
-            "name": "gcc-12-dev-debug",
-            "displayName": "Build | GCC 12.2 (dev|debug)",
-            "configurePreset": "gcc-12-dev-debug"
+            "name": "gcc-13-dev-debug",
+            "displayName": "Build | GCC 13.1 (dev|debug)",
+            "configurePreset": "gcc-13-dev-debug"
         },
         {
             "inherits": "default",
-            "name": "gcc-12-dev-release",
-            "displayName": "Build | GCC 12.2 (dev|release)",
-            "configurePreset": "gcc-12-dev-release"
+            "name": "gcc-13-dev-release",
+            "displayName": "Build | GCC 13.1 (dev|release)",
+            "configurePreset": "gcc-13-dev-release"
         },
         {
             "inherits": "default",
-            "name": "clang-15-dev-debug",
-            "displayName": "Build | Clang 15.0.0 (dev|debug)",
-            "configurePreset": "clang-15-dev-debug"
+            "name": "clang-16-dev-debug",
+            "displayName": "Build | Clang 16.0.0 (dev|debug)",
+            "configurePreset": "clang-16-dev-debug"
         },
         {
             "inherits": "default",
-            "name": "clang-15-dev-release",
-            "displayName": "Build | Clang 15.0.0 (dev|release)",
-            "configurePreset": "clang-15-dev-release"
+            "name": "clang-16-dev-release",
+            "displayName": "Build | Clang 16.0.0 (dev|release)",
+            "configurePreset": "clang-16-dev-release"
         },
         {
             "inherits": "default",
-            "name": "gcc-12-ci-release",
-            "displayName": "Build | GCC 12.2 (ci|release)",
-            "configurePreset": "gcc-12-ci-release"
+            "name": "gcc-13-ci-release",
+            "displayName": "Build | GCC 13.1 (ci|release)",
+            "configurePreset": "gcc-13-ci-release"
         },
         {
             "inherits": "default",
-            "name": "clang-15-ci-release",
-            "displayName": "Build | Clang 15.0.0 (ci|release)",
-            "configurePreset": "clang-15-ci-release"
+            "name": "clang-16-ci-release",
+            "displayName": "Build | Clang 16.0.0 (ci|release)",
+            "configurePreset": "clang-16-ci-release"
         },
         {
             "inherits": "default",
-            "name": "gcc-12-prod-release",
-            "displayName": "Build | GCC 12.2 (prod|release)",
-            "configurePreset": "gcc-12-prod-release"
+            "name": "gcc-13-prod-release",
+            "displayName": "Build | GCC 13.1 (prod|release)",
+            "configurePreset": "gcc-13-prod-release"
         },
         {
             "inherits": "default",
-            "name": "clang-15-prod-release",
-            "displayName": "Build | Clang 15.0.0 (prod|release)",
-            "configurePreset": "clang-15-prod-release"
+            "name": "clang-16-prod-release",
+            "displayName": "Build | Clang 16.0.0 (prod|release)",
+            "configurePreset": "clang-16-prod-release"
         }
     ],
     "testPresets": [
@@ -685,65 +685,65 @@
             "inherits": [
                 "common-settings"
             ],
-            "name": "gcc-12-dev-debug",
-            "displayName": "Test | GCC 12.2 (dev|debug)",
-            "configurePreset": "gcc-12-dev-debug"
+            "name": "gcc-13-dev-debug",
+            "displayName": "Test | GCC 13.1 (dev|debug)",
+            "configurePreset": "gcc-13-dev-debug"
         },
         {
             "inherits": [
                 "common-settings"
             ],
-            "name": "gcc-12-dev-release",
-            "displayName": "Test | GCC 12.2 (dev|release)",
-            "configurePreset": "gcc-12-dev-release"
+            "name": "gcc-13-dev-release",
+            "displayName": "Test | GCC 13.1 (dev|release)",
+            "configurePreset": "gcc-13-dev-release"
         },
         {
             "inherits": [
                 "common-settings"
             ],
-            "name": "gcc-12-ci-release",
-            "displayName": "Test | GCC 12.2 (ci|release)",
-            "configurePreset": "gcc-12-ci-release"
+            "name": "gcc-13-ci-release",
+            "displayName": "Test | GCC 13.1 (ci|release)",
+            "configurePreset": "gcc-13-ci-release"
         },
         {
             "inherits": [
                 "common-settings"
             ],
-            "name": "gcc-12-prod-release",
-            "displayName": "Test | GCC 12.2 (prod|release)",
-            "configurePreset": "gcc-12-prod-release"
+            "name": "gcc-13-prod-release",
+            "displayName": "Test | GCC 13.1 (prod|release)",
+            "configurePreset": "gcc-13-prod-release"
         },
         {
             "inherits": [
                 "common-settings"
             ],
-            "name": "clang-15-dev-debug",
-            "displayName": "Test | Clang 15.0.0 (dev|debug)",
-            "configurePreset": "clang-15-dev-debug"
+            "name": "clang-16-dev-debug",
+            "displayName": "Test | Clang 16.0.0 (dev|debug)",
+            "configurePreset": "clang-16-dev-debug"
         },
         {
             "inherits": [
                 "common-settings"
             ],
-            "name": "clang-15-dev-release",
-            "displayName": "Test | Clang 15.0.0 (dev|release)",
-            "configurePreset": "clang-15-dev-release"
+            "name": "clang-16-dev-release",
+            "displayName": "Test | Clang 16.0.0 (dev|release)",
+            "configurePreset": "clang-16-dev-release"
         },
         {
             "inherits": [
                 "common-settings"
             ],
-            "name": "clang-15-ci-release",
-            "displayName": "Test | Clang 15.0.0 (ci|release)",
-            "configurePreset": "clang-15-ci-release"
+            "name": "clang-16-ci-release",
+            "displayName": "Test | Clang 16.0.0 (ci|release)",
+            "configurePreset": "clang-16-ci-release"
         },
         {
             "inherits": [
                 "common-settings"
             ],
-            "name": "clang-15-prod-release",
-            "displayName": "Test | Clang 15.0.0 (prod|release)",
-            "configurePreset": "clang-15-prod-release"
+            "name": "clang-16-prod-release",
+            "displayName": "Test | Clang 16.0.0 (prod|release)",
+            "configurePreset": "clang-16-prod-release"
         }
     ]
 }

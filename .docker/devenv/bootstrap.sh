@@ -19,8 +19,8 @@ done
 
 SCRIPT_ROOT="$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd )"
 
-LLVM_VERSION=15
-GCC_VERSION=12
+LLVM_VERSION=16
+GCC_VERSION=13
 
 # Enable abort on error
 set -eu
