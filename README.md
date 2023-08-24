@@ -206,6 +206,8 @@ There are a few simple criterias before releasing the new version of the `tdslit
   - Arduino Mega
   - Arduino Nano
   - Arduino Uno
+  - Arduino Uno WiFi Rev. 2
+  - Arduino Portenta H7
 - [ESP sketch](tests/sketches/esp/esp.cpp)
   - NodeMCU-32 (ESP32S)
   - NodeMCU V3 (ESP8266MOD)
