@@ -4,7 +4,7 @@
 
 ----
 <p align="center">
-<img src="https://www.ardu-badge.com/badge/tdslite.svg" alt="Arduino Library Index" /> <img src="https://badges.registry.platformio.org/packages/mustafakemalgilor/library/tdslite.svg" alt="PlatformIO Registry" /></a> <img src="https://img.shields.io/badge/contributions-welcome-orange.svg"/> <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/license-MIT-blue.svg"/></a> <a href="https://github.com/mustafakemalgilor/tdslite/issues"><img src="https://img.shields.io/github/issues/mustafakemalgilor/tdslite.svg"/></a> <img src="https://img.shields.io/github/stars/mustafakemalgilor/tdslite"/> <img src="https://img.shields.io/github/downloads/mustafakemalgilor/tdslite/total"/> <img src="https://img.shields.io/github/v/release/mustafakemalgilor/tdslite?include_prereleases"/>  <a href="https://github.com/mustafakemalgilor/tdslite/actions/workflows/pipeline.yml"><img src="https://github.com/mustafakemalgilor/tdslite/actions/workflows/pipeline.yml/badge.svg"></a> <img src="https://img.shields.io/github/repo-size/mustafakemalgilor/tdslite"/> <a href="https://registry.platformio.org/libraries/mustafakemalgilor/tdslite">
+<a href="https://www.arduino.cc/reference/en/libraries/tdslite/"><img src="https://www.ardu-badge.com/badge/tdslite.svg" alt="Arduino Library Index" /></a> <a href="https://registry.platformio.org/libraries/mustafakemalgilor/tdslite"><img src="https://badges.registry.platformio.org/packages/mustafakemalgilor/library/tdslite.svg" alt="PlatformIO Registry" /></a> <a href="https://github.com/mustafakemalgilor/tdslite/blob/main/CONTRIBUTING.md"><img src="https://img.shields.io/badge/contributions-welcome-orange.svg"/></a> <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/license-MIT-blue.svg"/></a> <a href="https://github.com/mustafakemalgilor/tdslite/issues"><img src="https://img.shields.io/github/issues/mustafakemalgilor/tdslite.svg"/></a> <img src="https://img.shields.io/github/stars/mustafakemalgilor/tdslite"/> <img src="https://img.shields.io/github/downloads/mustafakemalgilor/tdslite/total"/> <img src="https://img.shields.io/github/v/release/mustafakemalgilor/tdslite?include_prereleases"/>  <a href="https://github.com/mustafakemalgilor/tdslite/actions/workflows/pipeline.yml"><img src="https://github.com/mustafakemalgilor/tdslite/actions/workflows/pipeline.yml/badge.svg"></a> <img src="https://img.shields.io/github/repo-size/mustafakemalgilor/tdslite"/> <a href="https://registry.platformio.org/libraries/mustafakemalgilor/tdslite">
 
 </p>
 <p align="center">
@@ -66,17 +66,16 @@ Verificaton sketches for the library
 
 ## Key features
 
-- Header-only
-- Pure C++11
-- Dead simple, intuitive API
+- Pure C++11, header-only library
 - *Zero* external dependencies
+- Dead simple, intuitive API
 - Permissive open-source license (MIT)
 - Suitable for embedded development
 - Low memory footprint
 - Decoupled networking design that can be easily extended
-- Callback based design
+- Callback based design that reduces the memory consumption
 - Supports networking interfaces that implement Arduino's `EthernetClient`.
-- Supports
+- Supports:
   - ... query execution `driver.execute_query(...)`
   - ... queries with parameters `driver.execute_rpc(...)`
   - ... reading result sets
@@ -153,8 +152,6 @@ The `tdslite-net` library provides two of such networking implementations; one o
     /* use your own custom type */
     tdsl::arduino_driver<my_client> driver_c{net_buf};
 ```
-
-// TODO: Extend this section further
 
 ----
 
