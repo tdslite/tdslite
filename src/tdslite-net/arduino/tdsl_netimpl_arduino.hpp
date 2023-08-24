@@ -58,10 +58,9 @@ namespace tdsl { namespace net {
          *
          * @param [in] network_io_buffer Network I/O buffer
          */
-        template <tdsl::uint32_t BufSize>
-        inline tdsl_netimpl_arduino(tdsl::uint8_t (&network_io_buffer) [BufSize],
-                                    EthernetClientType ec = {}) :
-            client(TDSL_MOVE(ec)) {
+        template <tdsl::uint32_t BufSize, typename... Args>
+        inline tdsl_netimpl_arduino(tdsl::uint8_t (&network_io_buffer) [BufSize], Args &&... args) :
+            client(TDSL_FORWARD(args)...) {
             this->network_buffer = tdsl::tdsl_buffer_object{network_io_buffer};
         }
 
@@ -72,9 +71,9 @@ namespace tdsl { namespace net {
          *
          * @param [in] network_io_buffer Network I/O buffer
          */
-        template <typename Z>
-        inline tdsl_netimpl_arduino(tdsl::byte_span network_io_buffer, EthernetClientType ec = {}) :
-            client(TDSL_MOVE(ec)) {
+        template <typename Z, typename... Args>
+        inline tdsl_netimpl_arduino(tdsl::byte_span network_io_buffer, Args &&... args) :
+            client(TDSL_FORWARD(args)...) {
             this->network_buffer = tdsl::tdsl_buffer_object{network_io_buffer};
         }
 
