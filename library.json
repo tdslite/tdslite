@@ -5,7 +5,7 @@
     "keywords": "database, connector, communication",
     "repository": {
         "type": "git",
-        "url": "https://github.com/mustafakemalgilor/tdslite.git"
+        "url": "https://github.com/tdslite/tdslite.git"
     },
     "authors": [
         {
@@ -16,7 +16,7 @@
         }
     ],
     "license": "MIT",
-    "homepage": "https://github.com/mustafakemalgilor/tdslite",
+    "homepage": "https://github.com/tdslite/tdslite",
     "frameworks": "*",
     "platforms": "*",
     "headers": "tdslite.h",

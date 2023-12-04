@@ -4,7 +4,7 @@
 
 ----
 <p align="center">
-<a href="https://www.arduino.cc/reference/en/libraries/tdslite/"><img src="https://www.ardu-badge.com/badge/tdslite.svg" alt="Arduino Library Index" /></a> <a href="https://registry.platformio.org/libraries/mustafakemalgilor/tdslite"><img src="https://badges.registry.platformio.org/packages/mustafakemalgilor/library/tdslite.svg" alt="PlatformIO Registry" /></a> <a href="https://github.com/mustafakemalgilor/tdslite/blob/main/CONTRIBUTING.md"><img src="https://img.shields.io/badge/contributions-welcome-orange.svg"/></a> <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/license-MIT-blue.svg"/></a> <a href="https://github.com/mustafakemalgilor/tdslite/issues"><img src="https://img.shields.io/github/issues/mustafakemalgilor/tdslite.svg"/></a> <img src="https://img.shields.io/github/stars/mustafakemalgilor/tdslite"/> <img src="https://img.shields.io/github/downloads/mustafakemalgilor/tdslite/total"/> <img src="https://img.shields.io/github/v/release/mustafakemalgilor/tdslite?include_prereleases"/>  <a href="https://github.com/mustafakemalgilor/tdslite/actions/workflows/pipeline.yml"><img src="https://github.com/mustafakemalgilor/tdslite/actions/workflows/pipeline.yml/badge.svg"></a> <img src="https://img.shields.io/github/repo-size/mustafakemalgilor/tdslite"/> <a href="https://registry.platformio.org/libraries/mustafakemalgilor/tdslite">
+<a href="https://www.arduino.cc/reference/en/libraries/tdslite/"><img src="https://www.ardu-badge.com/badge/tdslite.svg" alt="Arduino Library Index" /></a> <a href="https://registry.platformio.org/libraries/mustafakemalgilor/tdslite"><img src="https://badges.registry.platformio.org/packages/mustafakemalgilor/library/tdslite.svg" alt="PlatformIO Registry" /></a> <a href="https://github.com/tdslite/tdslite/blob/main/CONTRIBUTING.md"><img src="https://img.shields.io/badge/contributions-welcome-orange.svg"/></a> <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/license-MIT-blue.svg"/></a> <a href="https://github.com/tdslite/tdslite/issues"><img src="https://img.shields.io/github/issues/tdslite/tdslite.svg"/></a> <img src="https://img.shields.io/github/stars/tdslite/tdslite"/> <img src="https://img.shields.io/github/downloads/tdslite/tdslite/total"/> <img src="https://img.shields.io/github/v/release/tdslite/tdslite?include_prereleases"/>  <a href="https://github.com/tdslite/tdslite/actions/workflows/pipeline.yml"><img src="https://github.com/tdslite/tdslite/actions/workflows/pipeline.yml/badge.svg"></a> <img src="https://img.shields.io/github/repo-size/tdslite/tdslite"/> <a href="https://registry.platformio.org/libraries/mustafakemalgilor/tdslite">
 
 </p>
 <p align="center">
@@ -22,45 +22,45 @@ Built around C++'s `zero cost / only pay for what you use` mantra. The implement
 
 Take a look into examples below to get your hands dirty!
 
-[➤ 01 - Initialize Library](https://github.com/mustafakemalgilor/tdslite/tree/main/examples/arduino/01-initialize-library)
+[➤ 01 - Initialize Library](https://github.com/tdslite/tdslite/tree/main/examples/arduino/01-initialize-library)
 
 Example code illustrating how to initialize the library.
 
-[➤ 02 - CRUD with tdslite](https://github.com/mustafakemalgilor/tdslite/tree/main/examples/arduino/02-create-insert-select-delete)
+[➤ 02 - CRUD with tdslite](https://github.com/tdslite/tdslite/tree/main/examples/arduino/02-create-insert-select-delete)
 
 The four basic operations: Create, read, update, delete.
 
-[➤ 03 - Read rows from table](https://github.com/mustafakemalgilor/tdslite/tree/main/examples/arduino/03-select-rows)
+[➤ 03 - Read rows from table](https://github.com/tdslite/tdslite/tree/main/examples/arduino/03-select-rows)
 
 Retrieve a result set with a query (a.k.a `SELECT`ing rows)
 
-[➤ 04 - Read info/error messages](https://github.com/mustafakemalgilor/tdslite/tree/main/examples/arduino/04-info-callback)
+[➤ 04 - Read info/error messages](https://github.com/tdslite/tdslite/tree/main/examples/arduino/04-info-callback)
 
 How to use info callback function to read info/error messages sent by the server.
 
-[➤ 05 - Execute query with parameters](https://github.com/mustafakemalgilor/tdslite/tree/main/examples/arduino/05-query-with-parameters)
+[➤ 05 - Execute query with parameters](https://github.com/tdslite/tdslite/tree/main/examples/arduino/05-query-with-parameters)
 
 Learn how to use and bind parameters in queries with tdslite.
 
-[➤ 06 - Custom memory allocator functions](https://github.com/mustafakemalgilor/tdslite/tree/main/examples/arduino/06-custom-malloc)
+[➤ 06 - Custom memory allocator functions](https://github.com/tdslite/tdslite/tree/main/examples/arduino/06-custom-malloc)
 
 Learn how to set user-defined malloc/free functions for tdslite's memory allocation.
 
-[➤ ESP WiFi example](https://github.com/mustafakemalgilor/tdslite/tree/main/tests/sketches/esp/esp.cpp)
+[➤ ESP WiFi example](https://github.com/tdslite/tdslite/tree/main/tests/sketches/esp/esp.cpp)
 
 tdslite, but with WiFiClient instead of EthernetClient.
 
-[➤ Fiddle with minimal-sql-shell](https://github.com/mustafakemalgilor/tdslite/tree/main/examples/minimal-sql-shell)
+[➤ Fiddle with minimal-sql-shell](https://github.com/tdslite/tdslite/tree/main/examples/minimal-sql-shell)
 
 It's a playground to try sql commands. Compile the project, and just run `./build/bin/tdslite.examples.minimal` executable.
 
-[➤ Sketches](https://github.com/mustafakemalgilor/tdslite/tree/main/tests/sketches)
+[➤ Sketches](https://github.com/tdslite/tdslite/tree/main/tests/sketches)
 
 Verificaton sketches for the library
 
-[➤ Board-specific examples](https://github.com/mustafakemalgilor/tdslite/tree/main/examples/boards)
+[➤ Board-specific examples](https://github.com/tdslite/tdslite/tree/main/examples/boards)
 
-- [Arduino Uno WiFi rev.2](https://github.com/mustafakemalgilor/tdslite/tree/main/examples/boards/uno_wifi_r2/uno_wifi_r2.ino): Uses WiFiNINA & tdslite to perform INSERT & SELECT.
+- [Arduino Uno WiFi rev.2](https://github.com/tdslite/tdslite/tree/main/examples/boards/uno_wifi_r2/uno_wifi_r2.ino): Uses WiFiNINA & tdslite to perform INSERT & SELECT.
 
 ----
 
@@ -84,7 +84,7 @@ Verificaton sketches for the library
 
 ## Installing the library
 
-Import the `tdslite-<version>.zip` into your libraries. See [releases](https://github.com/mustafakemalgilor/tdslite/releases).
+Import the `tdslite-<version>.zip` into your libraries. See [releases](https://github.com/tdslite/tdslite/releases).
 
 ### ... via Platform IO
 
@@ -92,7 +92,7 @@ Import the `tdslite-<version>.zip` into your libraries. See [releases](https://g
     pio pkg install --library "mustafakemalgilor/tdslite"
 ```
 
-See [the official PlatformIO registry page](https://registry.platformio.org/libraries/mustafakemalgilor/tdslite/installation) for details.
+See [the official PlatformIO registry page](https://registry.platformio.org/libraries/tdslite/tdslite/installation) for details.
 
 ### ... via the Arduino IDE library manager
 
@@ -233,4 +233,4 @@ The option `c` may be feasible if it's a widely adopted Ethernet library.
 
 ----
 
-Built with ❤︎ by [mkg](https://www.twitter.com/mgilor) and <a href="https://github.com/mustafakemalgilor/tdslite/graphs/contributors"><img src="https://img.shields.io/github/contributors/mustafakemalgilor/tdslite?color=green&label=the%20contributors"> </a>
+Built with ❤︎ by [mkg](https://www.twitter.com/mgilor) and <a href="https://github.com/tdslite/tdslite/graphs/contributors"><img src="https://img.shields.io/github/contributors/tdslite/tdslite?color=green&label=the%20contributors"> </a>
