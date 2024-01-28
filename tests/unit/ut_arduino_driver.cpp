@@ -10,9 +10,11 @@
  * _________________________________________________
  */
 
-void delay(int ms) {
+#include <functional>
+
+std::function<void(int)> delay = [](int ms) {
     (void) ms;
-}
+};
 
 unsigned long millis() {
     return 0;
@@ -153,8 +155,25 @@ TEST(test, connect) {
     uut_t<my_client> the_client{buf};
     for (int i = 0; i < 200; i++) {
         auto r = the_client.connect(/*host=*/tdsl::string_view{/*str=*/"a"}, /*port=*/i);
-        ASSERT_EQ(r, i == 101);
+        if (i == 101) {
+            ASSERT_TRUE(static_cast<bool>(r));
+        }
+        else {
+            ASSERT_FALSE(static_cast<bool>(r));
+        }
     }
+}
+
+TEST(test, connect_retry) {
+    auto delay_original = delay;
+    testing::MockFunction<void(int)> mock_delay;
+    EXPECT_CALL(mock_delay, Call(1234)).Times(15);
+    delay = mock_delay.AsStdFunction();
+    uut_t<my_client> the_client{buf};
+    the_client.set_connection_timeout_params(/*attempts=*/15, /*delay_ms=*/1234);
+    auto r = the_client.connect(/*host=*/tdsl::string_view{/*str=*/"a"}, /*port=*/105);
+    ASSERT_FALSE(r);
+    delay = delay_original;
 }
 
 TEST(test, write) {

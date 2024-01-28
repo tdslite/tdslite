@@ -166,25 +166,29 @@ void setup() {
     // save some precious SRAM space.
     decltype(driver)::progmem_connection_parameters params;
     // Server's hostname or IP address.
-    params.server_name = TDSL_PMEMSTR("192.168.1.22"); // WL
+    params.server_name         = TDSL_PMEMSTR("192.168.1.22"); // WL
     // SQL server port number
-    params.port        = 14333; // default port is 1433
+    params.port                = 14333; // default port is 1433
     // SQL server login user
-    params.user_name   = TDSL_PMEMSTR("sa");
+    params.user_name           = TDSL_PMEMSTR("sa");
     // SQL server login user password
-    params.password    = TDSL_PMEMSTR("2022-tds-lite-test!");
+    params.password            = TDSL_PMEMSTR("2022-tds-lite-test!");
     // Client name(optional)
-    params.client_name = TDSL_PMEMSTR("arduino mega");
+    params.client_name         = TDSL_PMEMSTR("arduino mega");
     // App name(optional)
-    params.app_name    = TDSL_PMEMSTR("sketch");
+    params.app_name            = TDSL_PMEMSTR("sketch");
     // Database name(optional)
-    params.db_name     = TDSL_PMEMSTR("master");
+    params.db_name             = TDSL_PMEMSTR("master");
     // TDS packet size
     // Recommendation: Half of the network buffer.
     // This is the PDU size that TDS protocol will use.
     // Given that the example has 768 bytes of network buffer space,
     // we set this to 512 to allow some headroom for fragmentation.
-    params.packet_size = {512};
+    params.packet_size         = {512};
+    // How many times the driver should attempt to connect to the server
+    params.conn_retry_count    = 5;
+    // Delay between each connection attempt (milliseconds)
+    params.conn_retry_delay_ms = 2000;
 
     SERIAL_PRINTLNF("Initializing tdslite");
 

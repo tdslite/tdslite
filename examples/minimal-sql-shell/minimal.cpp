@@ -184,12 +184,14 @@ int main(void) {
 
     // Define the connection parameters
     decltype(driver)::connection_parameters conn_params;
-    conn_params.server_name = "mssql-2017";
-    conn_params.port        = 1433;
-    conn_params.user_name   = "sa";
-    conn_params.password    = "2022-tds-lite-test!";
-    conn_params.app_name    = "tdslite minimal example";
-    conn_params.db_name     = "master";
+    conn_params.server_name         = "mssql-2017";
+    conn_params.port                = 1433;
+    conn_params.user_name           = "sa";
+    conn_params.password            = "2022-tds-lite-test!";
+    conn_params.app_name            = "tdslite minimal example";
+    conn_params.db_name             = "master";
+    conn_params.conn_retry_count    = 5;
+    conn_params.conn_retry_delay_ms = 2000;
     // Connect & login to the SQL server described in conn_params
     driver.connect(conn_params);
 

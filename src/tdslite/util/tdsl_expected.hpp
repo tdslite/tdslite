@@ -150,7 +150,7 @@ namespace tdsl {
             return has_expected;
         }
 
-        inline operator bool() const noexcept {
+        inline explicit operator bool() const noexcept {
             return has_value();
         }
 

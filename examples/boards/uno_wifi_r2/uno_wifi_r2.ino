@@ -192,22 +192,26 @@ bool tdslite_setup() noexcept {
     SERIAL_PRINTLNF("... init tdslite ...");
     decltype(driver)::connection_parameters params;
     // Server's hostname or IP address.
-    params.server_name = SKETCH_DB_IP_OR_HOSTNAME; // WL
+    params.server_name         = SKETCH_DB_IP_OR_HOSTNAME; // WL
     //  SQL server port number
-    params.port        = SKETCH_DB_PORT;
+    params.port                = SKETCH_DB_PORT;
     // Login user
-    params.user_name   = SKETCH_DB_USERNAME;
+    params.user_name           = SKETCH_DB_USERNAME;
     // Login user password
-    params.password    = SKETCH_DB_PASSWORD;
+    params.password            = SKETCH_DB_PASSWORD;
     // Client name(optional)
-    params.client_name = "arduino uno test sketch";
+    params.client_name         = "arduino uno test sketch";
     // App name(optional)
-    params.app_name    = "sketch";
+    params.app_name            = "sketch";
     // Database name(optional)
-    params.db_name     = SKETCH_DB_NAME;
+    params.db_name             = SKETCH_DB_NAME;
     // TDS packet size
     // Recommendation: Half of the network buffer.
-    params.packet_size = {SKETCH_TDSL_PACKET_SIZE};
+    params.packet_size         = {SKETCH_TDSL_PACKET_SIZE};
+    // How many times the driver should attempt to connect to the server
+    params.conn_retry_count    = 5;
+    // Delay between each connection attempt (milliseconds)
+    params.conn_retry_delay_ms = 2000;
     driver.set_info_callback(&info_callback, nullptr);
     auto cr = driver.connect(params);
     if (not(decltype(driver)::e_driver_error_code::success == cr)) {

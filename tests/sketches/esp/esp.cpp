@@ -138,23 +138,27 @@ bool tdslite_setup() noexcept {
     SERIAL_PRINTLNF("... init tdslite ...");
     decltype(driver)::connection_parameters params;
     // Server's hostname or IP address.
-    params.server_name = "192.168.1.27"; // WL
+    params.server_name         = "192.168.1.27"; // WL
     // params.server_name = PSTR("192.168.1.45"); // WS
     //  SQL server port number
-    params.port        = 14333;
+    params.port                = 14333;
     // Login user
-    params.user_name   = "sa";
+    params.user_name           = "sa";
     // Login user password
-    params.password    = "2022-tds-lite-test!";
+    params.password            = "2022-tds-lite-test!";
     // Client name(optional)
-    params.client_name = "arduino mega";
+    params.client_name         = "arduino mega";
     // App name(optional)
-    params.app_name    = "sketch";
+    params.app_name            = "sketch";
     // Database name(optional)
-    params.db_name     = "master";
+    params.db_name             = "master";
     // TDS packet size
     // Recommendation: Half of the network buffer.
-    params.packet_size = {SKETCH_TDSL_PACKET_SIZE};
+    params.packet_size         = {SKETCH_TDSL_PACKET_SIZE};
+    // How many times the driver should attempt to connect to the server
+    params.conn_retry_count    = 5;
+    // Delay between each connection attempt (milliseconds)
+    params.conn_retry_delay_ms = 2000;
     driver.set_info_callback(&info_callback, nullptr);
     auto cr = driver.connect(params);
     if (not(decltype(driver)::e_driver_error_code::success == cr)) {

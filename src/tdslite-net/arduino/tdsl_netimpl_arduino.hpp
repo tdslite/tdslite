@@ -94,7 +94,7 @@ namespace tdsl { namespace net {
             do_disconnect();
 
             int cr      = 0;
-            int retries = 10;
+            int retries = this->conn_retry_count;
 
             // There may be residue data in network buffer
             // Reset it to ensure a clean start
@@ -135,7 +135,7 @@ namespace tdsl { namespace net {
                 }
 
                 TDSL_DEBUG_PRINTLN("... connection attempt failed (%d) ...", cr);
-                delay(3000);
+                delay(this->conn_retry_delay_ms);
             }
 
             // Reset the network buffer so it's ready to

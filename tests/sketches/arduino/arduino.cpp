@@ -141,23 +141,27 @@ void initTdsliteDriver() {
     tdsl::tdslite_malloc_free(my_malloc, my_free);
     tdsl::arduino_driver<EthernetClient>::progmem_connection_parameters params;
     // Server's hostname or IP address.
-    params.server_name = TDSL_PMEMSTR("192.168.1.27"); // WL
+    params.server_name         = TDSL_PMEMSTR("192.168.1.27"); // WL
     // params.server_name = TDSL_PMEMSTR("192.168.1.45"); // WS
     //  SQL server port number
-    params.port        = 14333;
+    params.port                = 14333;
     // Login user
-    params.user_name   = TDSL_PMEMSTR("sa");
+    params.user_name           = TDSL_PMEMSTR("sa");
     // Login user password
-    params.password    = TDSL_PMEMSTR("2022-tds-lite-test!");
+    params.password            = TDSL_PMEMSTR("2022-tds-lite-test!");
     // Client name(optional)
-    params.client_name = TDSL_PMEMSTR("arduino mega");
+    params.client_name         = TDSL_PMEMSTR("arduino mega");
     // App name(optional)
-    params.app_name    = TDSL_PMEMSTR("sketch");
+    params.app_name            = TDSL_PMEMSTR("sketch");
     // Database name(optional)
-    params.db_name     = TDSL_PMEMSTR("master");
+    params.db_name             = TDSL_PMEMSTR("master");
     // TDS packet size
     // Recommendation: Half of the network buffer.
-    params.packet_size = {SKETCH_TDSL_PACKET_SIZE};
+    params.packet_size         = {SKETCH_TDSL_PACKET_SIZE};
+    // How many times the driver should attempt to connect to the server
+    params.conn_retry_count    = 8;
+    // Delay between each connection attempt (milliseconds)
+    params.conn_retry_delay_ms = 2500;
     driver.set_info_callback(&info_callback, nullptr);
     auto result = driver.connect(params);
     (void) result;

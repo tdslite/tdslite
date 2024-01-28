@@ -82,7 +82,7 @@ struct tds_command_ctx_it_fixture : public ::testing::Test {
     virtual void SetUp() override {
         login_ctx_t login{tds_ctx};
         const auto & params = mssql_2017_creds();
-        ASSERT_EQ(tds_ctx.do_connect(params.server_name, /*port=*/1433), true);
+        ASSERT_TRUE(tds_ctx.do_connect(params.server_name, /*port=*/1433));
         ASSERT_EQ(login.do_login(params), login_ctx_t::e_login_status::success);
         ASSERT_TRUE(tds_ctx.is_authenticated());
     }

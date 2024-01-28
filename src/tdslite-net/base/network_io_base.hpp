@@ -89,7 +89,7 @@ namespace tdsl {
              *
              * @param [in] host Hostname or IP address
              * @param [in] port TCP port number
-             * @return int
+             * @return int 0 if connection is successful, false otherwise.
              */
             template <typename T, traits::enable_when::same_any_of<T, string_view, wstring_view,
                                                                    progmem_string_view> = true>
@@ -201,19 +201,31 @@ namespace tdsl {
                                            network_buffer.get_writer()->remaining_bytes());
                         do {
                             if (network_buffer.get_writer()->remaining_bytes() == 0) {
-                                TDSL_DEBUG_PRINTLN(
-                                    "Cannot pull {} byte(s) of data from network, network "
-                                    "buffer exhausted!");
+                                TDSL_DEBUG_PRINTLN("Cannot pull " TDSL_SIZET_FORMAT_SPECIFIER
+                                                   " byte(s) of data from network, network "
+                                                   "buffer exhausted!",
+                                                   packet_data_size);
                                 // There's no point keeping the data around, so reset the buffer
                                 network_buffer.get_writer()->reset();
                                 return processed_tds_message_count;
                             }
-                            const auto recv_bytes =
+                            const auto recv_result =
                                 impl().do_recv(network_buffer.get_writer()->remaining_bytes());
-                            auto nmsg_rdr           = network_buffer.get_reader();
-                            const auto needed_bytes = packet_data_cb(message_type, *nmsg_rdr);
-                            (void) needed_bytes;
-                            packet_data_size -= recv_bytes;
+                            if (recv_result) {
+                                auto nmsg_rdr           = network_buffer.get_reader();
+                                const auto needed_bytes = packet_data_cb(message_type, *nmsg_rdr);
+                                (void) needed_bytes;
+                                packet_data_size -= recv_result.get();
+                            }
+                            else {
+                                TDSL_DEBUG_PRINTLN("Cannot receive " TDSL_SIZET_FORMAT_SPECIFIER
+                                                   " byte(s) of data from "
+                                                   "network, receive error %u ",
+                                                   packet_data_size, recv_result.error());
+                                // There's no point keeping the data around, so reset the buffer
+                                network_buffer.get_writer()->reset();
+                                return processed_tds_message_count;
+                            }
                         } while (packet_data_size > network_buffer.get_writer()->remaining_bytes());
                     }
                     else {
@@ -389,6 +401,18 @@ namespace tdsl {
                 tds_packet_size = value;
             }
 
+            /**
+             * Set the conn retry count
+             *
+             * @param attempts Number of attempts
+             * @param delay_ms Delay between each attempt (millseconds)
+             */
+            inline void set_connection_timeout_params(tdsl::uint16_t attempts,
+                                                      tdsl::uint16_t delay_ms) noexcept {
+                conn_retry_count    = attempts;
+                conn_retry_delay_ms = delay_ms;
+            }
+
         private:
             // The callback to be invoked for each TDS packet.
             // The callback is invoked in streaming fashion to
@@ -405,6 +429,11 @@ namespace tdsl {
             tdsl::uint16_t tds_packet_size = {4096};
 
         protected:
+            // How many attempts the driver should make to establish a connection
+            tdsl::uint16_t conn_retry_count{10};
+            // The delay between each connection attempt (milliseconds)
+            tdsl::uint16_t conn_retry_delay_ms{3000};
+
             // The network I/O buffer.
             //
             // Network implementation share a single buffer
