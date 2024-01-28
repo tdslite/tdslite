@@ -39,6 +39,7 @@
         ],
         "doxdocgen.generic.dateFormat": "DD.MM.YYYY",
         "doxdocgen.generic.dateTemplate": "@date   {date}",
+        "clangd.path": "clangd-16",
         "clangd.arguments": [
             "-log=info",
             "-pretty",

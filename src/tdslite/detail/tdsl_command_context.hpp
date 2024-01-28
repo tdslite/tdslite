@@ -101,10 +101,15 @@ namespace tdsl { namespace detail {
 
             tds_ctx.callbacks.done              = {
                 [](void * uptr, const tds_done_token & dt) noexcept -> void {
-                    command_context & ctx           = *static_cast<command_context *>(uptr);
-                    ctx.qstate.result.status        = dt.status;
-                    ctx.qstate.result.affected_rows = dt.done_row_count;
-                    TDSL_DEBUG_PRINT("cc: done token -- affected rows(%d)\n", dt.done_row_count);
+                    command_context & ctx    = *static_cast<command_context *>(uptr);
+                    ctx.qstate.result.status = dt.status;
+                    if (dt.status.count_valid()) {
+                        // Update affected row count only when row count is valid
+                        ctx.qstate.result.affected_rows = dt.done_row_count;
+                    }
+                    TDSL_DEBUG_PRINT("cc: done token -- status %d, affected rows(%d)\n",
+                                                  static_cast<tdsl::uint16_t>(dt.status.value),
+                                                  dt.done_row_count);
                 },
                 this};
         }
@@ -329,6 +334,7 @@ namespace tdsl { namespace detail {
             tds_ctx.send_tds_pdu(e_tds_message_type::rpc);
             // Receive the response
             tds_ctx.receive_tds_pdu();
+            TDSL_DEBUG_PRINT("rows affected %d", qstate.result.affected_rows);
             // The state will be updated upon receiving the response
             return tdsl::uint32_t{qstate.result.affected_rows};
         }
