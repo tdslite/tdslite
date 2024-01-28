@@ -862,3 +862,52 @@ TEST_F(tds_command_ctx_it_fixture, test_rpc_varbinary) {
                             &validator_called_times);
     ASSERT_EQ(1, validator_called_times);
 }
+
+// --------------------------------------------------------------------------------
+
+TEST_F(tds_command_ctx_it_fixture, test_affected_rows_insert) {
+    // Create the table
+    command_ctx.execute_query(tdsl::string_view{"CREATE TABLE #test_rpc(a varbinary(5))"});
+    // Fill some data
+    for (int i = 0; i < 10; i++) {
+        auto result = command_ctx.execute_query(
+            tdsl::string_view{"INSERT INTO #test_rpc VALUES(0x0102030405)"});
+        ASSERT_TRUE(result.status.count_valid());
+        ASSERT_EQ(result.affected_rows, 1);
+    }
+
+    auto result = command_ctx.execute_rpc(tdsl::string_view{"UPDATE #test_rpc SET a=0x0102030406"},
+                                          {}, tdsl::detail::e_rpc_mode::executesql);
+}
+
+// --------------------------------------------------------------------------------
+
+TEST_F(tds_command_ctx_it_fixture, test_affected_rows_update) {
+    // Create the table
+    command_ctx.execute_query(tdsl::string_view{"CREATE TABLE #test_rpc(a varbinary(5))"});
+    // Fill some data
+    for (int i = 0; i < 10; i++) {
+        command_ctx.execute_query(tdsl::string_view{"INSERT INTO #test_rpc VALUES(0x0102030405)"});
+    }
+
+    auto result = command_ctx.execute_rpc(tdsl::string_view{"UPDATE #test_rpc SET a=0x0102030406"},
+                                          {}, tdsl::detail::e_rpc_mode::executesql);
+    ASSERT_TRUE(result);
+    ASSERT_EQ(result.get(), 10);
+}
+
+// --------------------------------------------------------------------------------
+
+TEST_F(tds_command_ctx_it_fixture, test_affected_rows_del) {
+    // Create the table
+    command_ctx.execute_query(tdsl::string_view{"CREATE TABLE #test_rpc(a varbinary(5))"});
+    // Fill some data
+    for (int i = 0; i < 10; i++) {
+        command_ctx.execute_query(tdsl::string_view{"INSERT INTO #test_rpc VALUES(0x0102030405)"});
+    }
+
+    auto result = command_ctx.execute_rpc(tdsl::string_view{"DELETE FROM #test_rpc"}, {},
+                                          tdsl::detail::e_rpc_mode::executesql);
+    ASSERT_TRUE(result);
+    ASSERT_EQ(result.get(), 10);
+}

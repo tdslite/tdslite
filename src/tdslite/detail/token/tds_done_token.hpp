@@ -34,7 +34,6 @@ namespace tdsl {
         // * 0x100: DONE_SRVERROR. Used in place of DONE_ERROR when an error occurred on the
         //          current SQL statement, which is severe enough to require the result set, if any,
         //          to be discarded
-
         struct status_type {
             /**
              * Check if this DONE token is the last one
@@ -56,18 +55,30 @@ namespace tdsl {
                 return (value & tdsl::uint16_t{0x2}) == tdsl::uint16_t{0x2};
             }
 
+            /**
+             * Check if a transaction is in progress
+             */
             inline bool in_xact() const noexcept {
                 return (value & tdsl::uint16_t{0x4}) == tdsl::uint16_t{0x4};
             }
 
+            /**
+             * Check if DONE token contains a valid row count value
+             */
             inline bool count_valid() const noexcept {
                 return (value & tdsl::uint16_t{0x10}) == tdsl::uint16_t{0x10};
             }
 
+            /**
+             * Check if the DONE token is an ACK for a client ATTENTION message.
+             */
             inline bool attn() const noexcept {
                 return (value & tdsl::uint16_t{0x20}) == tdsl::uint16_t{0x20};
             }
 
+            /**
+             * Check if a server error has occured and the result set must be discarded
+             */
             inline bool srverror() const noexcept {
                 return (value & tdsl::uint16_t{0x100}) == tdsl::uint16_t{0x100};
             }
