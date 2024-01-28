@@ -113,12 +113,14 @@ static void info_callback(void *, const tdsl::tds_info_token & token) noexcept {
  */
 static inline void tdslite_setup() {
     decltype(driver)::progmem_connection_parameters params;
-    params.server_name = TDSL_PMEMSTR("192.168.1.45"); // WL
-    params.port        = 14333;                        // default port is 1433
-    params.user_name   = TDSL_PMEMSTR("sa");
-    params.password    = TDSL_PMEMSTR("2022-tds-lite-test!");
-    params.db_name     = TDSL_PMEMSTR("master");
-    params.packet_size = {512};
+    params.server_name         = TDSL_PMEMSTR("192.168.1.45"); // WL
+    params.port                = 14333;                        // default port is 1433
+    params.user_name           = TDSL_PMEMSTR("sa");
+    params.password            = TDSL_PMEMSTR("2022-tds-lite-test!");
+    params.db_name             = TDSL_PMEMSTR("master");
+    params.packet_size         = {512};
+    params.conn_retry_count    = 5;
+    params.conn_retry_delay_ms = 2000;
 
     // Set a callback function that'll process the
     // info/error messages sent by the server

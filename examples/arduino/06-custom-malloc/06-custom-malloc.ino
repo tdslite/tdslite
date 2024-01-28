@@ -139,15 +139,19 @@ void setup() {
 
     decltype(driver)::progmem_connection_parameters params;
     // Server's hostname or IP address.
-    params.server_name = TDSL_PMEMSTR("192.168.1.45"); // WL
+    params.server_name         = TDSL_PMEMSTR("192.168.1.45"); // WL
     // SQL server port number
-    params.port        = 14333; // default port is 1433
+    params.port                = 14333; // default port is 1433
     // SQL server login user
-    params.user_name   = TDSL_PMEMSTR("sa");
+    params.user_name           = TDSL_PMEMSTR("sa");
     // SQL server login user password
-    params.password    = TDSL_PMEMSTR("2022-tds-lite-test!");
+    params.password            = TDSL_PMEMSTR("2022-tds-lite-test!");
     // TDS packet size
-    params.packet_size = {512};
+    params.packet_size         = {512};
+    // How many times the driver should attempt to connect to the server
+    params.conn_retry_count    = 5;
+    // Delay between each connection attempt (milliseconds)
+    params.conn_retry_delay_ms = 2000;
 
     SERIAL_PRINTLNF("Initializing tdslite");
 

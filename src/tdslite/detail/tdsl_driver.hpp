@@ -55,7 +55,12 @@ namespace tdsl { namespace detail {
 
         template <typename T>
         struct connection_parameters_base : public T {
+            // SQL server port
             tdsl::uint16_t port = {1433};
+            // How many attempts the driver should make to establish a connection
+            tdsl::uint32_t conn_retry_count{10};
+            // The delay between each connection attempt (milliseconds)
+            tdsl::uint32_t conn_retry_delay_ms{3000};
 
             /**
              * Check whether connection parameters have
@@ -125,6 +130,8 @@ namespace tdsl { namespace detail {
             if (not(e_driver_error_code::success == pvr)) {
                 return pvr;
             }
+
+            tds_ctx.set_connection_timeout_params(p.conn_retry_count, p.conn_retry_delay_ms);
 
             if (not tds_ctx.connect(p.server_name, p.port)) {
                 return e_driver_error_code::connection_failed;
