@@ -16,6 +16,7 @@
 #include <tdslite/util/tdsl_span.hpp>
 
 namespace tdsl {
+
     struct tds_login_ack_token {
 
         /**

@@ -17,6 +17,8 @@
 #include <tdslite-net/asio/tdsl_netimpl_asio.hpp>
 #include <tdslite/util/tdsl_expected.hpp>
 #include <tdslite/util/tdsl_hex_dump.hpp>
+#include <tdslite/detail/sqltypes/sql_decimal.hpp>
+#include <tdslite/detail/sqltypes/sql_money.hpp>
 
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
@@ -344,52 +346,38 @@ TEST_F(tds_command_ctx_it_fixture, exact_numerics_numeric) {
     *
     */
 
-    struct constraint {
-        struct ps {
+    struct test_data {
+        struct data {
             tdsl::uint8_t precision;
             tdsl::uint8_t scale;
-        } ps_v [2]              = {};
+            const char * value;
+        } data;
 
-        const char * values [2] = {};
-    } test_datas [5];
+        struct aa {
+            tdsl::int64_t integer;
+            tdsl::int64_t fraction;
+        } expected;
+    } td [] = {
+        {{1, 0, "1.0"},                                       {1, 0}                           },
+        {{1, 0, "0.1"},                                       {0, 0}                           },
+        {{1, 1, "0.1"},                                       {0, 1}                           },
+        {{2, 1, "1.1"},                                       {1, 1}                           },
+        {{2, 2, "0.12"},                                      {0, 12}                          },
+        {{10, 1, "999999999.9"},                              {999999999, 9}                   },
+        {{10, 5, "99999.99999"},                              {99999, 99999}                   },
+        {{18, 9, "999999999.999999999"},                      {999999999, 999999999}           },
+        {{18, 0, "999999999999999999"},                       {999999999999999999, 0}          },
+        {{18, 18, "0.999999999999999999"},                    {0, 999999999999999999}          },
+        {{19, 2, "12345678901234567.12"},                     {12345678901234567, 12}          },
+        {{20, 10, "9999999999.9999999999"},                   {9999999999, 9999999999}         },
+        {{28, 14, "99999999999999.99999999999999"},           {99999999999999, 99999999999999} },
+        {{29, 14, "999999999999999.99999999999999"},          {999999999999999, 99999999999999}},
+        {{38, 10, "9999999999999999999999999999.9999999999"}, {0, 0}                           },
+    };
 
-    test_datas [0].ps_v [0].precision = 1;
-    test_datas [0].ps_v [0].scale     = 0;
-    test_datas [0].values [0]         = "1.0";
-    test_datas [0].ps_v [1].precision = 1;
-    test_datas [0].ps_v [1].scale     = 1;
-    test_datas [0].values [1]         = "0.1";
+    tdsl::span<test_data> tds{std::begin(td), std::end(td)};
 
-    test_datas [1].ps_v [0].precision = 2;
-    test_datas [1].ps_v [0].scale     = 1;
-    test_datas [1].values [0]         = "1.1";
-    test_datas [1].ps_v [1].precision = 2;
-    test_datas [1].ps_v [1].scale     = 2;
-    test_datas [1].values [1]         = "0.12";
-
-    test_datas [2].ps_v [0].precision = 10;
-    test_datas [2].ps_v [0].scale     = 1;
-    test_datas [2].values [0]         = "999999999.9";
-    test_datas [2].ps_v [1].precision = 19;
-    test_datas [2].ps_v [1].scale     = 2;
-    test_datas [2].values [1]         = "12345678901234567.12";
-
-    test_datas [3].ps_v [0].precision = 20;
-    test_datas [3].ps_v [0].scale     = 10;
-    test_datas [3].values [0]         = "9999999999.9999999999";
-    test_datas [3].ps_v [1].precision = 28;
-    test_datas [3].ps_v [1].scale     = 14;
-    test_datas [3].values [1]         = "99999999999999.99999999999999";
-
-    test_datas [4].ps_v [0].precision = 29;
-    test_datas [4].ps_v [0].scale     = 14;
-    test_datas [4].values [0]         = "999999999999999.99999999999999";
-    test_datas [4].ps_v [1].precision = 38;
-    test_datas [4].ps_v [1].scale     = 10;
-    test_datas [4].values [1]         = "9999999999999999999999999999.9999999999";
-
-    for (tdsl::uint32_t i = 0; i < sizeof(test_datas) / sizeof(constraint); i++) {
-        auto & current_constraint = test_datas [i];
+    for (auto elem : tds) {
 
         auto validator = +[](void * uptr, uut_t::column_metadata_cref c, uut_t::row_cref r) {
             auto precision_size_validator = [](tdsl::uint32_t p, tdsl::uint32_t l) {
@@ -409,29 +397,42 @@ TEST_F(tds_command_ctx_it_fixture, exact_numerics_numeric) {
                     ASSERT_TRUE(false);
                 }
             };
-            const constraint & current_constraint = *reinterpret_cast<const constraint *>(uptr);
+            const test_data & td = *reinterpret_cast<const test_data *>(uptr);
             ASSERT_EQ(c.columns.size(), 2);
             ASSERT_EQ(r.size(), 2);
-            ASSERT_EQ(c.columns [0].typeprops.ps.precision, current_constraint.ps_v [0].precision);
-            ASSERT_EQ(c.columns [0].typeprops.ps.scale, current_constraint.ps_v [0].scale);
-            ASSERT_EQ(c.columns [1].typeprops.ps.precision, current_constraint.ps_v [1].precision);
-            ASSERT_EQ(c.columns [1].typeprops.ps.scale, current_constraint.ps_v [1].scale);
-            precision_size_validator(current_constraint.ps_v [0].precision, r [0].size_bytes());
-            precision_size_validator(current_constraint.ps_v [1].precision, r [1].size_bytes());
+            EXPECT_EQ(c.columns [0].typeprops.ps.precision, td.data.precision);
+            EXPECT_EQ(c.columns [0].typeprops.ps.scale, td.data.scale);
+            EXPECT_EQ(c.columns [1].typeprops.ps.precision, td.data.precision);
+            EXPECT_EQ(c.columns [1].typeprops.ps.scale, td.data.scale);
+            precision_size_validator(td.data.precision, r [0].size_bytes());
+            precision_size_validator(td.data.precision, r [1].size_bytes());
 
-            // TODO: Validate field values?
+            if (td.data.precision <= 18) {
+
+                auto v1_decimal = r [0].as<tdsl::sql_decimal>();
+                auto v2_decimal = r [1].as<tdsl::sql_decimal>();
+
+                EXPECT_EQ(v1_decimal.integer(), td.expected.integer);
+                EXPECT_EQ(v1_decimal.fraction(), td.expected.fraction);
+
+                EXPECT_EQ(v2_decimal.integer(), td.expected.integer * -1);
+                EXPECT_EQ(v2_decimal.fraction(), td.expected.fraction * -1);
+            }
         };
 
-        owning_string_view c1{"q numeric(" + std::to_string(current_constraint.ps_v [0].precision) +
-                              "," + std::to_string(current_constraint.ps_v [0].scale) + ")"};
+        owning_string_view c1{"q numeric(" + std::to_string(elem.data.precision) + "," +
+                              std::to_string(elem.data.scale) + ")"};
 
-        owning_string_view c2{"y numeric(" + std::to_string(current_constraint.ps_v [1].precision) +
-                              "," + std::to_string(current_constraint.ps_v [1].scale) + ")"};
+        owning_string_view c2{"y numeric(" + std::to_string(elem.data.precision) + "," +
+                              std::to_string(elem.data.scale) + ")"};
+
+        owning_string_view v1{std::string(elem.data.value)};
+        owning_string_view v2{std::string("-") + std::string(elem.data.value)};
 
         exec({"DROP TABLE #exact_numerics_numeric;"});
         ASSERT_EQ(0, exec(cq(c1.v.c_str(), c2.v.c_str())));
-        ASSERT_EQ(1, exec(iq(current_constraint.values [0], current_constraint.values [1])));
-        ASSERT_EQ(1, exec(sq(), validator, reinterpret_cast<void *>(&current_constraint)));
+        ASSERT_EQ(1, exec(iq(v1.v.c_str(), v2.v.c_str())));
+        ASSERT_EQ(1, exec(sq(), validator, reinterpret_cast<void *>(&elem)));
     }
 }
 
@@ -466,13 +467,16 @@ TEST_F(tds_command_ctx_it_fixture, exact_numerics_money) {
         ASSERT_EQ(r [0].size_bytes(), 8);
         ASSERT_EQ(r [1].size_bytes(), 8);
 
-        EXPECT_EQ(r [0].as<tdsl::sqltypes::sql_money>().raw(),
-                  tdsl::numeric_limits::min_value<tdsl::int64_t>());
-        EXPECT_EQ(r [1].as<tdsl::sqltypes::sql_money>().raw(),
-                  tdsl::numeric_limits::max_value<tdsl::int64_t>());
+        auto m0 = r [0].as<tdsl::sql_money>();
+        auto m1 = r [1].as<tdsl::sql_money>();
 
-        EXPECT_EQ(r [0].as<tdsl::sqltypes::sql_money>(), -922337203685477.5808);
-        EXPECT_EQ(r [1].as<tdsl::sqltypes::sql_money>(), 922337203685477.5807);
+        EXPECT_EQ(m0.raw(), tdsl::numeric_limits::min_value<tdsl::int64_t>());
+        EXPECT_EQ(m1.raw(), tdsl::numeric_limits::max_value<tdsl::int64_t>());
+
+        EXPECT_EQ(m0.integer(), -922337203685477);
+        EXPECT_EQ(m0.fraction(), -5808);
+        EXPECT_EQ(m1.integer(), 922337203685477);
+        EXPECT_EQ(m1.fraction(), 5807);
     };
     // smallmoney	- 214,748.3648 to 214,748.3647
     ASSERT_EQ(0, exec(cq("q money", "y money")));
@@ -487,8 +491,8 @@ TEST_F(tds_command_ctx_it_fixture, exact_numerics_real) {
         validator_called(b);
         ASSERT_EQ(c.columns.size(), 2);
         ASSERT_EQ(r.size(), 2);
-        EXPECT_EQ(r [0].as<float>(), float{1.17549e-038f});
-        EXPECT_EQ(r [1].as<float>(), float{3.40282e+038f});
+        EXPECT_EQ(r [0].as<tdsl::sql_float4>(), tdsl::sql_float4{1.17549e-038f});
+        EXPECT_EQ(r [1].as<tdsl::sql_float4>(), tdsl::sql_float4{3.40282e+038f});
     };
     ASSERT_EQ(0, exec(cq("q real", "y real")));
     ASSERT_EQ(1, exec(iq("1.17549e-038", "3.40282e+038")));
@@ -519,11 +523,11 @@ TEST_F(tds_command_ctx_it_fixture, test_rpc_inttype) {
         ASSERT_EQ(r [3].size_bytes(), 4);
         ASSERT_EQ(r [4].size_bytes(), 8);
 
-        EXPECT_EQ(r [0].as<tdsl::sqltypes::s_bit>(), true);
-        EXPECT_EQ(r [1].as<tdsl::sqltypes::s_tinyint>(), 255);
-        EXPECT_EQ(r [2].as<tdsl::sqltypes::s_smallint>(), 32767);
-        EXPECT_EQ(r [3].as<tdsl::sqltypes::s_int>(), 2100000000);
-        EXPECT_EQ(r [4].as<tdsl::sqltypes::s_bigint>(), 42);
+        EXPECT_EQ(r [0].as<tdsl::sql_bit>(), true);
+        EXPECT_EQ(r [1].as<tdsl::sql_tinyint>(), 255);
+        EXPECT_EQ(r [2].as<tdsl::sql_smallint>(), 32767);
+        EXPECT_EQ(r [3].as<tdsl::sql_int>(), 2100000000);
+        EXPECT_EQ(r [4].as<tdsl::sql_bigint>(), 42);
     };
 
     // Create the table
@@ -910,4 +914,26 @@ TEST_F(tds_command_ctx_it_fixture, test_affected_rows_del) {
                                           tdsl::detail::e_rpc_mode::executesql);
     ASSERT_TRUE(result);
     ASSERT_EQ(result.get(), 10);
+}
+
+// --------------------------------------------------------------------------------
+TEST_F(tds_command_ctx_it_fixture, numeric_bug_test) {
+
+    // Create the table
+    command_ctx.execute_query(
+        tdsl::string_view{"CREATE TABLE #test_rpc(n varchar(20), a numeric(5,2))"});
+    command_ctx.execute_query(tdsl::string_view{"INSERT INTO #test_rpc VALUES('test2', -999.99)"});
+    bool called = false;
+    command_ctx.execute_query(
+        tdsl::string_view{"SELECT a from #test_rpc"},
+        [](void * u, const tdsl::tds_colmetadata_token & colmd, const tdsl::tdsl_row & row) {
+            *static_cast<bool *>(u) = true;
+            ASSERT_NE(u, nullptr);
+            ASSERT_EQ(colmd.columns.size(), 1);
+            tdsl::sql_decimal dec = row [0].as<tdsl::sql_decimal>();
+            ASSERT_EQ(dec.integer(), -999);
+            ASSERT_EQ(dec.fraction(), -99);
+        },
+        &called);
+    ASSERT_TRUE(called);
 }

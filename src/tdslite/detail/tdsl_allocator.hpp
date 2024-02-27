@@ -145,12 +145,11 @@ namespace tdsl {
 
         template <typename... Args>
         static TDSL_NODISCARD auto create_n(tdsl::uint32_t n_elems, Args &&... args) -> T * {
-            void * mem = tdslite_malloc(sizeof(T) * n_elems);
-            if (nullptr == mem) {
+
+            T * storage = allocate(n_elems);
+            if (nullptr == storage) {
                 return nullptr;
             }
-
-            T * storage = static_cast<T *>(mem);
 
             // Invoke placement new for each element
             construct(storage, n_elems, TDSL_FORWARD(args)...);

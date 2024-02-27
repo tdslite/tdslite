@@ -35,6 +35,8 @@ namespace tdsl {
         using fields_type_t     = tdsl::span<tdsl_field>;
         using make_result_t     = tdsl::expected<tdsl_row, e_tdsl_row_make_err>;
 
+        struct do_not_construct_fields {};
+
         // --------------------------------------------------------------------------------
 
         inline TDSL_NODISCARD auto begin() const noexcept -> fields_type_t::iterator {
@@ -74,16 +76,40 @@ namespace tdsl {
 
         // --------------------------------------------------------------------------------
 
+        // /**
+        //  * Allocate space for @p n_col fields and make a row object
+        //  *
+        //  * @param n_col number of columns
+        //  *
+        //  * @return tdsl_row with n_col field on success
+        //  * @return e_tdsl_row_make_err::FAILURE_MEM_ALLOC on failure
+        //  */
+        // static inline TDSL_NODISCARD make_result_t make(tdsl::uint32_t n_col) {
+        //     // TODO: This should only allocate the space for the fields
+        //     // and do not actually construct them. The row parser should
+        //     // invoke the placement new and put each field in place.
+        //     tdsl_field * fields = field_allocator_t::create_n(n_col);
+        //     if (fields) {
+        //         return tdsl_row(fields, n_col);
+        //     }
+        //     return tdsl::unexpected(e_tdsl_row_make_err::MEM_ALLOC);
+        // }
+
         /**
          * Allocate space for @p n_col fields and make a row object
+         * but do not construct them.
          *
          * @param n_col number of columns
          *
          * @return tdsl_row with n_col field on success
          * @return e_tdsl_row_make_err::FAILURE_MEM_ALLOC on failure
          */
-        static inline TDSL_NODISCARD make_result_t make(tdsl::uint32_t n_col) {
-            tdsl_field * fields = field_allocator_t::create_n(n_col);
+        static inline TDSL_NODISCARD make_result_t make(tdsl::uint32_t n_col,
+                                                        do_not_construct_fields) {
+            // TODO: This should only allocate the space for the fields
+            // and do not actually construct them. The row parser should
+            // invoke the placement new and put each field in place.
+            tdsl_field * fields = field_allocator_t::allocate(n_col);
             if (fields) {
                 return tdsl_row(fields, n_col);
             }
@@ -140,6 +166,9 @@ namespace tdsl {
 
         void maybe_release_resources() noexcept {
             if (fields) {
+                // FIXME(mkg): There's a chance that some of the fields would not be constructed
+                // if initialization somehow is interrupted (e.g, out of memory). It's not a problem
+                // for now because the field has a trivial destructor.
                 field_allocator_t::destroy_n(fields.data(), fields.size());
                 fields = tdsl::span<tdsl_field>();
             }

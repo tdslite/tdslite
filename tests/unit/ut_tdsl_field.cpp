@@ -17,10 +17,11 @@
 
 #include <cstring>
 
+tdsl::tds_column_info col{};
 using uut_t = tdsl::tdsl_field;
 
 struct tdsl_field_fixture : public ::testing::Test {
-    uut_t field{};
+    uut_t field{col, nullptr, nullptr};
 };
 
 // --------------------------------------------------------------------------------
@@ -61,14 +62,17 @@ TEST_F(tdsl_field_fixture, field_as_sqlmoney) {
     tdsl::uint8_t buf1 [8] = {0x00, 0x00, 0x00, 0x80, 0x00, 0x00, 0x00, 0x00};
     tdsl::uint8_t buf2 [8] = {0xff, 0xff, 0xff, 0x7f, 0xff, 0xff, 0xff, 0xff};
     field                  = buf1;
-    EXPECT_EQ(field.as<tdsl::sqltypes::sql_money>().raw(),
-              tdsl::numeric_limits::min_value<tdsl::int64_t>());
-    EXPECT_EQ(field.as<tdsl::sqltypes::sql_money>(), -922337203685477.5808);
 
-    field = buf2;
-    EXPECT_EQ(field.as<tdsl::sqltypes::sql_money>().raw(),
-              tdsl::numeric_limits::max_value<tdsl::int64_t>());
-    EXPECT_EQ(field.as<tdsl::sqltypes::sql_money>(), 922337203685477.5807);
+    auto field_as_money    = field.as<tdsl::sql_money>();
+    EXPECT_EQ(field_as_money.raw(), tdsl::numeric_limits::min_value<tdsl::int64_t>());
+    EXPECT_EQ(field_as_money.integer(), -922337203685477);
+    EXPECT_EQ(field_as_money.fraction(), -5808);
+
+    field          = buf2;
+    field_as_money = field.as<tdsl::sql_money>();
+    EXPECT_EQ(field.as<tdsl::sql_money>().raw(), tdsl::numeric_limits::max_value<tdsl::int64_t>());
+    EXPECT_EQ(field_as_money.integer(), 922337203685477);
+    EXPECT_EQ(field_as_money.fraction(), 5807);
 }
 
 // --------------------------------------------------------------------------------
@@ -129,9 +133,9 @@ TEST_F(tdsl_field_fixture, field_as_sql_smalldatetime) {
     tdsl::uint8_t buf1 [4] = {0xfa, 0x68, 0x87, 0x00};
 
     field                  = buf1;
-    EXPECT_EQ(field.as<tdsl::sqltypes::sql_smalldatetime>().days_elapsed, 26874);
-    EXPECT_EQ(field.as<tdsl::sqltypes::sql_smalldatetime>().minutes_elapsed, 135);
-    EXPECT_EQ(field.as<tdsl::sqltypes::sql_smalldatetime>().to_unix_timestamp(), 114401700);
+    EXPECT_EQ(field.as<tdsl::sql_smalldatetime>().days_elapsed, 26874);
+    EXPECT_EQ(field.as<tdsl::sql_smalldatetime>().minutes_elapsed, 135);
+    EXPECT_EQ(field.as<tdsl::sql_smalldatetime>().to_unix_timestamp(), 114401700);
 }
 
 // --------------------------------------------------------------------------------
@@ -141,9 +145,9 @@ TEST_F(tdsl_field_fixture, field_as_sql_smalldatetime_zero) {
     tdsl::uint8_t buf1 [4] = {0xcd, 0x63, 0x88, 0x00};
 
     field                  = buf1;
-    EXPECT_EQ(field.as<tdsl::sqltypes::sql_smalldatetime>().days_elapsed, 25549);
-    EXPECT_EQ(field.as<tdsl::sqltypes::sql_smalldatetime>().minutes_elapsed, 136);
-    EXPECT_EQ(field.as<tdsl::sqltypes::sql_smalldatetime>().to_unix_timestamp(), 0);
+    EXPECT_EQ(field.as<tdsl::sql_smalldatetime>().days_elapsed, 25549);
+    EXPECT_EQ(field.as<tdsl::sql_smalldatetime>().minutes_elapsed, 136);
+    EXPECT_EQ(field.as<tdsl::sql_smalldatetime>().to_unix_timestamp(), 0);
 }
 
 // --------------------------------------------------------------------------------
@@ -155,9 +159,9 @@ TEST_F(tdsl_field_fixture, field_as_sql_datetime) {
     // F0F78
 
     field                  = buf1;
-    EXPECT_EQ(field.as<tdsl::sqltypes::sql_datetime>().days_elapsed, 26874);
-    EXPECT_EQ(field.as<tdsl::sqltypes::sql_datetime>().centiseconds_elapsed, 987000);
-    EXPECT_EQ(field.as<tdsl::sqltypes::sql_datetime>().to_unix_timestamp(), 114403470);
+    EXPECT_EQ(field.as<tdsl::sql_datetime>().days_elapsed, 26874);
+    EXPECT_EQ(field.as<tdsl::sql_datetime>().centiseconds_elapsed, 987000);
+    EXPECT_EQ(field.as<tdsl::sql_datetime>().to_unix_timestamp(), 114403470);
 }
 
 // --------------------------------------------------------------------------------
@@ -167,14 +171,14 @@ TEST_F(tdsl_field_fixture, field_as_sql_datetime_zero) {
     tdsl::uint8_t buf1 [8] = {0xfa, 0x58, 0x00, 0x00, 0x78, 0x0f, 0x0f, 0x00};
 
     field                  = buf1;
-    EXPECT_EQ(field.as<tdsl::sqltypes::sql_datetime>().days_elapsed, 22778);
-    EXPECT_EQ(field.as<tdsl::sqltypes::sql_datetime>().centiseconds_elapsed, 987000);
-    EXPECT_EQ(field.as<tdsl::sqltypes::sql_datetime>().to_unix_timestamp(), 0);
+    EXPECT_EQ(field.as<tdsl::sql_datetime>().days_elapsed, 22778);
+    EXPECT_EQ(field.as<tdsl::sql_datetime>().centiseconds_elapsed, 987000);
+    EXPECT_EQ(field.as<tdsl::sql_datetime>().to_unix_timestamp(), 0);
 }
 
 // --------------------------------------------------------------------------------
 
-#include <tdslite/detail/token/tds_colmetadata_token.hpp>
+#include <tdslite/detail/tdsl_tds_column_info.hpp>
 #include <tdslite/detail/tdsl_data_type.hpp>
 
 bool field_to_string(const tdsl::tds_column_info & colinfo, const tdsl::tdsl_field & field,
@@ -237,7 +241,7 @@ bool field_to_string(const tdsl::tds_column_info & colinfo, const tdsl::tdsl_fie
 
         case data_type::DECIMALTYPE:
         case data_type::MONEYTYPE: {
-            auto mt = field.as<tdsl::sqltypes::sql_money>();
+            auto mt = field.as<tdsl::sql_money>();
             snprintf_fn(buf.data(), buf.size_bytes(), "%f", mt);
         } break;
         default:
@@ -250,7 +254,7 @@ bool field_to_string(const tdsl::tds_column_info & colinfo, const tdsl::tdsl_fie
 
 struct tdsl_field_to_string_fixture : public ::testing::Test {
     tdsl::tds_column_info ci{};
-    uut_t field{};
+    uut_t field{col, nullptr, nullptr};
     tdsl::char_span out{};
 
     inline void resize_out(tdsl::size_t n) {
@@ -260,7 +264,7 @@ struct tdsl_field_to_string_fixture : public ::testing::Test {
 
     inline void update_field_data(void (*mutator)(std::vector<tdsl::uint8_t> &)) {
         mutator(field_data);
-        field = uut_t{field_data.data(), field_data.size()};
+        field = uut_t{col, field_data.data(), field_data.size()};
     }
 
 private:
