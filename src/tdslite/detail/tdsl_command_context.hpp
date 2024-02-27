@@ -603,7 +603,8 @@ namespace tdsl { namespace detail {
                 return result;
             }
 
-            auto row_data{tdsl_row::make(qstate.colmd.columns.size())};
+            auto row_data{
+                tdsl_row::make(qstate.colmd.columns.size(), tdsl_row::do_not_construct_fields{})};
 
             if (not row_data) {
                 TDSL_DEBUG_PRINTLN("row data creation failed (%d)",
@@ -618,6 +619,10 @@ namespace tdsl { namespace detail {
                 TDSL_ASSERT(cidx < row_data->size());
                 const auto & column             = qstate.colmd.columns [cidx];
                 const auto & dprop              = get_data_type_props(column.type);
+
+                // (mkg): In this stage, the field's constructor is not yet
+                // invoked, only the storage is allocated. This loop expected
+                // to invoke the "placement new" for the field.
                 auto & field                    = (*row_data) [cidx];
                 bool field_length_equal_to_null = {false};
 
@@ -710,21 +715,24 @@ namespace tdsl { namespace detail {
 
                 if (field_length_equal_to_null) {
                     field_length = {0};
+                    new (&field, placement_new_tag{}) tdsl_field(column, nullptr, nullptr);
                     field.set_null();
                 }
+                else {
+                    if (not rr.has_bytes(field_length)) {
+                        TDSL_DEBUG_PRINTLN("handle_row_token() --> not enough bytes for reading "
+                                           "field, " TDSL_SIZET_FORMAT_SPECIFIER
+                                           " more bytes needed",
+                                           field_length - rr.remaining_bytes());
+                        result.status       = token_handler_status::not_enough_bytes;
+                        result.needed_bytes = field_length - rr.remaining_bytes();
+                        return result;
+                    }
 
-                if (not rr.has_bytes(field_length)) {
-                    TDSL_DEBUG_PRINTLN("handle_row_token() --> not enough bytes for reading "
-                                       "field, " TDSL_SIZET_FORMAT_SPECIFIER " more bytes needed",
-                                       field_length - rr.remaining_bytes());
-                    result.status       = token_handler_status::not_enough_bytes;
-                    result.needed_bytes = field_length - rr.remaining_bytes();
-                    return result;
+                    // Invoke "placement new"
+                    new (&field, placement_new_tag{}) tdsl_field(column, rr.read(field_length));
                 }
 
-                if (field_length) {
-                    field = rr.read(field_length);
-                }
                 // (mgilor): '%.*s' does not function here; printf stops writing
                 // characters when it reaches a \0 (NUL), regardless of the actual 
                 // length of the provided string.
