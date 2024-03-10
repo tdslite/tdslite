@@ -36,3 +36,6 @@
   - For all boards with ESP MCU's : `pio boards --json-output | jq -c '.[] | select(.mcu|contains("ESP")) | .id' | xargs printf -- '--board\0%s\0' | tr '\n' '\0' | xargs -0 pio ci examples/esp/esp.cpp`
 
   - To find which macro is defined for a specific arduino board: [boards.txt](https://github.com/arduino/ArduinoCore-megaavr/blob/5e639ee40afa693354d3d056ba7fb795a8948c11/boards.txt#L25) (see build.board field of each respective board)
+
+- To generate an library file from the project:
+  - `git archive --format zip --prefix tdslite/ --output tdslite.zip main`

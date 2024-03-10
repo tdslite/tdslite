@@ -1,0 +1,44 @@
+* text=auto
+
+# Explicitly declare text files that should be normalized and converted
+# to native line endings on checkout.
+*.json text
+*.md text
+*.env text
+*.txt text
+
+# Declare files that should have LF line endings on checkout.
+*.hpp eol=lf
+*.hxx eol=lf
+*.h eol=lf
+*.cpp eol=lf
+*.c eol=lf
+*.cxx eol=lf
+
+# Export ignore folders
+.hadouken/ export-ignore
+.vscode/ export-ignore
+.cmake/ export-ignore
+.conan/ export-ignore
+.devcontainer/ export-ignore
+.docker/ export-ignore
+.github/ export-ignore
+extras/ export-ignore
+src/tdslite-net/asio/ export-ignore
+tests/ export-ignore
+
+# Export ignore files
+.clang-format export-ignore
+.clang-tidy export-ignore
+.doxyfile export-ignore
+.gdbinit export-ignore
+.gitattributes export-ignore
+.gitconfig export-ignore
+.gitignore export-ignore
+.gitmodules export-ignore
+.lsan-suppressions export-ignore
+CMakeLists.txt export-ignore
+CMakePresets.json export-ignore
+CONTRIBUTING.md export-ignore
+project-metadata.env export-ignore
+workspace.code-workspace export-ignore
