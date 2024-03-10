@@ -1,6 +1,6 @@
 {
     "name": "tdslite",
-    "version": "0.6.0",
+    "version": "0.7.0",
     "description": "Lightweight, platform independent Microsoft SQL Server(MSSQL) connector / MS-TDS implementation written in pure C++11 that can work with just 2kB of SRAM. Built around C++s zero cost / only pay for what you use mantra. The implementation is based on Microsoft `MS-TDS: Tabular Data Stream Protocol` technical specification (revision number 33).",
     "keywords": "database, connector, communication",
     "repository": {
