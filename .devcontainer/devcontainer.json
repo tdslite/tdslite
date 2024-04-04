@@ -17,23 +17,12 @@
     // Service name defined by docker-compose to be used as remote container 
     "service": "devenv",
     "runServices": [
-        "mssql-2017"
+        "mssql-2022"
     ],
     // Workspace to display in vscode
     "workspaceFolder": "/workspace",
     // Use 'settings' to set *default* container specific settings.json values on container create. 
     // You can edit these settings after create using File > Preferences > Settings > Remote.
-    "settings": {
-        "terminal.integrated.profiles.linux": {
-            "default-zsh": {
-                "path": "/usr/bin/zsh",
-                "args": [
-                    "--login"
-                ]
-            }
-        },
-        "terminal.integrated.defaultProfile.linux": "default-zsh"
-    },
     "containerEnv": {},
     "remoteEnv": {},
     // Run user-specified post creation script (if exist)
@@ -42,63 +31,78 @@
     // Run as user `vscode`
     "remoteUser": "dev",
     // Add the IDs of extensions you want installed when the container is created in the array below.
-    "extensions": [
-        "ms-vscode.cpptools",
-        // Bash Beautify
-        "shakram02.bash-beautify",
-        // C++ Algorithm Mnemonics
-        "davidbroetje.algorithm-mnemonics-vscode",
-        // CMake Language Support
-        "twxs.cmake",
-        // CMake Tools
-        "ms-vscode.cmake-tools",
-        // Python extension
-        "ms-python.python",
-        // GitLens
-        "eamodio.gitlens",
-        // Doxygen Language Support
-        "bbenoist.doxygen",
-        // Doxygen Documentation
-        "cschlosser.doxdocgen",
-        // Gitconfig Syntax
-        "sidneys1.gitconfig",
-        // Markdown All in one
-        "yzhang.markdown-all-in-one",
-        //Markdown PDF
-        "yzane.markdown-pdf",
-        // Markdown Lint
-        "davidanson.vscode-markdownlint",
-        // Shebang Snippets
-        "rpinski.shebang-snippets",
-        // TLDR Pages
-        "bmuskalla.vscode-tldr",
-        // TODO Tree
-        "gruntfuggly.todo-tree",
-        // VS IntelliCode
-        "visualstudioexptteam.vscodeintellicode",
-        // vscode-spotify
-        "shyykoserhiy.vscode-spotify",
-        // Word Count
-        "ms-vscode.wordcount",
-        // vscode-clangd
-        "llvm-vs-code-extensions.vscode-clangd",
-        // Resource monitor
-        "mutantdino.resourcemonitor",
-        // Integrated hex editor
-        "ms-vscode.hexeditor",
-        // Better C++ Syntax
-        "jeff-hykin.better-cpp-syntax",
-        // YAML language support
-        "redhat.vscode-yaml",
-        // Back and forward buttons
-        "grimmer.vscode-back-forward-button",
-        // Crumbs (PCAP viewer)
-        "lukaschneider.crumbs",
-        // MSSQL
-        "ms-mssql.mssql",
-        // Serial monitor
-        "ms-vscode.vscode-serial-monitor",
-        // Arduino
-        "vsciot-vscode.vscode-arduino"
-    ]
+    "customizations": {
+        "vscode": {
+            "settings": {
+                "terminal.integrated.profiles.linux": {
+                    "default-zsh": {
+                        "path": "/usr/bin/zsh",
+                        "args": [
+                            "--login"
+                        ]
+                    }
+                },
+                "terminal.integrated.defaultProfile.linux": "default-zsh"
+            },
+            "extensions": [
+                "ms-vscode.cpptools",
+                // Bash Beautify
+                "shakram02.bash-beautify",
+                // C++ Algorithm Mnemonics
+                "davidbroetje.algorithm-mnemonics-vscode",
+                // CMake Language Support
+                "twxs.cmake",
+                // CMake Tools
+                "ms-vscode.cmake-tools",
+                // Python extension
+                "ms-python.python",
+                // GitLens
+                "eamodio.gitlens",
+                // Doxygen Language Support
+                "bbenoist.doxygen",
+                // Doxygen Documentation
+                "cschlosser.doxdocgen",
+                // Gitconfig Syntax
+                "sidneys1.gitconfig",
+                // Markdown All in one
+                "yzhang.markdown-all-in-one",
+                //Markdown PDF
+                "yzane.markdown-pdf",
+                // Markdown Lint
+                "davidanson.vscode-markdownlint",
+                // Shebang Snippets
+                "rpinski.shebang-snippets",
+                // TLDR Pages
+                "bmuskalla.vscode-tldr",
+                // TODO Tree
+                "gruntfuggly.todo-tree",
+                // VS IntelliCode
+                "visualstudioexptteam.vscodeintellicode",
+                // vscode-spotify
+                "shyykoserhiy.vscode-spotify",
+                // Word Count
+                "ms-vscode.wordcount",
+                // vscode-clangd
+                "llvm-vs-code-extensions.vscode-clangd",
+                // Resource monitor
+                "mutantdino.resourcemonitor",
+                // Integrated hex editor
+                "ms-vscode.hexeditor",
+                // Better C++ Syntax
+                "jeff-hykin.better-cpp-syntax",
+                // YAML language support
+                "redhat.vscode-yaml",
+                // Back and forward buttons
+                "grimmer.vscode-back-forward-button",
+                // Crumbs (PCAP viewer)
+                "lukaschneider.crumbs",
+                // MSSQL
+                "ms-mssql.mssql",
+                // Serial monitor
+                "ms-vscode.vscode-serial-monitor",
+                // Arduino
+                "vsciot-vscode.vscode-arduino"
+            ]
+        }
+    }
 }

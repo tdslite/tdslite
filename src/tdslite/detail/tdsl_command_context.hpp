@@ -132,11 +132,11 @@ namespace tdsl { namespace detail {
          */
         template <typename T, traits::enable_when::same_any_of<T, string_view, wstring_view,
                                                                struct progmem_string_view> = true>
-        inline query_result execute_query(
+        inline auto execute_query(
             T command,
             row_callback_fn_t row_callback = +[](void *, const tds_colmetadata_token &,
                                                  const tdsl_row &) -> void {},
-            void * rcb_uptr                = nullptr) noexcept {
+            void * rcb_uptr                = nullptr) noexcept -> query_result {
             // Reset query state object & reassign row callback
             qstate              = {};
             qstate.row_callback = {row_callback, rcb_uptr};

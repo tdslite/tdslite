@@ -18,6 +18,11 @@ make_component(
             SUFFIX .tdsl_command_context
             SOURCES it_tdsl_command_context.cpp
 
+    TARGET  TYPE UNIT_TEST
+            SUFFIX .tdsl_driver
+            SOURCES it_tdsl_driver.cpp
+            LINK PRIVATE tdslite.net.asio
+
     ALL_NO_AUTO_COMPILATION_UNIT
     ALL_WITH_COVERAGE
     ALL_COVERAGE_TARGETS tdslite

@@ -6,7 +6,7 @@ Contributions are always welcome. Feel free to file issues/feature requests, sub
 
 ## Preparing the development environment
 
-The project ships a docker-compose file that includes everything needed for developing the `tdslite`, including a built-in `Microsoft SQL Server 2017` for testing. The docker-compose file is primarily in place to work with VSCode's Dev Containers extension. While it's not necessary to use `vscode` for developing `tdslite`, I'd recommend it.
+The project ships a docker-compose file that includes everything needed for developing the `tdslite`, including a built-in `Microsoft SQL Server 2022` for testing. The docker-compose file is primarily in place to work with VSCode's Dev Containers extension. While it's not necessary to use `vscode` for developing `tdslite`, I'd recommend it.
 
 ### Visual Studio Code
 
@@ -42,7 +42,7 @@ It's possible to use the docker-compose file manually to bring the development e
     docker exec -it --user dev:dev tdslite-devenv zsh -c "cd /workspace;zsh -i"
     # stop development environment when not needed
     docker-compose stop
-    # use the "tdslite-mssql-2017" name to get a shell from the database server instead.
+    # use the "tdslite-mssql-2022" name to get a shell from the database server instead.
 ```
 
 #### Building the project (command line)

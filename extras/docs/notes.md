@@ -1,7 +1,7 @@
 ## Roadmap
 
 - Add support for send buffer fragmentation depending on negotiated packet size [DONE]
-- Add different SQL server versions to integration tests besides MSSQL 2017
+- Add different SQL server versions to integration tests besides MSSQL 2022
 - Add CI pipeline with matrix build (different platforms, toolchains and  versions) [DONE]
 - Add as many board simulators as possible & run tests on them (if possible) [DONE]
 - Write use cases and example applications [IN PROGRESS]
