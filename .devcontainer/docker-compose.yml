@@ -10,8 +10,8 @@
 
 version: '3'
 services:
-  mssql-2017:
-    image: mcr.microsoft.com/mssql/server:2017-latest
+  mssql-2022:
+    image: mcr.microsoft.com/mssql/server:2022-latest
     ports:
       #  host :container
       - "14333:1433"
@@ -20,7 +20,7 @@ services:
       ACCEPT_EULA: "Y"
     networks:
       - tds-devenv-network
-    container_name: tdslite-mssql-2017
+    container_name: tdslite-mssql-2022
   devenv:
     image: ghcr.io/mustafakemalgilor/tdslite/tdslite-devenv:0.3.0
     dns:

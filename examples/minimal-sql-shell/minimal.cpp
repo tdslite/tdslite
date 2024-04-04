@@ -184,7 +184,7 @@ int main(void) {
 
     // Define the connection parameters
     decltype(driver)::connection_parameters conn_params;
-    conn_params.server_name         = "mssql-2017";
+    conn_params.server_name         = "mssql-2022";
     conn_params.port                = 1433;
     conn_params.user_name           = "sa";
     conn_params.password            = "2022-tds-lite-test!";

@@ -77,7 +77,7 @@ namespace tdsl { namespace detail {
 
         // --------------------------------------------------------------------------------
 
-        static inline void write(typename TDSCTX::rx_mixin & xc, const wstring_view & sv,
+        static inline void write(typename TDSCTX::tx_mixin & xc, const wstring_view & sv,
                                  void (*encoder)(tdsl::uint8_t *,
                                                  tdsl::uint32_t) = nullptr) noexcept {
 

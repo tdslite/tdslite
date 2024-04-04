@@ -63,7 +63,7 @@ jobs:
         mssql_version: [2017, 2019, 2022]
     runs-on: ubuntu-latest
     services:
-      mssql-2017:
+      mssql-2022:
         image: mcr.microsoft.com/mssql/server:${{ matrix.mssql_version }}-latest
         env:
           MSSQL_SA_PASSWORD: "2022-tds-lite-test!"
@@ -83,7 +83,7 @@ jobs:
           curl https://packages.microsoft.com/config/ubuntu/20.04/prod.list | sudo tee /etc/apt/sources.list.d/msprod.list
           sudo apt-get -y update
           sudo ACCEPT_EULA=y apt-get -y install mssql-tools unixodbc-dev
-          /usr/bin/timeout 90 /bin/bash -c 'until /opt/mssql-tools/bin/sqlcmd -S "mssql-2017" -U "sa" -P "2022-tds-lite-test!" -Q "exit"; do >&2 echo "Database is unavailable - sleeping"; sleep 1; done'
+          /usr/bin/timeout 90 /bin/bash -c 'until /opt/mssql-tools/bin/sqlcmd -S "mssql-2022" -U "sa" -P "2022-tds-lite-test!" -Q "exit"; do >&2 echo "Database is unavailable - sleeping"; sleep 1; done'
       - uses: actions/checkout@v3
         with:
           submodules: "true"

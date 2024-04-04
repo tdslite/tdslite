@@ -118,8 +118,9 @@ namespace tdsl {
          * @return false if writer does not have enough space. The underlying
          * span will be unmodified in this case.
          */
-        inline TDSL_NODISCARD auto write(tdsl::byte_view data) noexcept -> bool {
-            TDSL_ASSERT(data);
+
+        template <typename T>
+        inline TDSL_NODISCARD auto write(tdsl::span<T> data) noexcept -> bool {
 
             if (not this->has_bytes(data.size_bytes())) {
                 return false;

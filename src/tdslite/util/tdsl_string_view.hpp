@@ -46,7 +46,6 @@ namespace tdsl {
         // byte constructor
         inline wstring_view(tdsl::byte_view bv) noexcept : span(bv.rebind_cast<char16_t>()) {
             // If the string is NUL-terminated, omit the NUL terminator.
-
             if (bv.size() > 1 && bv [bv.size() - 2] == '\0' && bv [bv.size() - 1] == '\0') {
                 element_count -= 1;
             }

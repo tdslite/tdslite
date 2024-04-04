@@ -214,6 +214,30 @@ namespace tdsl { namespace detail {
         // --------------------------------------------------------------------------------
 
         /**
+         * Send a query to the server
+         * (const char16_t array overload)
+         *
+         * @param [in] command SQL command to execute
+         * @param [in] uptr User supplied pointer, will be passed to row_callback as first
+         * argument on every invocation
+         * @param [in] row_callback Callback to invoke for each row received as
+         *             a result to the query. (optional)
+         *
+         * @return tdsl::uint32_t Amount of rows affected from the query
+         */
+        template <tdsl::uint32_t N>
+        inline auto execute_query(
+            const char16_t (&command) [N],
+            sql_command_row_callback row_callback = +[](void *, const tds_colmetadata_token &,
+                                                        const tdsl_row &) -> void {},
+            void * uptr                           = nullptr) noexcept -> sql_command_query_result {
+            TDSL_ASSERT(tds_ctx.is_authenticated());
+            return execute_query(tdsl::wstring_view{command}, row_callback, uptr);
+        }
+
+        // --------------------------------------------------------------------------------
+
+        /**
          * Perform a remote procedure call (e.g. execute a stored procedure or
          * a parameterized query)
          *

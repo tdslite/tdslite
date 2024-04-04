@@ -51,14 +51,14 @@ static void default_row_callback(void *, uut_t::column_metadata_cref colmd,
 }
 
 /**
- * Credentials for internal mssql 2017
+ * Credentials for internal mssql 2022
  *
  * @return const login_ctx_t::login_parameters&
  */
-static inline auto mssql_2017_creds() -> const login_ctx_t::login_parameters & {
+static inline auto mssql_2022_creds() -> const login_ctx_t::login_parameters & {
     static login_ctx_t::login_parameters params = [] {
         login_ctx_t::login_parameters p;
-        p.server_name  = "mssql-2017";
+        p.server_name  = "mssql-2022";
         p.user_name    = "sa";
         p.password     = "2022-tds-lite-test!";
         p.client_name  = "tdslite integration test case";
@@ -83,7 +83,7 @@ struct tds_command_ctx_it_fixture : public ::testing::Test {
 
     virtual void SetUp() override {
         login_ctx_t login{tds_ctx};
-        const auto & params = mssql_2017_creds();
+        const auto & params = mssql_2022_creds();
         ASSERT_TRUE(tds_ctx.do_connect(params.server_name, /*port=*/1433));
         ASSERT_EQ(login.do_login(params), login_ctx_t::e_login_status::success);
         ASSERT_TRUE(tds_ctx.is_authenticated());
@@ -926,6 +926,29 @@ TEST_F(tds_command_ctx_it_fixture, numeric_bug_test) {
     bool called = false;
     command_ctx.execute_query(
         tdsl::string_view{"SELECT a from #test_rpc"},
+        [](void * u, const tdsl::tds_colmetadata_token & colmd, const tdsl::tdsl_row & row) {
+            *static_cast<bool *>(u) = true;
+            ASSERT_NE(u, nullptr);
+            ASSERT_EQ(colmd.columns.size(), 1);
+            tdsl::sql_decimal dec = row [0].as<tdsl::sql_decimal>();
+            ASSERT_EQ(dec.integer(), -999);
+            ASSERT_EQ(dec.fraction(), -99);
+        },
+        &called);
+    ASSERT_TRUE(called);
+}
+
+// --------------------------------------------------------------------------------
+TEST_F(tds_command_ctx_it_fixture, utf16_query_string) {
+
+    // Create the table
+    command_ctx.execute_query(
+        tdsl::wstring_view{u"CREATE TABLE #test_rpc(n varchar(20), a numeric(5,2))"});
+    command_ctx.execute_query(
+        tdsl::wstring_view{u"INSERT INTO #test_rpc VALUES('test2', -999.99)"});
+    bool called = false;
+    command_ctx.execute_query(
+        tdsl::wstring_view{u"SELECT a from #test_rpc"},
         [](void * u, const tdsl::tds_colmetadata_token & colmd, const tdsl::tdsl_row & row) {
             *static_cast<bool *>(u) = true;
             ASSERT_NE(u, nullptr);
