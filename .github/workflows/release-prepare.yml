@@ -1,0 +1,96 @@
+# Step 1 of the release process: bump the version and open a release PR.
+#
+# Run from the Actions tab ("Release - Prepare" -> "Run workflow") and enter
+# the new version. Merging the resulting PR triggers release-publish.yml.
+#
+# Note: PRs opened with the default GITHUB_TOKEN do not trigger other
+# workflows, so CI would not run on the release PR. Add a fine-grained PAT
+# (contents: write, pull-requests: write) as the RELEASE_TOKEN secret to get
+# CI on the release PR. Without it, the workflow still works, but you need to
+# close/reopen the PR to kick off CI.
+name: Release - Prepare
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "New version (MAJOR.MINOR.PATCH, e.g. 0.8.1)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency: release
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ inputs.version }}
+      GH_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          token: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - name: Validate version
+        run: |
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Version '$VERSION' is not in MAJOR.MINOR.PATCH format"
+            exit 1
+          fi
+          CURRENT=$(jq -r .version library.json)
+          HIGHEST=$(printf '%s\n%s\n' "$CURRENT" "$VERSION" | sort -V | tail -n1)
+          if [ "$CURRENT" = "$VERSION" ] || [ "$HIGHEST" != "$VERSION" ]; then
+            echo "::error::New version $VERSION must be greater than current version $CURRENT"
+            exit 1
+          fi
+          if git ls-remote --exit-code --tags origin "refs/tags/v$VERSION" >/dev/null; then
+            echo "::error::Tag v$VERSION already exists"
+            exit 1
+          fi
+          if git ls-remote --exit-code --heads origin "refs/heads/release/$VERSION" >/dev/null; then
+            echo "::error::Branch release/$VERSION already exists"
+            exit 1
+          fi
+          echo "Bumping $CURRENT -> $VERSION"
+
+      - name: Bump version
+        run: |
+          IFS=. read -r MAJOR MINOR PATCH <<< "$VERSION"
+          # First "version" key only (the top-level one)
+          sed -i -E '0,/"version": *"[0-9.]+"/s//"version": "'"$VERSION"'"/' library.json
+          sed -i -E "s/^version=.*/version=$VERSION/" library.properties
+          sed -i -E "s/^(PROJECT_METADATA_VERSION_MAJOR=).*/\1\"$MAJOR\"/" project-metadata.env
+          sed -i -E "s/^(PROJECT_METADATA_VERSION_MINOR=).*/\1\"$MINOR\"/" project-metadata.env
+          sed -i -E "s/^(PROJECT_METADATA_VERSION_REVISION=).*/\1\"$PATCH\"/" project-metadata.env
+
+          # Sanity check that every file was actually updated
+          test "$(jq -r .version library.json)" = "$VERSION"
+          grep -qx "version=$VERSION" library.properties
+          grep -qx "PROJECT_METADATA_VERSION_MAJOR=\"$MAJOR\"" project-metadata.env
+          grep -qx "PROJECT_METADATA_VERSION_MINOR=\"$MINOR\"" project-metadata.env
+          grep -qx "PROJECT_METADATA_VERSION_REVISION=\"$PATCH\"" project-metadata.env
+          git diff
+
+      - name: Commit and open PR
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "release/$VERSION"
+          git add library.json library.properties project-metadata.env
+          git commit -s -m "Bump the version number to $VERSION for the next release"
+          git push origin "release/$VERSION"
+          gh pr create \
+            --base "${{ github.event.repository.default_branch }}" \
+            --head "release/$VERSION" \
+            --title "Release v$VERSION" \
+            --body "Bumps the version to \`$VERSION\`.
+
+          Merging this PR will automatically:
+          - tag the merge commit as \`v$VERSION\`
+          - create a GitHub release with generated notes and the library archives attached
+          - publish the package to the PlatformIO registry (if \`PLATFORMIO_AUTH_TOKEN\` is configured)"
