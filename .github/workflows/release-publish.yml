@@ -1,0 +1,83 @@
+# Step 2 of the release process: runs when a release/* PR is merged.
+#
+# Tags the merge commit, creates the GitHub release (with the Arduino library
+# zip and PlatformIO tarball attached) and publishes to the PlatformIO
+# registry. The Arduino Library Manager picks up new tags on its own.
+#
+# Secrets:
+#   PLATFORMIO_AUTH_TOKEN (optional) - from `pio account token`. If unset,
+#                                      the PlatformIO publish step is skipped.
+name: Release - Publish
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+permissions:
+  contents: write
+
+concurrency: release
+
+jobs:
+  publish:
+    if: github.event.pull_request.merged == true && startsWith(github.event.pull_request.head.ref, 'release/')
+    runs-on: ubuntu-latest
+    env:
+      HEAD_REF: ${{ github.event.pull_request.head.ref }}
+      MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      HAS_PIO_TOKEN: ${{ secrets.PLATFORMIO_AUTH_TOKEN != '' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+          fetch-depth: 0
+
+      - name: Determine version
+        run: |
+          VERSION="${HEAD_REF#release/}"
+          if [ "$(jq -r .version library.json)" != "$VERSION" ] \
+             || ! grep -qx "version=$VERSION" library.properties; then
+            echo "::error::Branch says $VERSION but library.json/library.properties disagree"
+            exit 1
+          fi
+          if git ls-remote --exit-code --tags origin "refs/tags/v$VERSION" >/dev/null; then
+            echo "::error::Tag v$VERSION already exists"
+            exit 1
+          fi
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install PlatformIO Core
+        run: pip install --upgrade platformio
+
+      - name: Package library
+        run: |
+          bash extras/prep-lib.sh
+          ls -l build/arduino-libpack-root/tdslite.tar.gz build/arduino-libpack-root/tdslite.zip
+
+      - name: Create tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "v$VERSION" -m "v$VERSION" "$MERGE_SHA"
+          git push origin "v$VERSION"
+
+      - name: Create GitHub release
+        run: |
+          gh release create "v$VERSION" \
+            --title "v$VERSION" \
+            --generate-notes \
+            --verify-tag \
+            build/arduino-libpack-root/tdslite.zip \
+            build/arduino-libpack-root/tdslite.tar.gz
+
+      - name: Publish to PlatformIO registry
+        if: env.HAS_PIO_TOKEN == 'true'
+        env:
+          PLATFORMIO_AUTH_TOKEN: ${{ secrets.PLATFORMIO_AUTH_TOKEN }}
+        run: pio pkg publish build/arduino-libpack-root/tdslite.tar.gz --no-interactive
