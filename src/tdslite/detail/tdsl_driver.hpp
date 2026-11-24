@@ -131,6 +131,9 @@ namespace tdsl { namespace detail {
                 return pvr;
             }
 
+            // A (re)connect always starts a new, unauthenticated session.
+            tds_ctx.flags.authenticated = {false};
+
             tds_ctx.set_connection_timeout_params(p.conn_retry_count, p.conn_retry_delay_ms);
 
             if (not tds_ctx.connect(p.server_name, p.port)) {

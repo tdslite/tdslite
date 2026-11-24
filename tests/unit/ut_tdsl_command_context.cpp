@@ -187,3 +187,24 @@ TEST_F(tdsl_command_ctx_ut_fixture, test_rpc) {
     // Expected
     tdsl::util::hexdump(expected_packet_bytes.data(), expected_packet_bytes.size());
 }
+// --------------------------------------------------------------------------------
+
+/**
+ * Regression test: the command context must unregister the callbacks it
+ * registered into the (longer-living) tds_context when it is destroyed.
+ * Otherwise, a later DONE token (e.g. one received during a re-login)
+ * is delivered to a dangling pointer and corrupts the stack.
+ */
+TEST(tdsl_command_ctx_ut, callbacks_unregistered_on_destruction) {
+    tds_ctx_t tds_ctx;
+    {
+        uut_t command_ctx{tds_ctx};
+        EXPECT_TRUE(tds_ctx.callbacks.done);
+        EXPECT_TRUE(tds_ctx.callbacks.sub_token_handler);
+    }
+    EXPECT_FALSE(tds_ctx.callbacks.done);
+    EXPECT_FALSE(tds_ctx.callbacks.sub_token_handler);
+
+    // Must be a no-op now (was a stack-use-after-scope write before the fix)
+    tds_ctx.callbacks.done(tdsl::tds_done_token{});
+}

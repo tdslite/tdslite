@@ -117,6 +117,26 @@ namespace tdsl { namespace detail {
         // --------------------------------------------------------------------------------
 
         /**
+         * Unregister the callbacks registered by this context.
+         *
+         * The tds_context outlives the command context, so the callbacks
+         * must not keep pointing to this object after it is destroyed.
+         * Otherwise, a subsequent DONE token (e.g. one received during
+         * a later login) would be delivered to a dangling pointer.
+         */
+        inline ~command_context() noexcept {
+            tds_ctx.callbacks.sub_token_handler = {};
+            tds_ctx.callbacks.done              = {};
+        }
+
+        // The callbacks registered in tds_context point to `this`, so
+        // copying (or moving) the context would leave them dangling.
+        command_context(const command_context &)             = delete;
+        command_context & operator=(const command_context &) = delete;
+
+        // --------------------------------------------------------------------------------
+
+        /**
          * Execute a query
          *
          * @tparam T Auto-deduced string type (char_span or u16char_span)

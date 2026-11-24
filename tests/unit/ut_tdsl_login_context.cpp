@@ -205,3 +205,39 @@ TEST_F(tdsl_login_ctx_ut_fixture, test_mdac) {
     ASSERT_EQ(sizeof(expected_packet_bytes), tds_ctx.buffer.size());
     ASSERT_THAT(tds_ctx.buffer, testing::ElementsAreArray(expected_packet_bytes));
 }
+// --------------------------------------------------------------------------------
+
+/**
+ * Regression test: the login context must unregister its LOGINACK
+ * callback when it is destroyed.
+ */
+TEST(tdsl_login_ctx_ut, loginack_callback_unregistered_on_destruction) {
+    tds_ctx_t tds_ctx;
+    {
+        uut_t login{tds_ctx};
+        EXPECT_TRUE(tds_ctx.callbacks.loginack);
+    }
+    EXPECT_FALSE(tds_ctx.callbacks.loginack);
+}
+
+// --------------------------------------------------------------------------------
+
+/**
+ * Regression test: a stale `authenticated` flag from a previous login
+ * must not make a subsequent (unacknowledged) login report success.
+ */
+TEST_F(tdsl_login_ctx_ut_fixture, relogin_without_loginack_fails) {
+    // Simulate a previous successful login
+    tds_ctx.callbacks.loginack(tdsl::tds_login_ack_token{});
+    ASSERT_TRUE(tds_ctx.is_authenticated());
+
+    uut_t::login_parameters params;
+    params.server_name = "localhost";
+    params.db_name     = "test";
+    params.user_name   = "sa";
+    params.password    = "test";
+    params.client_name = "unit test";
+    // The mock never responds with a LOGINACK, so this login must fail.
+    EXPECT_EQ(uut_t::e_login_status::failure, login.do_login(params));
+    EXPECT_FALSE(tds_ctx.is_authenticated());
+}
