@@ -165,7 +165,16 @@ namespace tdsl {
 
             // --------------------------------------------------------------------------------
 
-            inline ~login_context() = default;
+            /**
+             * Unregister the LOGINACK callback, so that tds_context
+             * does not keep a dangling pointer to this object.
+             */
+            inline ~login_context() noexcept {
+                tds_ctx.callbacks.loginack = {};
+            }
+
+            login_context(const login_context &)             = delete;
+            login_context & operator=(const login_context &) = delete;
 
             // --------------------------------------------------------------------------------
 
@@ -207,6 +216,10 @@ namespace tdsl {
              */
             template <typename LoginParamsType>
             auto do_login(const LoginParamsType & params) noexcept -> e_login_status {
+
+                // Forget any previous authentication state. The flag is set again
+                // only if the server acknowledges this login (LOGINACK).
+                tds_ctx.flags.authenticated = {false};
 
                 // Put a placeholder for length.
                 auto len_ph = tds_ctx.put_placeholder(0_tdsu32);
