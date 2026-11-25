@@ -1063,3 +1063,317 @@ TEST(request_too_large, login_sends_nothing) {
     EXPECT_EQ(driver_t::e_driver_error_code::login_failed, driver.connect(params));
     EXPECT_TRUE(tx.empty());
 }
+
+// --------------------------------------------------------------------------------
+// Malformed and fragmented responses
+//
+// Malformed tokens must not crash the client (binary_reader traps on
+// out-of-bounds reads, also in release builds) or make it parse token data as
+// tokens. Tokens split across packets must be parsed correctly. The
+// connection must stay usable for the next query either way.
+// --------------------------------------------------------------------------------
+
+namespace {
+
+    using query_result_t = e2e_cmd_ctx_t::query_result;
+
+    /**
+     * Token with a 16-bit length field
+     */
+    inline byte_vec make_token(tdsl::uint8_t type, const byte_vec & body) {
+        byte_vec r{type, static_cast<tdsl::uint8_t>(body.size() & 0xFF),
+                   static_cast<tdsl::uint8_t>(body.size() >> 8)};
+        r.insert(r.end(), body.begin(), body.end());
+        return r;
+    }
+
+    /**
+     * INFO token body (TDS 7.1 layout)
+     */
+    inline byte_vec make_info_body(const char * msg, const char * server, const char * proc,
+                                   tdsl::uint16_t line = 1) {
+        const auto m = ucs2(msg), s = ucs2(server), p = ucs2(proc);
+        byte_vec b{0x39, 0x30, 0x00, 0x00, // number (12345)
+                   0x01,                   // state
+                   0x0A};                  // class
+        b.push_back(static_cast<tdsl::uint8_t>((m.size() / 2) & 0xFF));
+        b.push_back(static_cast<tdsl::uint8_t>((m.size() / 2) >> 8));
+        b.insert(b.end(), m.begin(), m.end());
+        b.push_back(static_cast<tdsl::uint8_t>(s.size() / 2));
+        b.insert(b.end(), s.begin(), s.end());
+        b.push_back(static_cast<tdsl::uint8_t>(p.size() / 2));
+        b.insert(b.end(), p.begin(), p.end());
+        b.push_back(static_cast<tdsl::uint8_t>(line & 0xFF));
+        b.push_back(static_cast<tdsl::uint8_t>(line >> 8));
+        return b;
+    }
+
+    struct info_counter {
+        static void cb(void * uptr, const tdsl::tds_info_token &) {
+            ++*static_cast<tdsl::size_t *>(uptr);
+        }
+    };
+
+    /**
+     * Collects rows of INT columns of any count
+     */
+    struct int_rows_collector {
+        static void cb(void * uptr, const tdsl::tds_colmetadata_token &,
+                       const tdsl::tdsl_row & row) {
+            auto & self = *static_cast<int_rows_collector *>(uptr);
+            std::vector<tdsl::int32_t> r;
+            for (tdsl::size_t i = 0; i < row.size(); i++) {
+                r.push_back(row [i].as<tdsl::int32_t>());
+            }
+            self.rows.push_back(r);
+        }
+
+        std::vector<std::vector<tdsl::int32_t>> rows;
+    };
+
+    /**
+     * Result set with two INT columns and @p row_count rows ({i, -i})
+     */
+    inline byte_vec make_two_int_col_result_set(tdsl::uint32_t row_count) {
+        byte_vec v{0x81,                                            // COLMETADATA
+                   0x02, 0x00,                                      // column count
+                   0x00, 0x00, 0x00, 0x00, 0x38, 0x01, 0x61, 0x00,  // INT4 "a"
+                   0x00, 0x00, 0x00, 0x00, 0x38, 0x01, 0x62, 0x00}; // INT4 "b"
+        for (tdsl::uint32_t i = 0; i < row_count; i++) {
+            const auto neg = static_cast<tdsl::uint32_t>(-static_cast<tdsl::int32_t>(i));
+            v.push_back(0xD1); // ROW
+            for (const auto x : {i, neg}) {
+                for (int s = 0; s < 32; s += 8) {
+                    v.push_back(static_cast<tdsl::uint8_t>(x >> s));
+                }
+            }
+        }
+        const auto done = make_done_token(row_count);
+        v.insert(v.end(), done.begin(), done.end());
+        return v;
+    }
+
+    /**
+     * Result set with a single TEXT column (has collation and table name in
+     * its metadata) and no rows
+     */
+    inline byte_vec make_text_col_empty_result_set() {
+        byte_vec v{0x81,                         // COLMETADATA
+                   0x01, 0x00,                   // column count
+                   0x00, 0x00,                   // user type
+                   0x00, 0x00,                   // flags
+                   0x23,                         // TEXTTYPE
+                   0xFF, 0xFF, 0xFF, 0x7F,       // max length
+                   0x09, 0x04, 0xD0, 0x00, 0x34, // collation
+                   0x05, 0x00};                  // table name length (chars)
+        const auto tname = ucs2("dbo.t");
+        v.insert(v.end(), tname.begin(), tname.end());
+        const auto cname = ucs2("c");
+        v.push_back(0x01); // column name length (chars)
+        v.insert(v.end(), cname.begin(), cname.end());
+        const auto done = make_done_token(0);
+        v.insert(v.end(), done.begin(), done.end());
+        return v;
+    }
+
+    /**
+     * Response of the follow-up query used for checking that the
+     * connection is still usable: 3 rows, values {0, 1, 2}
+     */
+    inline byte_vec make_followup_response() {
+        return make_tds_packet(k_tabular_result, true, make_int_result_set(3));
+    }
+
+    inline void expect_followup_query_works(e2e_cmd_ctx_t & cmd_ctx) {
+        row_collector rc;
+        const auto r =
+            cmd_ctx.execute_query(tdsl::string_view{"SELECT n FROM t;"}, &row_collector::cb, &rc);
+        EXPECT_TRUE(static_cast<bool>(r));
+        EXPECT_FALSE(r.response_error);
+        EXPECT_EQ(3u, r.affected_rows);
+        EXPECT_EQ((std::vector<tdsl::int32_t>{0, 1, 2}), rc.values);
+    }
+
+    /**
+     * Run a query that receives @p stream (TDS packets), then the
+     * follow-up query
+     */
+    template <typename Collector>
+    inline query_result_t run_query_stream(const byte_vec & stream, Collector & collector,
+                                           tdsl::size_t * info_count = nullptr) {
+        tdsl::uint8_t nbuf [512] = {0};
+        e2e_tds_ctx_t tds_ctx{nbuf, concat({stream, make_followup_response()})};
+        e2e_cmd_ctx_t cmd_ctx{tds_ctx};
+        if (info_count) {
+            tds_ctx.callbacks.info = {&info_counter::cb, info_count};
+        }
+        const auto r =
+            cmd_ctx.execute_query(tdsl::string_view{"SELECT 1;"}, &Collector::cb, &collector);
+        expect_followup_query_works(cmd_ctx);
+        return r;
+    }
+
+    /**
+     * Same as above, with @p response in a single packet
+     */
+    template <typename Collector>
+    inline query_result_t run_query(const byte_vec & response, Collector & collector,
+                                    tdsl::size_t * info_count = nullptr) {
+        return run_query_stream(make_tds_packet(k_tabular_result, true, response), collector,
+                                info_count);
+    }
+
+    /**
+     * @p data split into two packets at @p split
+     */
+    inline byte_vec split_into_two_packets(const byte_vec & data, tdsl::size_t split) {
+        const auto split_at = data.begin() + static_cast<std::ptrdiff_t>(split);
+        return concat({make_tds_packet(k_tabular_result, false, byte_vec(data.begin(), split_at)),
+                       make_tds_packet(k_tabular_result, true, byte_vec(split_at, data.end()))});
+    }
+} // namespace
+
+// An ENVCHANGE token with no data used to trap on reading its type
+TEST(malformed_response, envchange_with_zero_length_is_skipped) {
+    row_collector rc;
+    const auto r = run_query(concat({
+                                 {0xE3, 0x00, 0x00},
+                                 make_int_result_set(2)
+    }),
+                             rc);
+    EXPECT_TRUE(r.response_error);
+    EXPECT_FALSE(static_cast<bool>(r));
+    // The rest of the response is still processed
+    EXPECT_EQ((std::vector<tdsl::int32_t>{0, 1}), rc.values);
+    EXPECT_EQ(2u, r.affected_rows);
+}
+
+// INFO tokens cut short at every possible position. Some positions used to
+// trap (reading a string length or the line number past the end of the
+// token), others made the parser lose track of the token boundaries.
+TEST(malformed_response, info_token_truncated_at_every_position_is_skipped) {
+    const auto body = make_info_body("message", "server", "proc");
+    for (tdsl::size_t keep = 0; keep < body.size(); keep++) {
+        SCOPED_TRACE(keep);
+        tdsl::size_t infos = 0;
+        row_collector rc;
+        const auto truncated =
+            byte_vec(body.begin(), body.begin() + static_cast<std::ptrdiff_t>(keep));
+        const auto r = run_query(
+            concat({make_token(0xAB, truncated), make_token(0xAB, body), make_int_result_set(1)}),
+            rc, &infos);
+        EXPECT_TRUE(r.response_error);
+        EXPECT_EQ(1u, infos) << "the valid INFO token after the malformed one is lost";
+        EXPECT_EQ((std::vector<tdsl::int32_t>{0}), rc.values);
+    }
+}
+
+// The smallest valid INFO token (all strings empty) is 12 bytes in TDS 7.1
+TEST(malformed_response, info_token_with_empty_strings_is_valid) {
+    tdsl::size_t infos = 0;
+    row_collector rc;
+    const auto r = run_query(
+        concat({make_token(0xAB, make_info_body("", "", "")), make_int_result_set(1)}), rc, &infos);
+    EXPECT_FALSE(r.response_error);
+    EXPECT_TRUE(static_cast<bool>(r));
+    EXPECT_EQ(1u, infos);
+    EXPECT_EQ((std::vector<tdsl::int32_t>{0}), rc.values);
+}
+
+// A result set split into two packets at every possible position. A
+// COLMETADATA token cut after its first column used to be accepted with
+// the remaining column(s) missing, and the rest of it parsed as tokens.
+TEST(malformed_response, result_set_split_at_every_position) {
+    const auto rs = make_two_int_col_result_set(3);
+    const std::vector<std::vector<tdsl::int32_t>> expected{
+        {0, 0 },
+        {1, -1},
+        {2, -2}
+    };
+    for (tdsl::size_t split = 1; split < rs.size(); split++) {
+        SCOPED_TRACE(split);
+        int_rows_collector c;
+        const auto r = run_query_stream(split_into_two_packets(rs, split), c);
+        EXPECT_FALSE(r.response_error);
+        EXPECT_TRUE(static_cast<bool>(r));
+        EXPECT_EQ(3u, r.affected_rows);
+        EXPECT_EQ(expected, c.rows);
+    }
+}
+
+// Same for column metadata with collation and table name (TEXT). Some split
+// positions used to trap on reading the column name length.
+TEST(malformed_response, text_column_metadata_split_at_every_position) {
+    const auto rs = make_text_col_empty_result_set();
+    for (tdsl::size_t split = 1; split < rs.size(); split++) {
+        SCOPED_TRACE(split);
+        int_rows_collector c;
+        const auto r = run_query_stream(split_into_two_packets(rs, split), c);
+        EXPECT_FALSE(r.response_error);
+        EXPECT_TRUE(static_cast<bool>(r));
+        EXPECT_TRUE(c.rows.empty());
+    }
+}
+
+// A column type the client can't parse. The position of the next token is
+// unknown, so the rest of the response must be discarded instead of being
+// parsed as tokens.
+TEST(malformed_response, unsupported_column_type_discards_response) {
+    const byte_vec rs = concat({
+        {0x81, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00,
+         0xF1, // XML, not supported
+         0x00, 0x01, 0x78, 0x00},
+        {0xD1, 0x01, 0x02, 0x03, 0x04},
+        make_done_token(1)
+    });
+    int_rows_collector c;
+    const auto r = run_query(rs, c);
+    EXPECT_TRUE(r.response_error);
+    EXPECT_FALSE(static_cast<bool>(r));
+    EXPECT_TRUE(c.rows.empty());
+}
+
+// ROW without a prior COLMETADATA
+TEST(malformed_response, row_without_colmetadata_discards_response) {
+    int_rows_collector c;
+    const auto r = run_query(concat({
+                                 {0xD1, 0x01, 0x02, 0x03, 0x04},
+                                 make_done_token(1)
+    }),
+                             c);
+    EXPECT_TRUE(r.response_error);
+    EXPECT_FALSE(static_cast<bool>(r));
+    EXPECT_TRUE(c.rows.empty());
+}
+
+// COLMETADATA with column count 0xFFFF ("no metadata") is valid and
+// has nothing after the count
+TEST(malformed_response, colmetadata_with_no_metadata_is_valid) {
+    int_rows_collector c;
+    const auto r = run_query(concat({
+                                 {0x81, 0xFF, 0xFF},
+                                 make_done_token(0)
+    }),
+                             c);
+    EXPECT_FALSE(r.response_error);
+    EXPECT_TRUE(static_cast<bool>(r));
+    EXPECT_TRUE(c.rows.empty());
+}
+
+// execute_rpc reports a response that couldn't be processed
+TEST(malformed_response, execute_rpc_reports_invalid_response) {
+    tdsl::uint8_t nbuf [512] = {0};
+    e2e_tds_ctx_t tds_ctx{
+        nbuf, concat({make_tds_packet(k_tabular_result, true,
+                      concat({{0xD1, 0x01, 0x02, 0x03, 0x04}, make_done_token(1)})),
+                      make_followup_response()}
+         )
+    };
+    e2e_cmd_ctx_t cmd_ctx{tds_ctx};
+    tdsl::detail::sql_parameter_int p0{};
+    tdsl::detail::sql_parameter_binding params [] = {p0};
+    const auto r = cmd_ctx.execute_rpc(tdsl::string_view{"SELECT @p0"}, params);
+    ASSERT_FALSE(static_cast<bool>(r));
+    EXPECT_EQ(tdsl::detail::e_rpc_error_code::invalid_response, r.error());
+    expect_followup_query_works(cmd_ctx);
+}

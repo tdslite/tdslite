@@ -78,8 +78,16 @@ namespace tdsl { namespace detail {
              */
             bool request_too_large             = {false};
 
+            /**
+             * The response could not be processed completely (e.g. it
+             * contained malformed data or an unsupported column type, or
+             * memory allocation failed). The result set might be incomplete.
+             */
+            bool response_error                = {false};
+
             inline explicit operator bool() const noexcept {
-                return !(request_too_large || status.error() || status.srverror());
+                return !(request_too_large || response_error || status.error() ||
+                         status.srverror());
             }
         };
 
@@ -179,6 +187,7 @@ namespace tdsl { namespace detail {
             }
             // Receive the response
             tds_ctx.receive_tds_pdu();
+            qstate.result.response_error = tds_ctx.has_response_error();
 
             // The state will be updated upon receiving the response
             return qstate.result;
@@ -205,6 +214,8 @@ namespace tdsl { namespace detail {
          *          value is invalid
          * @returns e_rpc_error_code::request_too_large if the request
          *          does not fit into the network buffer (not executed)
+         * @returns e_rpc_error_code::invalid_response if the response could
+         *          not be processed completely
          * @returns rows_affected if successful
          */
         template <typename T, traits::enable_when::same_any_of<T, string_view, wstring_view,
@@ -372,6 +383,9 @@ namespace tdsl { namespace detail {
             }
             // Receive the response
             tds_ctx.receive_tds_pdu();
+            if (tds_ctx.has_response_error()) {
+                return tdsl::unexpected(e_rpc_error_code::invalid_response);
+            }
             TDSL_DEBUG_PRINT("rows affected %d", qstate.result.affected_rows);
             // The state will be updated upon receiving the response
             return tdsl::uint32_t{qstate.result.affected_rows};
@@ -443,19 +457,29 @@ namespace tdsl { namespace detail {
          */
         TDSL_NODISCARD token_handler_result
         handle_colmetadata_token(tdsl::binary_reader<tdsl::endian::little> & rr) noexcept {
-            token_handler_result result                   = {};
-            static constexpr auto k_min_colmetadata_bytes = 8;
-            if (not rr.has_bytes(k_min_colmetadata_bytes)) {
+            token_handler_result result               = {};
+
+            // Release the metadata of the previous result set, or of an earlier
+            // attempt to parse this token (if it spans multiple packets, it's
+            // parsed again from the start once more data arrives).
+            qstate.colmd                              = tds_colmetadata_token{};
+
+            static constexpr auto k_column_count_size = 2;
+            if (not rr.has_bytes(k_column_count_size)) {
                 result.status       = token_handler_status::not_enough_bytes;
-                result.needed_bytes = k_min_colmetadata_bytes - rr.remaining_bytes();
-                TDSL_DEBUG_PRINTLN("received COLMETADATA token, not enough bytes need (at least) "
-                                   "%d, have " TDSL_SIZET_FORMAT_SPECIFIER,
-                                   k_min_colmetadata_bytes, rr.remaining_bytes());
+                result.needed_bytes = k_column_count_size - rr.remaining_bytes();
                 return result;
             }
 
             // Read colum count, try to allocate memory for N columns
             const auto column_count = rr.read<tdsl::uint16_t>();
+
+            // 0xFFFF means "no metadata", nothing follows the count.
+            if (column_count == 0xFFFF || column_count == 0) {
+                result.status = token_handler_status::success;
+                return result;
+            }
+
             if (not qstate.colmd.allocate_colinfo_array(column_count)) {
                 result.status = token_handler_status::not_enough_memory;
                 TDSL_DEBUG_PRINTLN("failed to allocate memory for column info for %d column(s)",
@@ -484,7 +508,20 @@ namespace tdsl { namespace detail {
             tdsl::uint16_t colindex                   = 0;
 
             // Main column metadata read loop
-            while (colindex < column_count && rr.has_bytes(k_colinfo_min_bytes)) {
+            while (colindex < column_count) {
+                // The token has no length field, so running out of data before
+                // reading all the columns means the token continues in the
+                // next packet.
+                if (not rr.has_bytes(k_colinfo_min_bytes)) {
+                    result.status       = token_handler_status::not_enough_bytes;
+                    result.needed_bytes = k_colinfo_min_bytes - rr.remaining_bytes();
+                    TDSL_DEBUG_PRINTLN("not enough bytes to read column %d of %d, need "
+                                       "(at least) %d, have " TDSL_SIZET_FORMAT_SPECIFIER,
+                                       colindex, column_count, k_colinfo_min_bytes,
+                                       rr.remaining_bytes());
+                    return result;
+                }
+
                 tds_column_info & current_column = qstate.colmd.columns [colindex];
                 current_column.user_type         = rr.read<tdsl::uint16_t>();
                 current_column.flags             = rr.read<tdsl::uint16_t>();
@@ -559,28 +596,32 @@ namespace tdsl { namespace detail {
                     TDSL_DEBUG_PRINTLN("command_context::handle_colmetadata_token(...) -> colidx "
                                        "%d has table name\n",
                                        colindex);
-                    do {
-                        constexpr int k_table_name_size_len = 2;
-                        auto tname_needed_bytes             = k_table_name_size_len;
-                        if (rr.has_bytes(tname_needed_bytes)) {
-                            const auto table_name_length_in_chars = rr.read<tdsl::uint16_t>();
-                            tname_needed_bytes = (table_name_length_in_chars * 2);
-                            if (rr.has_bytes(tname_needed_bytes)) {
-                                // FIXME: Read this info into current_column?
-                                rr.advance(tname_needed_bytes);
-                                break;
-                            }
-                        }
+                    constexpr int k_table_name_size_len = 2;
+                    if (not rr.has_bytes(k_table_name_size_len)) {
                         result.status       = token_handler_status::not_enough_bytes;
                         result.needed_bytes = k_table_name_size_len - rr.remaining_bytes();
-                        TDSL_DEBUG_PRINTLN("not enough bytes to read table name, need %d, "
-                                           "have " TDSL_SIZET_FORMAT_SPECIFIER,
-                                           tname_needed_bytes, rr.remaining_bytes());
                         return result;
-                    } while (0);
+                    }
+                    const tdsl::uint32_t tname_bytes = rr.read<tdsl::uint16_t>() * 2u;
+                    if (not rr.has_bytes(tname_bytes)) {
+                        result.status       = token_handler_status::not_enough_bytes;
+                        result.needed_bytes = tname_bytes - rr.remaining_bytes();
+                        TDSL_DEBUG_PRINTLN("not enough bytes to read table name, need %u, "
+                                           "have " TDSL_SIZET_FORMAT_SPECIFIER,
+                                           static_cast<unsigned>(tname_bytes),
+                                           rr.remaining_bytes());
+                        return result;
+                    }
+                    // FIXME: Read this info into current_column?
+                    rr.advance(static_cast<tdsl::ssize_t>(tname_bytes));
                 }
 
                 // Read column name
+                if (not rr.has_bytes(1)) {
+                    result.status       = token_handler_status::not_enough_bytes;
+                    result.needed_bytes = 1;
+                    return result;
+                }
                 current_column.colname_length_in_chars = rr.read<tdsl::uint8_t>();
                 const auto colname_len_in_bytes = (current_column.colname_length_in_chars * 2);
                 if (not rr.has_bytes((colname_len_in_bytes))) {

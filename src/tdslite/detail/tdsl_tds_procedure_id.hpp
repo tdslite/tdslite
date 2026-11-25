@@ -52,6 +52,10 @@ namespace tdsl { namespace detail {
         // The request does not fit into the network buffer.
         // Nothing is sent to the server.
         request_too_large = 2,
+        // The response could not be processed completely (e.g. it
+        // contained malformed data or an unsupported column type,
+        // or memory allocation failed).
+        invalid_response  = 3,
     };
 }} // namespace tdsl::detail
 

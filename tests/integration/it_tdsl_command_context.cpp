@@ -1116,3 +1116,139 @@ TEST_F(tds_command_ctx_it_fixture, request_too_large_rpc_is_not_executed) {
     EXPECT_TRUE(static_cast<bool>(result2));
     EXPECT_EQ(42, value);
 }
+
+// --------------------------------------------------------------------------------
+
+/**
+ * Log in with the smallest packet size (512) and run @p query, whose
+ * COLMETADATA token spans several packets.
+ *
+ * Regression test: a COLMETADATA token cut at a packet boundary used to be
+ * accepted with the remaining columns missing, and the rest of the token was
+ * parsed as tokens.
+ */
+template <typename State>
+static void run_with_min_packet_size(const std::string & query, State & state,
+                                     void (*cb)(void *, const tdsl::tds_colmetadata_token &,
+                                                const tdsl::tdsl_row &),
+                                     tdsl::uint32_t expected_affected_rows) {
+    tds_ctx_t tds_ctx;
+    login_ctx_t::login_parameters params = mssql_2022_creds();
+    params.packet_size                   = 512;
+    {
+        login_ctx_t login{tds_ctx};
+        ASSERT_TRUE(tds_ctx.do_connect(params.server_name, /*port=*/1433));
+        ASSERT_EQ(login.do_login(params), login_ctx_t::e_login_status::success);
+        ASSERT_TRUE(tds_ctx.is_authenticated());
+    }
+
+    uut_t command_ctx{tds_ctx};
+    const tdsl::string_view q{query.data(), static_cast<tdsl::uint32_t>(query.size())};
+    const auto result = command_ctx.execute_query(q, cb, &state);
+    EXPECT_FALSE(result.response_error);
+    EXPECT_TRUE(static_cast<bool>(result));
+    EXPECT_EQ(expected_affected_rows, result.affected_rows);
+
+    // The connection must still be in sync
+    tdsl::int32_t value = {0};
+    const auto result2  = command_ctx.execute_query(
+        tdsl::string_view{"SELECT CAST(42 AS INT);"},
+        [](void * u, const tdsl::tds_colmetadata_token &, const tdsl::tdsl_row & row) {
+            *static_cast<tdsl::int32_t *>(u) = row [0].as<tdsl::int32_t>();
+        },
+        &value);
+    EXPECT_TRUE(static_cast<bool>(result2));
+    EXPECT_EQ(42, value);
+}
+
+// --------------------------------------------------------------------------------
+
+// ~40 * 54 bytes of column metadata, in 504-byte packets
+TEST(tds_command_ctx_it, colmetadata_larger_than_packet) {
+    constexpr int k_column_count = 40;
+    std::string query            = "SELECT ";
+    for (int i = 0; i < k_column_count; i++) {
+        query += (i ? ", " : "") + std::string("CAST(") + std::to_string(i) +
+                 " AS INT) AS a_rather_long_column_name_" + std::to_string(100 + i);
+    }
+    query += ";";
+
+    struct state_t {
+        int rows     = {0};
+        int bad_rows = {0};
+    } state;
+
+    run_with_min_packet_size(
+        query, state,
+        [](void * u, const tdsl::tds_colmetadata_token & colmd, const tdsl::tdsl_row & row) {
+            auto & st = *static_cast<state_t *>(u);
+            st.rows++;
+            if (colmd.columns.size() != k_column_count || row.size() != k_column_count) {
+                st.bad_rows++;
+                return;
+            }
+            for (int i = 0; i < k_column_count; i++) {
+                if (row [i].as<tdsl::int32_t>() != i) {
+                    st.bad_rows++;
+                    return;
+                }
+            }
+        },
+        1);
+    EXPECT_EQ(1, state.rows);
+    EXPECT_EQ(0, state.bad_rows);
+}
+
+// --------------------------------------------------------------------------------
+
+// Same, with TEXT columns (collation and table name in their metadata)
+TEST(tds_command_ctx_it, text_colmetadata_larger_than_packet) {
+    constexpr int k_column_count = 40;
+    std::string query            = "SELECT TOP (0) ";
+    for (int i = 0; i < k_column_count; i++) {
+        query += (i ? ", " : "") + std::string("CAST(NULL AS TEXT) AS a_rather_long_column_name_") +
+                 std::to_string(100 + i);
+    }
+    query += ";";
+
+    int rows = 0;
+    run_with_min_packet_size(
+        query, rows,
+        [](void * u, const tdsl::tds_colmetadata_token &, const tdsl::tdsl_row &) {
+            ++*static_cast<int *>(u);
+        },
+        0);
+    EXPECT_EQ(0, rows);
+}
+
+// --------------------------------------------------------------------------------
+
+/**
+ * Regression test: a result set with a column type the library can't parse
+ * (sql_variant) must be reported as an error, and the rest of the response
+ * must be discarded instead of being parsed as tokens.
+ */
+TEST_F(tds_command_ctx_it_fixture, unsupported_column_type_is_reported) {
+    int rows          = 0;
+    const auto result = command_ctx.execute_query(
+        tdsl::string_view{"SELECT CAST(1 AS SQL_VARIANT) AS v, CAST(2 AS INT) AS n;"},
+        [](void * u, const tdsl::tds_colmetadata_token &, const tdsl::tdsl_row &) {
+            ++*static_cast<int *>(u);
+        },
+        &rows);
+    EXPECT_TRUE(result.response_error);
+    EXPECT_FALSE(static_cast<bool>(result));
+    EXPECT_EQ(0, rows);
+
+    // The connection must still be usable
+    tdsl::int32_t value = {0};
+    const auto result2  = command_ctx.execute_query(
+        tdsl::string_view{"SELECT CAST(42 AS INT);"},
+        [](void * u, const tdsl::tds_colmetadata_token &, const tdsl::tdsl_row & row) {
+            *static_cast<tdsl::int32_t *>(u) = row [0].as<tdsl::int32_t>();
+        },
+        &value);
+    EXPECT_FALSE(result2.response_error);
+    EXPECT_TRUE(static_cast<bool>(result2));
+    EXPECT_EQ(42, value);
+}
