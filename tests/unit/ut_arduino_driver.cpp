@@ -12,6 +12,7 @@
 
 #include <functional>
 #include <cstring>
+#include <cstdint>
 
 // PROGMEM mocks (program memory is regular memory on desktop)
 #define PROGMEM
@@ -25,8 +26,12 @@ std::function<void(int)> delay = [](int ms) {
     (void) ms;
 };
 
+// Mock steady clock. Stands still unless a test advances it. It's 32-bit,
+// like millis() on Arduino.
+std::uint32_t g_millis = 0;
+
 unsigned long millis() {
-    return 0;
+    return g_millis;
 }
 
 #include <tdslite-net/arduino/tdsl_netimpl_arduino.hpp>
@@ -1568,4 +1573,117 @@ TEST(connect_host, host_filling_the_buffer_is_rejected) {
     ASSERT_TRUE(static_cast<bool>(uut.connect(tdsl::string_view{"1234567"}, 1433)));
     EXPECT_EQ(1, host_recording_client::calls);
     EXPECT_EQ("1234567", host_recording_client::last_host);
+}
+
+// --------------------------------------------------------------------------------
+// Receive timeout
+//
+// do_recv() gives up after 30 seconds without completing. millis() is a
+// 32-bit counter on Arduino, which wraps around every ~49.7 days.
+// --------------------------------------------------------------------------------
+
+namespace {
+
+    constexpr tdsl::uint32_t k_recv_timeout_ms  = 30000;
+    constexpr tdsl::uint32_t k_poll_interval_ms = 300;
+    constexpr int k_errc_timeout                = -2;
+
+    /**
+     * Client whose data becomes available after @p polls_until_ready calls to
+     * available() returned 0. Reading advances the clock by @p read_ms.
+     */
+    struct slow_client : public my_client {
+        int available() {
+            if (polls_until_ready > 0) {
+                --polls_until_ready;
+                return 0;
+            }
+            return 1;
+        }
+
+        int read(unsigned char * buf, unsigned long amount) {
+            g_millis += read_ms;
+            std::memset(buf, 0x5A, amount);
+            return static_cast<int>(amount);
+        }
+
+        static int polls_until_ready;
+        static tdsl::uint32_t read_ms;
+    };
+
+    int slow_client::polls_until_ready  = 0;
+    tdsl::uint32_t slow_client::read_ms = 0;
+
+    /**
+     * Sets the mock clock and makes delay() advance it, for the scope
+     */
+    struct mock_clock_scope {
+        explicit mock_clock_scope(tdsl::uint32_t now) : saved_delay(delay) {
+            g_millis = now;
+            delays   = 0;
+            delay    = [](int ms) {
+                g_millis += static_cast<tdsl::uint32_t>(ms);
+                ++delays;
+            };
+        }
+
+        ~mock_clock_scope() {
+            delay    = saved_delay;
+            g_millis = 0;
+        }
+
+        std::function<void(int)> saved_delay;
+        static int delays;
+    };
+
+    int mock_clock_scope::delays = 0;
+
+    /**
+     * Receive 16 bytes from a slow_client, starting at time @p now
+     */
+    inline uut_t<slow_client>::network_io_result
+    recv_from_slow_client(tdsl::uint32_t now, int polls_until_ready, tdsl::uint32_t read_ms = 0) {
+        mock_clock_scope clock{now};
+        slow_client::polls_until_ready = polls_until_ready;
+        slow_client::read_ms           = read_ms;
+        tdsl::uint8_t nbuf [64]        = {0};
+        uut_t<slow_client> uut{nbuf};
+        tdsl::uint8_t dst [16] = {0};
+        return uut.do_recv(sizeof(dst), tdsl::byte_span{dst});
+    }
+} // namespace
+
+TEST(recv_timeout, data_arriving_within_timeout_is_received) {
+    EXPECT_TRUE(static_cast<bool>(recv_from_slow_client(/*now=*/5000, /*polls_until_ready=*/5)));
+}
+
+// The receive starts 1 second before millis() wraps around. It used to time
+// out immediately (the deadline wrapped around to a small value) and lose
+// the data it had read.
+TEST(recv_timeout, receive_across_millis_wraparound) {
+    EXPECT_TRUE(static_cast<bool>(
+        recv_from_slow_client(/*now=*/0xFFFFFFFFu - 1000u, /*polls_until_ready=*/0)));
+    EXPECT_TRUE(static_cast<bool>(
+        recv_from_slow_client(/*now=*/0xFFFFFFFFu - 1000u, /*polls_until_ready=*/5)));
+}
+
+// The data completes exactly at the deadline. It used to be reported as a
+// timeout, although it had been received (and consumed).
+TEST(recv_timeout, data_completing_at_deadline_is_received) {
+    constexpr int k_polls = (k_recv_timeout_ms / k_poll_interval_ms) - 1;
+    EXPECT_TRUE(static_cast<bool>(recv_from_slow_client(
+        /*now=*/5000, k_polls, /*read_ms=*/k_recv_timeout_ms - k_polls * k_poll_interval_ms)));
+}
+
+// A peer that never sends still times out after 30 seconds, also when
+// millis() wraps around in the meantime
+TEST(recv_timeout, silent_peer_times_out_after_timeout) {
+    for (const tdsl::uint32_t now : {tdsl::uint32_t{5000}, tdsl::uint32_t{0xFFFFFFFFu - 1000u}}) {
+        SCOPED_TRACE(now);
+        const auto r = recv_from_slow_client(now, /*polls_until_ready=*/1000000);
+        ASSERT_FALSE(static_cast<bool>(r));
+        EXPECT_EQ(k_errc_timeout, r.error());
+        EXPECT_EQ(static_cast<int>(k_recv_timeout_ms / k_poll_interval_ms),
+                  mock_clock_scope::delays);
+    }
 }

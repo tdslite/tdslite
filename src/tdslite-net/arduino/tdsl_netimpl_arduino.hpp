@@ -198,12 +198,14 @@ namespace tdsl { namespace net {
                 return tdsl::unexpected(static_cast<int>(errc::not_enough_capacity));
             }
 
-            // When we should give up on trying to receive
-            const tdsl::uint32_t wait_till = millis() + timeout;
+            // When we started waiting. The elapsed time is calculated with
+            // unsigned subtraction, which gives the correct result even if
+            // millis() wraps around (every ~49.7 days with 32-bit millis()).
+            const tdsl::uint32_t start = static_cast<tdsl::uint32_t>(millis());
 
             // amount of bytes we've been able to
             // pull from the client so far
-            tdsl::uint32_t bytes_recvd     = {0};
+            tdsl::uint32_t bytes_recvd = {0};
 
             do {
 
@@ -248,7 +250,14 @@ namespace tdsl { namespace net {
                     }
                 }
 
-                if (millis() >= wait_till) {
+                // Do not report a timeout if all the data has arrived. The
+                // received data would be lost otherwise.
+                if (bytes_recvd == transfer_exactly) {
+                    break;
+                }
+
+                if (static_cast<tdsl::uint32_t>(static_cast<tdsl::uint32_t>(millis()) - start) >=
+                    timeout) {
                     // timeout
                     TDSL_DEBUG_PRINTLN("tdsl_netimpl_arduino::do_recv(...) -> error, time out!");
                     return tdsl::unexpected(static_cast<int>(errc::timeout));
