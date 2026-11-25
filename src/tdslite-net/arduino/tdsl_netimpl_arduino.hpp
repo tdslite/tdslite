@@ -71,7 +71,7 @@ namespace tdsl { namespace net {
          *
          * @param [in] network_io_buffer Network I/O buffer
          */
-        template <typename Z, typename... Args>
+        template <typename... Args>
         inline tdsl_netimpl_arduino(tdsl::byte_span network_io_buffer, Args &&... args) :
             client(TDSL_FORWARD(args)...) {
             this->network_buffer = tdsl::tdsl_buffer_object{network_io_buffer};
@@ -167,10 +167,22 @@ namespace tdsl { namespace net {
          *
          * (scatter-gather I/O)
          */
-        TDSL_SYMBOL_VISIBLE void do_send(byte_view header, byte_view message) noexcept {
-            client.write(header.data(), header.size_bytes());
-            client.write(message.data(), message.size_bytes());
+        TDSL_SYMBOL_VISIBLE tdsl::int32_t do_send(byte_view header, byte_view message) noexcept {
+            const auto all_written = [this](byte_view v) -> bool {
+                return v.size_bytes() == 0 ||
+                       static_cast<tdsl::size_t>(client.write(v.data(), v.size_bytes())) ==
+                           v.size_bytes();
+            };
+            if (not all_written(header) || not all_written(message)) {
+                // A partially written packet leaves the connection in an
+                // unknown state, so it can't be used anymore.
+                TDSL_DEBUG_PRINTLN("tdsl_netimpl_arduino::do_send(...) -> error, write failed, "
+                                   "disconnecting");
+                do_disconnect();
+                return -1;
+            }
             client.flush();
+            return 0;
         }
 
         // --------------------------------------------------------------------------------

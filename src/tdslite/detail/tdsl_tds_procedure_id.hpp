@@ -59,6 +59,13 @@ namespace tdsl { namespace detail {
         // The server reported an error while executing the request.
         // The error message(s) are delivered to the info callback.
         server_error      = 4,
+        // Sending the request or receiving the response failed
+        // (e.g. the connection is lost). The request might or
+        // might not have been executed.
+        network_error     = 5,
+        // A parameter has an unsupported type (e.g. DECIMAL, TEXT),
+        // or an invalid size. Nothing is sent to the server.
+        invalid_parameter = 6,
     };
 }} // namespace tdsl::detail
 

@@ -10,6 +10,7 @@
  * ____________________________________________________
  */
 
+#include <cstring>
 #include <tdslite/util/tdsl_endian.hpp>
 #include <tdslite/util/tdsl_binary_writer.hpp>
 #include <tdslite/util/tdsl_macrodef.hpp>
@@ -277,4 +278,36 @@ TEST_F(binary_writer_test, checkpoint) {
     ASSERT_TRUE(writer.write(tdsl::uint32_t{0x01020304}));
     cp.restore();
     ASSERT_EQ(sizeof(tdsl::uint32_t), writer.offset());
+}
+
+// --------------------------------------------------------------------------------
+
+// Writing at an offset past the current position used to advance the
+// offset by (start_offset + size) instead of up to the end of the write
+TEST_F(binary_writer_test, write_at_offset_past_current_position) {
+    uut<> writer{destination_buffer};
+    const tdsl::uint8_t two [2] = {0xAA, 0xBB};
+    ASSERT_TRUE(writer.write(tdsl::byte_view{two}));
+    ASSERT_EQ(2u, writer.offset());
+    // Write 2 bytes at offset 4 (past the current position, 2)
+    ASSERT_TRUE(writer.write(/*start_offset=*/4, tdsl::byte_view{two}));
+    EXPECT_EQ(6u, writer.offset());
+    EXPECT_EQ(0xAA, destination_buffer [4]);
+    EXPECT_EQ(0xBB, destination_buffer [5]);
+    // Writing inside the written region does not move the offset
+    ASSERT_TRUE(writer.write(/*start_offset=*/0, tdsl::byte_view{two}));
+    EXPECT_EQ(6u, writer.offset());
+}
+
+// --------------------------------------------------------------------------------
+
+// write_raw used to copy from the buffer into the value instead
+TEST_F(binary_writer_test, write_raw_writes_value) {
+    uut<> writer{destination_buffer};
+    const tdsl::uint32_t v = 0x11223344;
+    ASSERT_TRUE(writer.write_raw(v));
+    EXPECT_EQ(sizeof(v), writer.offset());
+    tdsl::uint32_t r = 0;
+    std::memcpy(&r, destination_buffer, sizeof(r));
+    EXPECT_EQ(v, r);
 }

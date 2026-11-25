@@ -207,7 +207,8 @@ TEST(test, receive_tds_pdu_chunked) {
 
 TEST(test, send_tds_pdu) {
     uut_t<my_client> the_client{buf};
-    EXPECT_TRUE(the_client.do_send_tds_pdu(tdsl::detail::e_tds_message_type::login));
+    EXPECT_EQ(tdsl::detail::e_send_status::success,
+              the_client.do_send_tds_pdu(tdsl::detail::e_tds_message_type::login));
 }
 
 // --------------------------------------------------------------------------------
@@ -705,7 +706,8 @@ namespace {
         tx.clear();
         const auto data = make_pattern(n);
         net.do_write(tdsl::byte_view{data.data(), static_cast<tdsl::uint32_t>(data.size())});
-        EXPECT_TRUE(net.do_send_tds_pdu(tdsl::detail::e_tds_message_type::sql_batch));
+        EXPECT_EQ(tdsl::detail::e_send_status::success,
+                  net.do_send_tds_pdu(tdsl::detail::e_tds_message_type::sql_batch));
         return sent_packet_lengths(tx);
     }
 
@@ -952,19 +954,22 @@ TEST(request_too_large, network_layer_discards_overflowed_message) {
     for (tdsl::size_t i = 0; i < big.size(); i += 2) {
         uut.do_write(tdsl::byte_view{&big [i], 2});
     }
-    EXPECT_FALSE(uut.do_send_tds_pdu(tdsl::detail::e_tds_message_type::sql_batch));
+    EXPECT_EQ(tdsl::detail::e_send_status::request_too_large,
+              uut.do_send_tds_pdu(tdsl::detail::e_tds_message_type::sql_batch));
     EXPECT_TRUE(tx.empty());
     EXPECT_EQ(0u, uut.network_buffer.get_writer()->offset());
 
     // Too large, in a single write
     uut.do_write(tdsl::byte_view{big.data(), static_cast<tdsl::uint32_t>(big.size())});
-    EXPECT_FALSE(uut.do_send_tds_pdu(tdsl::detail::e_tds_message_type::sql_batch));
+    EXPECT_EQ(tdsl::detail::e_send_status::request_too_large,
+              uut.do_send_tds_pdu(tdsl::detail::e_tds_message_type::sql_batch));
     EXPECT_TRUE(tx.empty());
 
     // Out-of-bounds write at an offset (e.g. a placeholder)
     uut.do_write(tdsl::byte_view{big.data(), 10});
     uut.do_write(/*offset=*/600, tdsl::byte_view{big.data(), 2});
-    EXPECT_FALSE(uut.do_send_tds_pdu(tdsl::detail::e_tds_message_type::sql_batch));
+    EXPECT_EQ(tdsl::detail::e_send_status::request_too_large,
+              uut.do_send_tds_pdu(tdsl::detail::e_tds_message_type::sql_batch));
     EXPECT_TRUE(tx.empty());
 
     // The overflow state does not leak into the next message
@@ -1686,4 +1691,316 @@ TEST(recv_timeout, silent_peer_times_out_after_timeout) {
         EXPECT_EQ(static_cast<int>(k_recv_timeout_ms / k_poll_interval_ms),
                   mock_clock_scope::delays);
     }
+}
+
+// --------------------------------------------------------------------------------
+// Send errors (#13) and segmentation (#14)
+// --------------------------------------------------------------------------------
+
+namespace {
+
+    /**
+     * scripted_client whose write() fails (writes nothing) from the
+     * @ref fail_from_write th call on (1-based)
+     */
+    struct failing_write_client : public scripted_client {
+        using scripted_client::scripted_client;
+
+        tdsl::size_t write(const unsigned char * data, tdsl::size_t len) {
+            if (++writes >= fail_from_write) {
+                return 0;
+            }
+            return scripted_client::write(data, len);
+        }
+
+        void stop() {
+            stopped = true;
+        }
+
+        int writes = {0};
+        static int fail_from_write;
+        static bool stopped;
+    };
+
+    int failing_write_client::fail_from_write = 1;
+    bool failing_write_client::stopped        = false;
+
+    struct failing_send_uut_t : public uut_t<failing_write_client> {
+        using uut_t<failing_write_client>::uut_t;
+        using uut_t<failing_write_client>::network_buffer;
+    };
+
+    using failing_cmd_ctx_t =
+        tdsl::detail::command_context<tdsl::net::tdsl_netimpl_arduino<failing_write_client>>;
+    using failing_tds_ctx_t = failing_cmd_ctx_t::tds_context_type;
+
+    /**
+     * End-of-message flags of the packets in @p tx
+     */
+    inline std::vector<tdsl::uint8_t> sent_packet_statuses(const byte_vec & tx) {
+        std::vector<tdsl::uint8_t> r;
+        tdsl::size_t off = 0;
+        while (off + 8 <= tx.size()) {
+            const auto len = static_cast<tdsl::uint16_t>((tx [off + 2] << 8) | tx [off + 3]);
+            r.push_back(tx [off + 1]);
+            if (len < 8) {
+                break;
+            }
+            off += len;
+        }
+        return r;
+    }
+} // namespace
+
+// A message of exactly two packets' worth of data used to be followed by
+// an empty end-of-message packet
+TEST(send, message_of_exact_packet_multiple_has_no_empty_packet) {
+    tdsl::uint8_t nbuf [2048] = {0};
+    byte_vec tx;
+    recv_uut_t uut{nbuf, byte_vec{}, k_no_limit, k_no_limit, &tx};
+    uut.set_tds_packet_size(512);
+
+    EXPECT_EQ((packet_lengths{512, 512}), send_message(uut, tx, 2 * 504));
+    EXPECT_EQ((std::vector<tdsl::uint8_t>{0x00, 0x01}), sent_packet_statuses(tx));
+
+    EXPECT_EQ((packet_lengths{512}), send_message(uut, tx, 504));
+    EXPECT_EQ((std::vector<tdsl::uint8_t>{0x01}), sent_packet_statuses(tx));
+
+    EXPECT_EQ((packet_lengths{512, 512, 9}), send_message(uut, tx, 2 * 504 + 1));
+    EXPECT_EQ((std::vector<tdsl::uint8_t>{0x00, 0x00, 0x01}), sent_packet_statuses(tx));
+}
+
+// An empty message is sent as a single, empty end-of-message packet
+TEST(send, empty_message_is_a_single_packet) {
+    tdsl::uint8_t nbuf [512] = {0};
+    byte_vec tx;
+    recv_uut_t uut{nbuf, byte_vec{}, k_no_limit, k_no_limit, &tx};
+    EXPECT_EQ((packet_lengths{8}), send_message(uut, tx, 0));
+    EXPECT_EQ((std::vector<tdsl::uint8_t>{0x01}), sent_packet_statuses(tx));
+}
+
+// The write of the second packet fails: the rest of the message is
+// discarded, the connection is closed and the failure is reported
+TEST(send, write_failure_is_reported) {
+    tdsl::uint8_t nbuf [2048] = {0};
+    byte_vec tx;
+    failing_write_client::fail_from_write = 3; // 2nd packet's header
+    failing_write_client::stopped         = false;
+    failing_send_uut_t uut{nbuf, byte_vec{}, k_no_limit, k_no_limit, &tx};
+    uut.set_tds_packet_size(512);
+
+    const auto data = make_pattern(3 * 504);
+    uut.do_write(tdsl::byte_view{data.data(), static_cast<tdsl::uint32_t>(data.size())});
+    EXPECT_EQ(tdsl::detail::e_send_status::network_error,
+              uut.do_send_tds_pdu(tdsl::detail::e_tds_message_type::sql_batch));
+    EXPECT_EQ((packet_lengths{512}), sent_packet_lengths(tx)); // only the first one
+    EXPECT_TRUE(failing_write_client::stopped);
+    EXPECT_EQ(0u, uut.network_buffer.get_writer()->offset()); // nothing left behind
+}
+
+TEST(send, execute_query_reports_send_failure) {
+    tdsl::uint8_t nbuf [512]              = {0};
+    failing_write_client::fail_from_write = 1;
+    failing_tds_ctx_t tds_ctx{nbuf, make_small_query_response()};
+    failing_cmd_ctx_t cmd_ctx{tds_ctx};
+    const auto r = cmd_ctx.execute_query(tdsl::string_view{"SELECT 0;"});
+    EXPECT_TRUE(r.network_error);
+    EXPECT_FALSE(static_cast<bool>(r));
+}
+
+TEST(send, execute_rpc_reports_send_failure) {
+    tdsl::uint8_t nbuf [512]              = {0};
+    failing_write_client::fail_from_write = 1;
+    failing_tds_ctx_t tds_ctx{nbuf, make_small_query_response()};
+    failing_cmd_ctx_t cmd_ctx{tds_ctx};
+    tdsl::detail::sql_parameter_int p0{};
+    tdsl::detail::sql_parameter_binding params [] = {p0};
+    const auto r = cmd_ctx.execute_rpc(tdsl::string_view{"SELECT @p0"}, params);
+    ASSERT_FALSE(static_cast<bool>(r));
+    EXPECT_EQ(tdsl::detail::e_rpc_error_code::network_error, r.error());
+}
+
+// --------------------------------------------------------------------------------
+// Incomplete responses (connection lost while receiving)
+// --------------------------------------------------------------------------------
+
+// The connection drops in the middle of the response. This used to be
+// reported as a successful query.
+TEST(incomplete_response, execute_query_reports_network_error) {
+    const auto stream = make_tds_packet(k_tabular_result, true, make_int_result_set(5));
+    for (const tdsl::size_t cut : {tdsl::size_t{4}, tdsl::size_t{20}, stream.size() - 3}) {
+        SCOPED_TRACE(cut);
+        tdsl::uint8_t nbuf [512] = {0};
+        e2e_tds_ctx_t tds_ctx{nbuf, stream, k_no_limit, /*fail_at=*/cut};
+        e2e_cmd_ctx_t cmd_ctx{tds_ctx};
+        const auto r = cmd_ctx.execute_query(tdsl::string_view{"SELECT n FROM t;"});
+        EXPECT_TRUE(r.network_error);
+        EXPECT_FALSE(static_cast<bool>(r));
+    }
+}
+
+TEST(incomplete_response, execute_rpc_reports_network_error) {
+    tdsl::uint8_t nbuf [512] = {0};
+    const auto stream        = make_tds_packet(k_tabular_result, true, make_int_result_set(5));
+    e2e_tds_ctx_t tds_ctx{nbuf, stream, k_no_limit, /*fail_at=*/20};
+    e2e_cmd_ctx_t cmd_ctx{tds_ctx};
+    tdsl::detail::sql_parameter_int p0{};
+    tdsl::detail::sql_parameter_binding params [] = {p0};
+    const auto r = cmd_ctx.execute_rpc(tdsl::string_view{"SELECT @p0"}, params);
+    ASSERT_FALSE(static_cast<bool>(r));
+    EXPECT_EQ(tdsl::detail::e_rpc_error_code::network_error, r.error());
+}
+
+// --------------------------------------------------------------------------------
+// TEXT/NTEXT/IMAGE values (#15)
+// --------------------------------------------------------------------------------
+
+namespace {
+
+    struct ntext_row_collector {
+        static void cb(void * uptr, const tdsl::tds_colmetadata_token &,
+                       const tdsl::tdsl_row & row) {
+            auto & self = *static_cast<ntext_row_collector *>(uptr);
+            self.text_null.push_back(row [0].is_null());
+            const auto t = row [0].as<tdsl::u16char_view>();
+            self.text.push_back(std::u16string(t.data(), t.size()));
+            self.ints.push_back(row [1].as<tdsl::int32_t>());
+        }
+
+        std::vector<bool> text_null;
+        std::vector<std::u16string> text;
+        std::vector<tdsl::int32_t> ints;
+    };
+
+    inline void push_u32(byte_vec & v, tdsl::uint32_t x) {
+        for (int s = 0; s < 32; s += 8) {
+            v.push_back(static_cast<tdsl::uint8_t>(x >> s));
+        }
+    }
+
+    /**
+     * Result set with an NTEXT and an INT column, and two rows:
+     * {NULL, 7} and {u"hi", 8}
+     */
+    inline byte_vec make_ntext_result_set() {
+        byte_vec v{0x81,                         // COLMETADATA
+                   0x02, 0x00,                   // column count
+                   0x00, 0x00, 0x00, 0x00,       // user type, flags
+                   0x63,                         // NTEXTTYPE
+                   0xFE, 0xFF, 0xFF, 0x7F,       // max length
+                   0x09, 0x04, 0xD0, 0x00, 0x34, // collation
+                   0x01, 0x00, 0x74, 0x00,       // table name "t"
+                   0x01, 0x63, 0x00,             // column name "c"
+                   0x00, 0x00, 0x00, 0x00,       // user type, flags
+                   0x38,                         // INT4TYPE
+                   0x01, 0x6E, 0x00};            // column name "n"
+        // Row 1: NULL NTEXT (zero-length text pointer), 7
+        v.push_back(0xD1);
+        v.push_back(0x00);
+        push_u32(v, 7);
+        // Row 2: u"hi", 8
+        v.push_back(0xD1);
+        v.push_back(0x10); // text pointer length
+        for (int i = 0; i < 16; i++) {
+            v.push_back(static_cast<tdsl::uint8_t>(0xA0 + i)); // text pointer
+        }
+        for (int i = 0; i < 8; i++) {
+            v.push_back(static_cast<tdsl::uint8_t>(0xB0 + i)); // timestamp
+        }
+        push_u32(v, 4);
+        const auto hi = ucs2("hi");
+        v.insert(v.end(), hi.begin(), hi.end());
+        push_u32(v, 8);
+        const auto done = make_done_token(2);
+        v.insert(v.end(), done.begin(), done.end());
+        return v;
+    }
+} // namespace
+
+// A NULL NTEXT value used to be read with an 8-byte timestamp that isn't
+// there, consuming the next column's data
+TEST(text_columns, null_and_non_null_ntext_values) {
+    ntext_row_collector c;
+    const auto r = run_query(make_ntext_result_set(), c);
+    EXPECT_FALSE(r.response_error);
+    EXPECT_TRUE(static_cast<bool>(r));
+    EXPECT_EQ((std::vector<bool>{true, false}), c.text_null);
+    EXPECT_EQ((std::vector<std::u16string>{u"", u"hi"}), c.text);
+    EXPECT_EQ((std::vector<tdsl::int32_t>{7, 8}), c.ints);
+}
+
+// The same result set split into two packets at every position
+TEST(text_columns, ntext_result_set_split_at_every_position) {
+    const auto rs = make_ntext_result_set();
+    for (tdsl::size_t split = 1; split < rs.size(); split++) {
+        SCOPED_TRACE(split);
+        ntext_row_collector c;
+        const auto r = run_query_stream(split_into_two_packets(rs, split), c);
+        EXPECT_TRUE(static_cast<bool>(r));
+        EXPECT_EQ((std::vector<tdsl::int32_t>{7, 8}), c.ints);
+    }
+}
+
+// --------------------------------------------------------------------------------
+// Login and connection parameter limits
+// --------------------------------------------------------------------------------
+
+// LOGIN7 strings are limited to 128 characters
+TEST(login_limits, login_string_longer_than_128_chars_is_rejected) {
+    tdsl::uint8_t nbuf [4096] = {0};
+    byte_vec tx;
+    driver_t driver{nbuf, byte_vec{}, k_no_limit, k_no_limit, &tx};
+    const std::string long_name(129, 'a');
+    driver_t::connection_parameters params;
+    params.server_name = "server";
+    params.user_name   = "user";
+    params.password    = "pass";
+    params.app_name    = as_sv(long_name);
+    EXPECT_EQ(driver_t::e_driver_error_code::login_failed, driver.connect(params));
+    EXPECT_TRUE(tx.empty());
+}
+
+TEST(login_limits, login_string_of_128_chars_is_sent) {
+    tdsl::uint8_t nbuf [4096] = {0};
+    byte_vec tx;
+    driver_t driver{nbuf, byte_vec{}, k_no_limit, k_no_limit, &tx};
+    const std::string name(128, 'a');
+    driver_t::connection_parameters params;
+    params.server_name = "server";
+    params.user_name   = "user";
+    params.password    = "pass";
+    params.app_name    = as_sv(name);
+    // No response, so the login fails, but the request is sent
+    EXPECT_EQ(driver_t::e_driver_error_code::login_failed, driver.connect(params));
+    EXPECT_FALSE(tx.empty());
+}
+
+// The retry parameters used to be truncated to 16 bits silently
+TEST(login_limits, retry_parameters_larger_than_16_bits_are_rejected) {
+    tdsl::uint8_t nbuf [512] = {0};
+    driver_t driver{nbuf, byte_vec{}};
+    driver_t::connection_parameters params;
+    params.server_name         = "server";
+    params.conn_retry_delay_ms = 70000;
+    EXPECT_EQ(driver_t::e_driver_error_code::connection_param_retry_invalid, params.validate());
+    EXPECT_EQ(driver_t::e_driver_error_code::connection_param_retry_invalid,
+              driver.connect(params));
+    params.conn_retry_delay_ms = 65535;
+    params.conn_retry_count    = 65536;
+    EXPECT_EQ(driver_t::e_driver_error_code::connection_param_retry_invalid, params.validate());
+    params.conn_retry_count = 65535;
+    EXPECT_EQ(driver_t::e_driver_error_code::success, params.validate());
+}
+
+// --------------------------------------------------------------------------------
+// tdsl_netimpl_arduino byte_span constructor (latent: could not be called)
+// --------------------------------------------------------------------------------
+
+TEST(netimpl_arduino, construct_with_byte_span) {
+    tdsl::uint8_t storage [64] = {0};
+    host_uut_t uut{
+        tdsl::byte_span{storage, sizeof(storage)}
+    };
+    EXPECT_EQ(storage, uut.network_buffer.get_underlying_view().data());
+    EXPECT_EQ(sizeof(storage), uut.network_buffer.get_underlying_view().size_bytes());
 }

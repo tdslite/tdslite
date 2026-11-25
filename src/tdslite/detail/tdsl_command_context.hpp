@@ -85,8 +85,15 @@ namespace tdsl { namespace detail {
              */
             bool response_error                = {false};
 
+            /**
+             * Sending the request or receiving the response failed (e.g.
+             * the connection is lost). The query might or might not have
+             * been executed.
+             */
+            bool network_error                 = {false};
+
             inline explicit operator bool() const noexcept {
-                return !(request_too_large || response_error || status.error() ||
+                return !(request_too_large || response_error || network_error || status.error() ||
                          status.srverror());
             }
         };
@@ -189,13 +196,23 @@ namespace tdsl { namespace detail {
             string_writer_type::write(tds_ctx, command);
             // Send the command. Do not wait for a response if
             // the command could not be sent.
-            if (not tds_ctx.send_tds_pdu(e_tds_message_type::sql_batch)) {
-                qstate.result.request_too_large = true;
-                return qstate.result;
+            switch (tds_ctx.send_tds_pdu(e_tds_message_type::sql_batch)) {
+                case e_send_status::success:
+                    break;
+                case e_send_status::request_too_large:
+                    qstate.result.request_too_large = true;
+                    return qstate.result;
+                case e_send_status::network_error:
+                    qstate.result.network_error = true;
+                    return qstate.result;
             }
             // Receive the response
             tds_ctx.receive_tds_pdu();
             qstate.result.response_error = tds_ctx.has_response_error();
+            // A response that ends prematurely (and could be parsed so far)
+            // means the connection is lost.
+            qstate.result.network_error =
+                not qstate.result.response_error && not tds_ctx.is_response_complete();
 
             // The state will be updated upon receiving the response
             return qstate.result;
@@ -219,13 +236,18 @@ namespace tdsl { namespace detail {
          * a row callback function
          *
          * @returns e_rpc_error_code::invalid_mode if @p mode
-         *          value is invalid
+         *          value is invalid or not supported
+         * @returns e_rpc_error_code::invalid_parameter if a parameter has an
+         *          unsupported type, or an invalid size (not executed)
          * @returns e_rpc_error_code::request_too_large if the request
-         *          does not fit into the network buffer (not executed)
+         *          does not fit into the network buffer, or @p command is
+         *          longer than 4000 characters (not executed)
          * @returns e_rpc_error_code::invalid_response if the response could
          *          not be processed completely
          * @returns e_rpc_error_code::server_error if the server reported an
          *          error while executing the request
+         * @returns e_rpc_error_code::network_error if sending the request or
+         *          receiving the response failed
          * @returns rows_affected if successful
          */
         template <typename T, traits::enable_when::same_any_of<T, string_view, wstring_view,
@@ -241,11 +263,23 @@ namespace tdsl { namespace detail {
                 // Allowed & supported modes
                 case e_rpc_mode::executesql:
                     break;
-                case e_rpc_mode::prepexec:
-                    TDSL_NOT_YET_IMPLEMENTED;
-                    break;
+                case e_rpc_mode::prepexec: // not supported (yet)
                 default:
                     return tdsl::unexpected(e_rpc_error_code::invalid_mode);
+            }
+
+            // Validate the request before writing anything, so nothing
+            // is left in the network buffer on failure.
+
+            // The command is sent as NVARCHAR(4000)
+            if (string_writer_type::calculate_write_size(command) > k_max_nvarchar_bytes) {
+                return tdsl::unexpected(e_rpc_error_code::request_too_large);
+            }
+
+            for (const auto & param : params) {
+                if (not is_valid_parameter(param)) {
+                    return tdsl::unexpected(e_rpc_error_code::invalid_parameter);
+                }
             }
 
             // 0xffff means we're going to use special procedure id
@@ -262,7 +296,7 @@ namespace tdsl { namespace detail {
                 tds_ctx.write(tdsl::uint8_t{0}); // name len
                 tds_ctx.write(tdsl::uint8_t{0}); // status flags
                 tds_ctx.write(static_cast<tdsl::uint8_t>(e_tds_data_type::NVARCHARTYPE)); // type
-                tds_ctx.write(tdsl::uint16_t{8000});                                      // maxlen
+                tds_ctx.write(tdsl::uint16_t{k_max_nvarchar_bytes});                      // maxlen
                 tds_ctx.write(tdsl::uint8_t{0});  // collation
                 tds_ctx.write(tdsl::uint32_t{0}); // collation
 
@@ -359,8 +393,8 @@ namespace tdsl { namespace detail {
                         tds_ctx.write_le(static_cast<tdsl::uint8_t>(param.value.size_bytes()));
                         break;
                     case e_tds_data_size_type::var_u16:
-                        tds_ctx.write_le(
-                            static_cast<tdsl::uint16_t>(type_size)); // max length - 2 bytes
+                        tds_ctx.write_le(static_cast<tdsl::uint16_t>(
+                            param_max_length_bytes(param))); // max length - 2 bytes
                         maybe_write_collation();
                         tds_ctx.write_le(static_cast<tdsl::uint16_t>(param.value.size_bytes()));
                         break;
@@ -370,10 +404,9 @@ namespace tdsl { namespace detail {
                         tds_ctx.write_le(static_cast<tdsl::uint32_t>(param.value.size_bytes()));
                         break;
                     case e_tds_data_size_type::var_precision:
-                        TDSL_NOT_YET_IMPLEMENTED;
-                        break;
                     case e_tds_data_size_type::unknown:
-                        TDSL_CANNOT_HAPPEN;
+                        // Rejected by is_valid_parameter()
+                        TDSL_ASSERT_MSG(false, "unsupported parameter type");
                         break;
                 }
 
@@ -388,13 +421,21 @@ namespace tdsl { namespace detail {
 
             // Send the command. Do not wait for a response if
             // the command could not be sent.
-            if (not tds_ctx.send_tds_pdu(e_tds_message_type::rpc)) {
-                return tdsl::unexpected(e_rpc_error_code::request_too_large);
+            switch (tds_ctx.send_tds_pdu(e_tds_message_type::rpc)) {
+                case e_send_status::success:
+                    break;
+                case e_send_status::request_too_large:
+                    return tdsl::unexpected(e_rpc_error_code::request_too_large);
+                case e_send_status::network_error:
+                    return tdsl::unexpected(e_rpc_error_code::network_error);
             }
             // Receive the response
             tds_ctx.receive_tds_pdu();
             if (tds_ctx.has_response_error()) {
                 return tdsl::unexpected(e_rpc_error_code::invalid_response);
+            }
+            if (not tds_ctx.is_response_complete()) {
+                return tdsl::unexpected(e_rpc_error_code::network_error);
             }
             if (qstate.result.status.error() || qstate.result.status.srverror()) {
                 // The error message(s) are delivered to the info callback
@@ -719,38 +760,31 @@ namespace tdsl { namespace detail {
                 auto & field                    = (*row_data) [cidx];
                 bool field_length_equal_to_null = {false};
 
-                // Allow me to present yet another nonsense from TDS:
+                // TEXT, NTEXT and IMAGE values are preceded by a text pointer
+                // (B_VARBYTE) and an 8-byte timestamp. A NULL value is sent as
+                // a zero-length text pointer, with no timestamp and no data.
                 if (dprop.flags.has_textptr) {
-                    // non-null text, ntext or img field.
-                    // FIXME: Is this any useful?
-                    do {
-                        auto textptr_need_bytes = 1;
-                        if (rr.has_bytes(textptr_need_bytes)) {
-                            textptr_need_bytes = rr.read<tdsl::uint8_t>();
-                            if (textptr_need_bytes == 0xFF) {
-                                // Revert read & break
-                                rr.advance(/*amount_of_bytes=*/-1);
-                                break;
-                            }
-                            if (rr.has_bytes(textptr_need_bytes)) {
-                                rr.advance(textptr_need_bytes);
-                                textptr_need_bytes = 8;
-                                if (rr.has_bytes(textptr_need_bytes)) {
-                                    rr.advance(textptr_need_bytes);
-                                    TDSL_DEBUG_PRINTLN("textptr skip exit");
-                                    break;
-                                }
-                            }
-                        }
-
-                        TDSL_DEBUG_PRINTLN("handle_row_token() --> not enough bytes for reading "
-                                           "field textptr, " TDSL_SIZET_FORMAT_SPECIFIER
-                                           " more bytes needed",
-                                           textptr_need_bytes - rr.remaining_bytes());
+                    if (not rr.has_bytes(1)) {
                         result.status       = token_handler_status::not_enough_bytes;
-                        result.needed_bytes = textptr_need_bytes - rr.remaining_bytes();
+                        result.needed_bytes = 1;
                         return result;
-                    } while (0);
+                    }
+                    const tdsl::uint32_t textptr_len = rr.read<tdsl::uint8_t>();
+                    if (textptr_len == 0) {
+                        new (&field, placement_new_tag{}) tdsl_field(column, nullptr, nullptr);
+                        field.set_null();
+                        continue;
+                    }
+                    constexpr tdsl::uint32_t k_timestamp_len = 8;
+                    if (not rr.has_bytes(textptr_len + k_timestamp_len)) {
+                        TDSL_DEBUG_PRINTLN("handle_row_token() --> not enough bytes for reading "
+                                           "field textptr");
+                        result.status       = token_handler_status::not_enough_bytes;
+                        result.needed_bytes = textptr_len + k_timestamp_len - rr.remaining_bytes();
+                        return result;
+                    }
+                    // FIXME: Expose the text pointer and timestamp?
+                    rr.advance(static_cast<tdsl::ssize_t>(textptr_len + k_timestamp_len));
                 }
 
                 tdsl::uint32_t field_length = 0;
@@ -857,6 +891,11 @@ namespace tdsl { namespace detail {
             -> e_tds_data_type {
 
             switch (type) {
+                case e_tds_data_type::BITNTYPE:
+                    if (type_size == 1) {
+                        return e_tds_data_type::BITTYPE;
+                    }
+                    break;
                     // Translate INTNTYPE decls to corresponding
                     // fixed length decls
                 case e_tds_data_type::INTNTYPE: {
@@ -910,7 +949,75 @@ namespace tdsl { namespace detail {
                 default:
                     return type;
             }
-            TDSL_CANNOT_HAPPEN;
+            // Invalid size for the type
+            return e_tds_data_type::NULLTYPE;
+        }
+
+        // --------------------------------------------------------------------------------
+
+        // Maximum length of a (N)VARCHAR, (N)CHAR, (VAR)BINARY value in TDS 7.1
+        static constexpr tdsl::uint16_t k_max_nvarchar_bytes = 8000;
+
+        /**
+         * Size of a character in bytes for character types, 1 for others
+         */
+        TDSL_NODISCARD static inline auto param_char_size(e_tds_data_type type) noexcept
+            -> tdsl::uint32_t {
+            return (type == e_tds_data_type::NVARCHARTYPE || type == e_tds_data_type::NCHARTYPE)
+                       ? sizeof(char16_t)
+                       : 1;
+        }
+
+        /**
+         * The declared maximum length (in bytes) of a variable length
+         * parameter: the specified length, or the value's length if longer.
+         * At least one character, since zero-length types are invalid.
+         */
+        TDSL_NODISCARD static inline auto
+        param_max_length_bytes(const sql_parameter_binding & pb) noexcept -> tdsl::uint32_t {
+            const tdsl::uint32_t value_len = static_cast<tdsl::uint32_t>(pb.value.size_bytes());
+            const tdsl::uint32_t len       = pb.type_size > value_len ? pb.type_size : value_len;
+            const tdsl::uint32_t char_size = param_char_size(pb.type);
+            return len < char_size ? char_size : len;
+        }
+
+        /**
+         * Check whether parameter @p pb can be sent
+         *
+         * @returns true if @p pb has a supported type and a valid size
+         */
+        TDSL_NODISCARD static inline bool
+        is_valid_parameter(const sql_parameter_binding & pb) noexcept {
+            const auto props            = get_data_type_props(pb.type);
+            const tdsl::size_t value_sz = pb.value.size_bytes();
+            switch (props.size_type) {
+                case e_tds_data_size_type::fixed:
+                    // Sent as the corresponding nullable type
+                    return not(pb.type == e_tds_data_type::NULLTYPE) &&
+                           (value_sz == 0 || value_sz == props.length.fixed) &&
+                           not(var_to_fixed(props.corresponding_varsize_type, props.length.fixed) ==
+                               e_tds_data_type::NULLTYPE);
+                case e_tds_data_size_type::var_u8:
+                    if (pb.type == e_tds_data_type::GUIDTYPE) {
+                        return pb.type_size == 16 && (value_sz == 0 || value_sz == 16);
+                    }
+                    return not(var_to_fixed(pb.type, pb.type_size) == e_tds_data_type::NULLTYPE) &&
+                           (value_sz == 0 || value_sz == pb.type_size);
+                case e_tds_data_size_type::var_u16: {
+                    if (props.flags.has_textptr) {
+                        return false;
+                    }
+                    const tdsl::uint32_t char_size = param_char_size(pb.type);
+                    return pb.type_size <= k_max_nvarchar_bytes &&
+                           value_sz <= k_max_nvarchar_bytes && (pb.type_size % char_size) == 0 &&
+                           (value_sz % char_size) == 0;
+                }
+                case e_tds_data_size_type::var_u32:       // TEXT, NTEXT, IMAGE
+                case e_tds_data_size_type::var_precision: // DECIMAL, NUMERIC
+                case e_tds_data_size_type::unknown:
+                    return false;
+            }
+            return false;
         }
 
         // --------------------------------------------------------------------------------
@@ -961,6 +1068,12 @@ namespace tdsl { namespace detail {
                 case e_tds_data_type::DATETIMETYPE:
                     wc.write("DATETIME");
                     break;
+                case e_tds_data_type::MONEY4TYPE:
+                    wc.write("SMALL");
+                    TDSL_FALLTHROUGH;
+                case e_tds_data_type::MONEYTYPE:
+                    wc.write("MONEY");
+                    break;
                 case e_tds_data_type::GUIDTYPE:
                     wc.write("UNIQUEIDENTIFIER");
                     break;
@@ -976,16 +1089,9 @@ namespace tdsl { namespace detail {
                 case e_tds_data_type::BIGBINARYTYPE:
                     wc.write("BINARY");
                     break;
-                case e_tds_data_type::INTNTYPE:
-                case e_tds_data_type::FLTNTYPE:
-                case e_tds_data_type::DATETIMNTYPE:
-                case e_tds_data_type::MONEYNTYPE:
-                case e_tds_data_type::DECIMALNTYPE:
-                case e_tds_data_type::NUMERICNTYPE:
-                    TDSL_CANNOT_HAPPEN;
-                    break;
                 default:
-                    TDSL_NOT_YET_IMPLEMENTED;
+                    // Rejected by is_valid_parameter()
+                    TDSL_ASSERT_MSG(false, "unsupported parameter type");
                     break;
             }
         };
@@ -1014,18 +1120,11 @@ namespace tdsl { namespace detail {
                 case e_tds_data_type::BIGBINARYTYPE: // binary
                 case e_tds_data_type::BIGVARCHRTYPE: // varchar
                 case e_tds_data_type::BIGCHARTYPE:   // char(N)
+                case e_tds_data_type::NVARCHARTYPE:  // nvarchar
+                case e_tds_data_type::NCHARTYPE:     // nchar(N)
                 {
-                    // For char types, use data length if user not specified a length
-                    // explicitly. Otherwise, respect specified length.
-                    write_explicit_length(pb.type_size ? pb.type_size : pb.value.size_bytes());
-                } break;
-                case e_tds_data_type::NVARCHARTYPE: // nvarchar
-                case e_tds_data_type::NCHARTYPE:    // nchar(N)
-                {
-                    // For char types, use data length if user not specified a length
-                    // explicitly. Otherwise, respect specified length.
-                    write_explicit_length(
-                        pb.type_size ? pb.type_size : (pb.value.size_bytes() / sizeof(char16_t)));
+                    // The length is in characters (the sizes are in bytes)
+                    write_explicit_length(param_max_length_bytes(pb) / param_char_size(pb.type));
                 } break;
                 default:
                     break;

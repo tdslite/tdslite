@@ -17,6 +17,7 @@
 
 #include <tdslite/detail/tdsl_callback.hpp>
 #include <tdslite/detail/tdsl_message_type.hpp>
+#include <tdslite/detail/tdsl_send_status.hpp>
 #include <tdslite/detail/tdsl_message_token_type.hpp>
 #include <tdslite/detail/tdsl_envchange_type.hpp>
 #include <tdslite/detail/tdsl_packet_handler_result.hpp>
@@ -292,10 +293,16 @@ namespace tdsl {
              * @param [in] mtype The type of the message currently in
              *                   the network buffer
              *
-             * @return true if the message is sent, false if the message
-             *         was incomplete and discarded
+             * If sending a packet fails, the rest of the message is discarded.
+             *
+             * @return e_send_status::success if the message is sent
+             * @return e_send_status::request_too_large if the message was
+             *         incomplete and discarded (nothing is sent)
+             * @return e_send_status::network_error if sending failed
              */
-            TDSL_NODISCARD bool do_send_tds_pdu(tdsl::detail::e_tds_message_type mtype) noexcept {
+            TDSL_NODISCARD tdsl::detail::e_send_status
+            do_send_tds_pdu(tdsl::detail::e_tds_message_type mtype) noexcept {
+                using tdsl::detail::e_send_status;
                 TDSL_ASSERT_MSG(not(network_buffer.get_underlying_view().data() == nullptr),
                                 "The network implementation MUST initialize network_buffer "
                                 "prior any network I/O!");
@@ -307,17 +314,22 @@ namespace tdsl {
                         " bytes), discarding it",
                         network_buffer.get_underlying_view().size_bytes());
                     discard_tx();
-                    return false;
+                    return e_send_status::request_too_large;
                 }
 
-                const int k_message_segmentation_size = (tds_packet_size - 8);
-                auto buf_rdr                          = network_buffer.get_reader();
-                auto fragment_count = (buf_rdr->remaining_bytes() / k_message_segmentation_size);
+                const tdsl::size_t k_message_segmentation_size =
+                    (tds_packet_size - sizeof(detail::tds_header));
+                auto buf_rdr = network_buffer.get_reader();
+                // Send the message in packets of at most `tds_packet_size` bytes.
+                // The last packet carrying data has the end-of-message flag set.
+                // An empty message is sent as a single, empty packet.
                 do {
-                    auto segment_size = buf_rdr->has_bytes(k_message_segmentation_size)
-                                            ? k_message_segmentation_size
-                                            : buf_rdr->remaining_bytes();
-                    auto segment      = buf_rdr->read(segment_size);
+                    const tdsl::size_t remaining     = buf_rdr->remaining_bytes();
+                    const tdsl::size_t segment_size  = remaining > k_message_segmentation_size
+                                                           ? k_message_segmentation_size
+                                                           : remaining;
+                    const bool is_last               = (segment_size == remaining);
+                    auto segment                     = buf_rdr->read(segment_size);
                     const tdsl::uint16_t segsize_nbo = host_to_network(static_cast<tdsl::uint16_t>(
                         segment.size_bytes() + sizeof(detail::tds_header)));
                     const tdsl::uint8_t(&segsize_nbo_b) [2] =
@@ -325,7 +337,7 @@ namespace tdsl {
 
                     const tdsl::uint8_t tds_hbuf [sizeof(detail::tds_header)] = {
                         static_cast<tdsl::uint8_t>(mtype),
-                        static_cast<tdsl::uint8_t>(fragment_count == 0),
+                        static_cast<tdsl::uint8_t>(is_last),
                         segsize_nbo_b [0],
                         segsize_nbo_b [1],
                         0x00,
@@ -333,11 +345,16 @@ namespace tdsl {
                         0x00,
                         0x00};
 
-                    impl().do_send(byte_view{tds_hbuf}, segment);
-                } while (fragment_count--);
+                    if (not(impl().do_send(byte_view{tds_hbuf}, segment) == 0)) {
+                        TDSL_DEBUG_PRINTLN("network_io_base::do_send_tds_pdu(...) -> error, send "
+                                           "failed, discarding the rest of the message");
+                        // Consume the rest so the buffer is empty afterwards
+                        buf_rdr->advance(static_cast<tdsl::ssize_t>(buf_rdr->remaining_bytes()));
+                        return e_send_status::network_error;
+                    }
+                } while (buf_rdr->has_bytes(1));
 
-                TDSL_ASSERT_MSG(not buf_rdr->has_bytes(1), "Send buffer must be empty after!");
-                return true;
+                return e_send_status::success;
             }
 
             // --------------------------------------------------------------------------------

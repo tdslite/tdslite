@@ -35,7 +35,10 @@ namespace tdsl {
         inline explicit sql_datetime(tdsl::byte_view v,
                                      const tdsl::tds_column_info & col) noexcept {
             (void) col;
-            TDSL_ASSERT(v.size_bytes() == (sizeof(tdsl::int32_t) + sizeof(uint32_t)));
+            // NULL (no data), or malformed value: leave it as zero
+            if (not(v.size_bytes() == (sizeof(tdsl::int32_t) + sizeof(uint32_t)))) {
+                return;
+            }
             tdsl::binary_reader<tdsl::endian::little> br{v};
             days_elapsed         = br.read<tdsl::int32_t>();
             centiseconds_elapsed = br.read<tdsl::uint32_t>();
@@ -61,11 +64,11 @@ namespace tdsl {
         // One 4-byte signed integer that represents the number of days
         // since January 1, 1900. Negative numbers are allowed to represent
         // dates since January 1, 1753.
-        tdsl::int32_t days_elapsed;
+        tdsl::int32_t days_elapsed          = {0};
         // One 4-byte unsigned integer that represents the number of one
         // three-hundredths of a second (300 counts per second) elapsed
         // since 12 AM that day.
-        tdsl::uint32_t centiseconds_elapsed;
+        tdsl::uint32_t centiseconds_elapsed = {0};
     };
 
 } // namespace tdsl

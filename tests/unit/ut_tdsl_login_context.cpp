@@ -53,8 +53,9 @@ namespace {
 
         inline void do_receive_tds_pdu() {}
 
-        inline bool do_send_tds_pdu(tdsl::detail::e_tds_message_type) {
-            return true;
+        inline tdsl::detail::e_send_status
+        do_send_tds_pdu(tdsl::detail::e_tds_message_type) noexcept {
+            return tdsl::detail::e_send_status::success;
         }
 
         inline void set_tds_packet_size(tdsl::uint16_t) {}

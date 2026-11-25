@@ -208,6 +208,23 @@ namespace tdsl {
             // --------------------------------------------------------------------------------
 
             /**
+             * Check the LOGIN7 limits of the login strings (128 characters each)
+             */
+            template <typename LoginParamsType>
+            static inline bool has_valid_string_lengths(const LoginParamsType & params) noexcept {
+                constexpr tdsl::uint32_t k_max_chars = 128;
+                return params.client_name.size() <= k_max_chars &&
+                       params.user_name.size() <= k_max_chars &&
+                       params.password.size() <= k_max_chars &&
+                       params.app_name.size() <= k_max_chars &&
+                       params.server_name.size() <= k_max_chars &&
+                       params.db_name.size() <= k_max_chars &&
+                       params.library_name.size() <= k_max_chars;
+            }
+
+            // --------------------------------------------------------------------------------
+
+            /**
              * Attempt to login into the database engine with the specified login parameters
              *
              * @note Parameters on this overload are single-byte character strings.
@@ -220,6 +237,12 @@ namespace tdsl {
                 // Forget any previous authentication state. The flag is set again
                 // only if the server acknowledges this login (LOGINACK).
                 tds_ctx.flags.authenticated = {false};
+
+                if (not has_valid_string_lengths(params)) {
+                    TDSL_DEBUG_PRINTLN("login_context::do_login(...) -> error, a login "
+                                       "parameter is longer than 128 characters");
+                    return e_login_status::failure;
+                }
 
                 // Put a placeholder for length.
                 auto len_ph = tds_ctx.put_placeholder(0_tdsu32);
@@ -314,8 +337,8 @@ namespace tdsl {
 
                                 if (pt == pass_type::offset_size_table) {
                                     // offset(u16), size(u16)
-                                    tds_ctx.write(current_string_offset);
-                                    tds_ctx.write(/*arg=*/0_tdsu16);
+                                    tds_ctx.write_le(current_string_offset);
+                                    tds_ctx.write_le(/*arg=*/0_tdsu16);
                                 }
                                 continue;
                             default: {
@@ -368,9 +391,10 @@ namespace tdsl {
                 len_ph.write_le(tdsl::uint32_t{total_packet_data_size});
                 // Send the login request. Do not wait for a response
                 // if the request could not be sent.
-                if (not tds_ctx.send_tds_pdu(e_tds_message_type::login)) {
-                    TDSL_DEBUG_PRINTLN("login_context::do_login(...) -> error, the login "
-                                       "request does not fit into the network buffer");
+                if (not(tds_ctx.send_tds_pdu(e_tds_message_type::login) ==
+                        e_send_status::success)) {
+                    TDSL_DEBUG_PRINTLN("login_context::do_login(...) -> error, sending the "
+                                       "login request failed");
                     return e_login_status::failure;
                 }
 

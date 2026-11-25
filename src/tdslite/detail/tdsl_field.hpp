@@ -43,8 +43,10 @@ namespace tdsl {
          */
         template <typename T, typename traits::enable_when::arithmetic<T> = true>
         inline auto as_impl(byte_view data, const tdsl::tds_column_info &) -> T {
-            TDSL_ASSERT_MSG(data.size_bytes() >= sizeof(T),
-                            "Given span does not have enough bytes to read a value with type T!");
+            // NULL, or narrower than T (e.g. a SMALLINT read as int32_t)
+            if (data.size_bytes() < sizeof(T)) {
+                return T{};
+            }
             return tdsl::binary_reader<tdsl::endian::little>{data}.read<T>();
         }
 
@@ -88,6 +90,13 @@ namespace tdsl {
 
         // --------------------------------------------------------------------------------
 
+        /**
+         * Interpret the field's value as type T
+         *
+         * For arithmetic T, returns T{} (zero) if the field is NULL or
+         * has fewer bytes than sizeof(T). Check is_null() to tell a NULL
+         * value from zero.
+         */
         template <typename T>
         inline TDSL_NODISCARD auto as() const noexcept -> T {
             return detail::as_impl<T>(*this, column_info());

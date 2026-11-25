@@ -19,6 +19,9 @@
 #include <tdslite/util/tdsl_hex_dump.hpp>
 #include <tdslite/detail/sqltypes/sql_decimal.hpp>
 #include <tdslite/detail/sqltypes/sql_money.hpp>
+#include <vector>
+#include <tdslite/detail/sqltypes/sql_datetime.hpp>
+#include <tdslite/detail/sqltypes/sql_smalldatetime.hpp>
 
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
@@ -1312,4 +1315,139 @@ TEST_F(tds_command_ctx_it_fixture, query_error_in_earlier_statement_is_reported)
         &count);
     EXPECT_TRUE(static_cast<bool>(r2));
     EXPECT_EQ(2, count);
+}
+
+// --------------------------------------------------------------------------------
+
+/**
+ * Regression test: a request of exactly N packets' worth of data used to be
+ * followed by an empty end-of-message packet.
+ */
+TEST(tds_command_ctx_it, query_of_exact_packet_multiple) {
+    // 504 bytes of data per 512-byte packet; 2 * 504 bytes = 504 characters
+    std::string query = "SELECT CAST(42 AS INT) AS v; --";
+    query.resize(504, 'x');
+    tdsl::int32_t value = 0;
+    run_with_min_packet_size(
+        query, value,
+        [](void * u, const tdsl::tds_colmetadata_token &, const tdsl::tdsl_row & row) {
+            *static_cast<tdsl::int32_t *>(u) = row [0].as<tdsl::int32_t>();
+        },
+        1);
+    EXPECT_EQ(42, value);
+}
+
+// --------------------------------------------------------------------------------
+
+/**
+ * Regression test: a NULL NTEXT value used to be read with a timestamp that
+ * isn't there, consuming the next column's data.
+ */
+TEST_F(tds_command_ctx_it_fixture, null_ntext_value) {
+    struct state_t {
+        std::vector<bool> nulls;
+        std::vector<std::u16string> texts;
+        std::vector<tdsl::int32_t> ints;
+    } st;
+
+    const auto r = command_ctx.execute_query(
+        tdsl::string_view{"SELECT CAST(NULL AS NTEXT) AS t, CAST(7 AS INT) AS n "
+                          "UNION ALL SELECT CAST(N'hi' AS NTEXT), CAST(8 AS INT);"},
+        [](void * u, const tdsl::tds_colmetadata_token &, const tdsl::tdsl_row & row) {
+            auto & s = *static_cast<state_t *>(u);
+            s.nulls.push_back(row [0].is_null());
+            const auto t = row [0].as<tdsl::u16char_view>();
+            s.texts.push_back(std::u16string(t.data(), t.size()));
+            s.ints.push_back(row [1].as<tdsl::int32_t>());
+        },
+        &st);
+    EXPECT_TRUE(static_cast<bool>(r));
+    EXPECT_EQ((std::vector<bool>{true, false}), st.nulls);
+    EXPECT_EQ((std::vector<std::u16string>{u"", u"hi"}), st.texts);
+    EXPECT_EQ((std::vector<tdsl::int32_t>{7, 8}), st.ints);
+}
+
+// --------------------------------------------------------------------------------
+
+/**
+ * Regression test: an empty string parameter used to be declared as
+ * NVARCHAR(0), and one longer than 2000 characters as NVARCHAR(2 * length).
+ * Both are rejected by the server.
+ */
+TEST_F(tds_command_ctx_it_fixture, rpc_nvarchar_parameter_lengths) {
+    for (const tdsl::uint32_t len : {0u, 1u, 2500u, 4000u}) {
+        SCOPED_TRACE(len);
+        const std::u16string s(len, u'x');
+        tdsl::detail::sql_parameter_nvarchar p0{};
+        p0                                            = tdsl::wstring_view{s.data(), len};
+        tdsl::detail::sql_parameter_binding params [] = {p0};
+
+        tdsl::int32_t value                           = -1;
+        auto r                                        = command_ctx.execute_rpc(
+            tdsl::string_view{"SELECT CAST(LEN(@p0) AS INT)"}, params,
+            tdsl::detail::e_rpc_mode::executesql,
+            [](void * u, const tdsl::tds_colmetadata_token &, const tdsl::tdsl_row & row) {
+                *static_cast<tdsl::int32_t *>(u) = row [0].as<tdsl::int32_t>();
+            },
+            &value);
+        ASSERT_TRUE(static_cast<bool>(r));
+        EXPECT_EQ(static_cast<tdsl::int32_t>(len), value);
+    }
+}
+
+// --------------------------------------------------------------------------------
+
+/**
+ * Regression test: unsupported parameters (DECIMAL) used to trap.
+ */
+TEST_F(tds_command_ctx_it_fixture, rpc_unsupported_parameter_is_rejected) {
+    const tdsl::uint8_t dec [5]                   = {1, 1, 0, 0, 0};
+    tdsl::detail::sql_parameter_binding params [] = {
+        {tdsl::detail::e_tds_data_type::DECIMALNTYPE, tdsl::byte_view{dec}, 5}
+    };
+    const auto r = command_ctx.execute_rpc(tdsl::string_view{"SELECT @p0"}, params);
+    ASSERT_FALSE(static_cast<bool>(r));
+    EXPECT_EQ(tdsl::detail::e_rpc_error_code::invalid_parameter, r.error());
+
+    // Nothing was sent, the connection is still usable
+    EXPECT_TRUE(static_cast<bool>(command_ctx.execute_query(tdsl::string_view{"SELECT 1;"})));
+}
+
+// --------------------------------------------------------------------------------
+
+/**
+ * Regression test: reading NULL money/datetime values, SMALLMONEY values,
+ * and decimals with precision > 18 used to trap.
+ */
+TEST_F(tds_command_ctx_it_fixture, read_null_and_unsupported_values) {
+    struct state_t {
+        int rows                = {0};
+        tdsl::int64_t money     = {-1};
+        tdsl::int64_t smallm    = {-1};
+        bool dec_valid          = {true};
+        bool null_money_is_null = {false};
+    } st;
+
+    const auto r = command_ctx.execute_query(
+        tdsl::string_view{"SELECT CAST(NULL AS MONEY), CAST(12.5 AS SMALLMONEY), "
+                          "CAST(1 AS DECIMAL(20, 0)), CAST(NULL AS DATETIME), "
+                          "CAST(NULL AS SMALLDATETIME), CAST(NULL AS INT);"},
+        [](void * u, const tdsl::tds_colmetadata_token &, const tdsl::tdsl_row & row) {
+            auto & s = *static_cast<state_t *>(u);
+            s.rows++;
+            s.null_money_is_null = row [0].is_null();
+            s.money              = row [0].as<tdsl::sql_money>().integer();
+            s.smallm             = row [1].as<tdsl::sql_money>().integer();
+            s.dec_valid          = row [2].as<tdsl::sql_decimal>().is_valid();
+            (void) row [3].as<tdsl::sql_datetime>().to_unix_timestamp();
+            (void) row [4].as<tdsl::sql_smalldatetime>().to_unix_timestamp();
+            (void) row [5].as<tdsl::int32_t>();
+        },
+        &st);
+    EXPECT_TRUE(static_cast<bool>(r));
+    EXPECT_EQ(1, st.rows);
+    EXPECT_TRUE(st.null_money_is_null);
+    EXPECT_EQ(0, st.money);
+    EXPECT_EQ(12, st.smallm);
+    EXPECT_FALSE(st.dec_valid);
 }

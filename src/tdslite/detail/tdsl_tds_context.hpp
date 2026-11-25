@@ -109,7 +109,10 @@ namespace tdsl { namespace detail {
             // lost track of the token boundaries), so it's discarded.
             // Reset at the start of each response.
             bool stop_parsing : 1;
-            bool reserved : 5;
+            // The final DONE token of the current response is received.
+            // Reset at the start of each response.
+            bool response_complete : 1;
+            bool reserved : 4;
         } flags = {};
 
     public:
@@ -137,6 +140,17 @@ namespace tdsl { namespace detail {
         // --------------------------------------------------------------------------------
 
         /**
+         * Whether the final DONE token of the last received response has
+         * been received. If not, the response is incomplete (e.g. the
+         * connection was lost, or the response could not be parsed).
+         */
+        inline bool is_response_complete() const noexcept {
+            return flags.response_complete;
+        }
+
+        // --------------------------------------------------------------------------------
+
+        /**
          * Receive one, complete TDS response.
          *
          * Shadows NetworkImplementation::do_receive_tds_pdu() in order to
@@ -144,8 +158,9 @@ namespace tdsl { namespace detail {
          */
         inline auto do_receive_tds_pdu()
             -> decltype(traits::declval<NetworkImplementation &>().do_receive_tds_pdu()) {
-            flags.response_error = false;
-            flags.stop_parsing   = false;
+            flags.response_error    = false;
+            flags.stop_parsing      = false;
+            flags.response_complete = false;
             return NetworkImplementation::do_receive_tds_pdu();
         }
 
@@ -606,6 +621,9 @@ namespace tdsl { namespace detail {
             TDSL_DEBUG_PRINTLN(
                 "received done token -> status [%d] | cur_cmd [%d] | done_row_count [%d]",
                 token.status.value, token.curcmd, token.done_row_count);
+            if (not token.status.more()) {
+                flags.response_complete = true;
+            }
             callbacks.done(token);
             return 0;
         }
