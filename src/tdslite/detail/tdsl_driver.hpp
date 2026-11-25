@@ -265,6 +265,10 @@ namespace tdsl { namespace detail {
          *          value is invalid
          * @returns execute_rpc_result::unexpected(e_rpc_error_code::request_too_large) if the
          *          request does not fit into the network buffer (not executed)
+         * @returns execute_rpc_result::unexpected(e_rpc_error_code::invalid_response) if the
+         *          response could not be processed completely
+         * @returns execute_rpc_result::unexpected(e_rpc_error_code::server_error) if the
+         *          server reported an error while executing the request
          * @returns rows_affected if successful
          */
         template <typename T, traits::enable_when::same_any_of<T, string_view, wstring_view,

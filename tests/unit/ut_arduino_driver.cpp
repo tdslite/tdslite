@@ -1377,3 +1377,109 @@ TEST(malformed_response, execute_rpc_reports_invalid_response) {
     EXPECT_EQ(tdsl::detail::e_rpc_error_code::invalid_response, r.error());
     expect_followup_query_works(cmd_ctx);
 }
+
+// --------------------------------------------------------------------------------
+// Server errors
+//
+// SQL Server reports a failed statement with the error bits in the status of
+// its DONE token (and an ERROR token with the message). The error must be
+// reported to the caller, also when a later DONE token in the same response
+// has no error bits.
+// --------------------------------------------------------------------------------
+
+namespace {
+
+    constexpr tdsl::uint8_t k_done       = 0xFD;
+    constexpr tdsl::uint8_t k_doneproc   = 0xFE;
+    constexpr tdsl::uint8_t k_doneinproc = 0xFF;
+
+    constexpr tdsl::uint16_t k_more      = 0x01;
+    constexpr tdsl::uint16_t k_error     = 0x02;
+    constexpr tdsl::uint16_t k_count     = 0x10;
+    constexpr tdsl::uint16_t k_srverror  = 0x100;
+
+    inline byte_vec make_done(tdsl::uint8_t type, tdsl::uint16_t status,
+                              tdsl::uint32_t row_count = 0) {
+        return byte_vec{type,
+                        static_cast<tdsl::uint8_t>(status & 0xFF),
+                        static_cast<tdsl::uint8_t>(status >> 8),
+                        0xC3, // curcmd: INSERT
+                        0x00,
+                        static_cast<tdsl::uint8_t>(row_count),
+                        static_cast<tdsl::uint8_t>(row_count >> 8),
+                        static_cast<tdsl::uint8_t>(row_count >> 16),
+                        static_cast<tdsl::uint8_t>(row_count >> 24)};
+    }
+
+    inline byte_vec make_error_token() {
+        return make_token(0xAA, make_info_body("Violation of PRIMARY KEY constraint", "srv", ""));
+    }
+
+    /**
+     * Run an RPC that receives @p response, then the follow-up query
+     */
+    inline e2e_cmd_ctx_t::execute_rpc_result run_rpc(const byte_vec & response,
+                                                     tdsl::size_t * info_count = nullptr) {
+        tdsl::uint8_t nbuf [512] = {0};
+        e2e_tds_ctx_t tds_ctx{nbuf, concat({make_tds_packet(k_tabular_result, true, response),
+                                            make_followup_response()})};
+        e2e_cmd_ctx_t cmd_ctx{tds_ctx};
+        if (info_count) {
+            tds_ctx.callbacks.info = {&info_counter::cb, info_count};
+        }
+        tdsl::detail::sql_parameter_int p0{};
+        tdsl::detail::sql_parameter_binding params [] = {p0};
+        const auto r = cmd_ctx.execute_rpc(tdsl::string_view{"INSERT INTO t VALUES(@p0)"}, params);
+        // The error must not leak into the next command
+        expect_followup_query_works(cmd_ctx);
+        return r;
+    }
+} // namespace
+
+// The error used to be dropped, and the RPC reported 0 affected rows
+TEST(server_error, execute_rpc_reports_server_error) {
+    tdsl::size_t infos = 0;
+    const auto r       = run_rpc(concat({make_error_token(), make_done(k_doneinproc, k_error),
+                                         make_done(k_doneproc, k_error)}),
+                                 &infos);
+    ASSERT_FALSE(static_cast<bool>(r));
+    EXPECT_EQ(tdsl::detail::e_rpc_error_code::server_error, r.error());
+    // The error message is still delivered to the info callback
+    EXPECT_EQ(1u, infos);
+}
+
+// The error bit is only in the DONEINPROC of the failed statement, the
+// final DONEPROC has none
+TEST(server_error, execute_rpc_error_in_earlier_done_token_is_kept) {
+    const auto r = run_rpc(concat(
+        {make_error_token(), make_done(k_doneinproc, k_more | k_error), make_done(k_doneproc, 0)}));
+    ASSERT_FALSE(static_cast<bool>(r));
+    EXPECT_EQ(tdsl::detail::e_rpc_error_code::server_error, r.error());
+}
+
+TEST(server_error, execute_rpc_reports_srverror) {
+    const auto r = run_rpc(make_done(k_doneproc, k_srverror));
+    ASSERT_FALSE(static_cast<bool>(r));
+    EXPECT_EQ(tdsl::detail::e_rpc_error_code::server_error, r.error());
+}
+
+TEST(server_error, execute_rpc_success_returns_affected_rows) {
+    auto r =
+        run_rpc(concat({make_done(k_doneinproc, k_more | k_count, 5), make_done(k_doneproc, 0)}));
+    ASSERT_TRUE(static_cast<bool>(r));
+    EXPECT_EQ(5u, *r);
+}
+
+// A batch whose first statement fails and second succeeds used to be
+// reported as successful
+TEST(server_error, execute_query_error_in_earlier_statement_is_kept) {
+    row_collector rc;
+    const auto r = run_query(
+        concat({make_error_token(), make_done(k_done, k_more | k_error), make_int_result_set(1)}),
+        rc);
+    EXPECT_FALSE(static_cast<bool>(r));
+    EXPECT_TRUE(r.status.error());
+    // The rest of the batch is still processed
+    EXPECT_EQ((std::vector<tdsl::int32_t>{0}), rc.values);
+    EXPECT_EQ(1u, r.affected_rows);
+}

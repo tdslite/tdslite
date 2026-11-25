@@ -56,6 +56,9 @@ namespace tdsl { namespace detail {
         // contained malformed data or an unsupported column type,
         // or memory allocation failed).
         invalid_response  = 3,
+        // The server reported an error while executing the request.
+        // The error message(s) are delivered to the info callback.
+        server_error      = 4,
     };
 }} // namespace tdsl::detail
 

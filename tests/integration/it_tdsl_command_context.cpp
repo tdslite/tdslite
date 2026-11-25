@@ -1252,3 +1252,64 @@ TEST_F(tds_command_ctx_it_fixture, unsupported_column_type_is_reported) {
     EXPECT_TRUE(static_cast<bool>(result2));
     EXPECT_EQ(42, value);
 }
+
+// --------------------------------------------------------------------------------
+
+/**
+ * Regression test: an RPC that fails on the server must report the error.
+ * It used to report success with 0 affected rows.
+ */
+TEST_F(tds_command_ctx_it_fixture, rpc_server_error_is_reported) {
+    ASSERT_TRUE(static_cast<bool>(
+        command_ctx.execute_query(tdsl::string_view{"CREATE TABLE #rpc_err(id INT PRIMARY KEY)"})));
+    ASSERT_TRUE(static_cast<bool>(
+        command_ctx.execute_query(tdsl::string_view{"INSERT INTO #rpc_err VALUES(1)"})));
+
+    tdsl::detail::sql_parameter_int p0{};
+    p0                                            = 1;
+    tdsl::detail::sql_parameter_binding params [] = {p0};
+
+    // Primary key violation
+    auto r1 =
+        command_ctx.execute_rpc(tdsl::string_view{"INSERT INTO #rpc_err VALUES(@p0)"}, params);
+    ASSERT_FALSE(static_cast<bool>(r1));
+    EXPECT_EQ(tdsl::detail::e_rpc_error_code::server_error, r1.error());
+
+    // The error does not leak into the next command
+    p0                                             = 2;
+    tdsl::detail::sql_parameter_binding params2 [] = {p0};
+    auto r2 =
+        command_ctx.execute_rpc(tdsl::string_view{"INSERT INTO #rpc_err VALUES(@p0)"}, params2);
+    ASSERT_TRUE(static_cast<bool>(r2));
+    EXPECT_EQ(1u, *r2);
+}
+
+// --------------------------------------------------------------------------------
+
+/**
+ * Regression test: a batch whose first statement fails (statement-terminating
+ * error, the batch continues) must report the error. It used to be hidden by
+ * the DONE token of the second, successful statement.
+ */
+TEST_F(tds_command_ctx_it_fixture, query_error_in_earlier_statement_is_reported) {
+    ASSERT_TRUE(static_cast<bool>(command_ctx.execute_query(
+        tdsl::string_view{"CREATE TABLE #batch_err(id INT PRIMARY KEY)"})));
+    ASSERT_TRUE(static_cast<bool>(
+        command_ctx.execute_query(tdsl::string_view{"INSERT INTO #batch_err VALUES(1)"})));
+
+    const auto r = command_ctx.execute_query(
+        tdsl::string_view{"INSERT INTO #batch_err VALUES(1); INSERT INTO #batch_err VALUES(2);"});
+    EXPECT_FALSE(static_cast<bool>(r));
+    EXPECT_TRUE(r.status.error());
+
+    // The second statement was still executed
+    tdsl::int32_t count = {0};
+    const auto r2       = command_ctx.execute_query(
+        tdsl::string_view{"SELECT CAST(COUNT(*) AS INT) FROM #batch_err;"},
+        [](void * u, const tdsl::tds_colmetadata_token &, const tdsl::tdsl_row & row) {
+            *static_cast<tdsl::int32_t *>(u) = row [0].as<tdsl::int32_t>();
+        },
+        &count);
+    EXPECT_TRUE(static_cast<bool>(r2));
+    EXPECT_EQ(2, count);
+}

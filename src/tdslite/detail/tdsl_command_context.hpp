@@ -116,8 +116,16 @@ namespace tdsl { namespace detail {
 
             tds_ctx.callbacks.done              = {
                 [](void * uptr, const tds_done_token & dt) noexcept -> void {
-                    command_context & ctx    = *static_cast<command_context *>(uptr);
+                    command_context & ctx                 = *static_cast<command_context *>(uptr);
+                    // A response may contain multiple DONE tokens (e.g. one per
+                    // statement). Keep the error bits of the earlier ones, so an
+                    // error is not hidden by a later, successful statement.
+                    constexpr tdsl::uint16_t k_error_bits = tdsl::uint16_t{0x2} /*DONE_ERROR*/ |
+                                                            tdsl::uint16_t{0x100} /*DONE_SRVERROR*/;
+                    const tdsl::uint16_t prev_errors =
+                        ctx.qstate.result.status.value & k_error_bits;
                     ctx.qstate.result.status = dt.status;
+                    ctx.qstate.result.status.value |= prev_errors;
                     if (dt.status.count_valid()) {
                         // Update affected row count only when row count is valid
                         ctx.qstate.result.affected_rows = dt.done_row_count;
@@ -216,6 +224,8 @@ namespace tdsl { namespace detail {
          *          does not fit into the network buffer (not executed)
          * @returns e_rpc_error_code::invalid_response if the response could
          *          not be processed completely
+         * @returns e_rpc_error_code::server_error if the server reported an
+         *          error while executing the request
          * @returns rows_affected if successful
          */
         template <typename T, traits::enable_when::same_any_of<T, string_view, wstring_view,
@@ -385,6 +395,10 @@ namespace tdsl { namespace detail {
             tds_ctx.receive_tds_pdu();
             if (tds_ctx.has_response_error()) {
                 return tdsl::unexpected(e_rpc_error_code::invalid_response);
+            }
+            if (qstate.result.status.error() || qstate.result.status.srverror()) {
+                // The error message(s) are delivered to the info callback
+                return tdsl::unexpected(e_rpc_error_code::server_error);
             }
             TDSL_DEBUG_PRINT("rows affected %d", qstate.result.affected_rows);
             // The state will be updated upon receiving the response
