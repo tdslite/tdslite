@@ -50,7 +50,9 @@ namespace {
 
         inline void do_send(void) noexcept {}
 
-        inline void do_send_tds_pdu(tdsl::detail::e_tds_message_type) noexcept {}
+        inline bool do_send_tds_pdu(tdsl::detail::e_tds_message_type) noexcept {
+            return true;
+        }
 
         inline void do_receive_tds_pdu() {}
 
@@ -187,6 +189,7 @@ TEST_F(tdsl_command_ctx_ut_fixture, test_rpc) {
     // Expected
     tdsl::util::hexdump(expected_packet_bytes.data(), expected_packet_bytes.size());
 }
+
 // --------------------------------------------------------------------------------
 
 /**

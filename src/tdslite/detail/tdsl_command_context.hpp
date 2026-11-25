@@ -71,8 +71,15 @@ namespace tdsl { namespace detail {
              */
             tds_done_token::status_type status = {};
 
+            /**
+             * The request does not fit into the network buffer.
+             * Nothing is sent to the server (i.e. the query is
+             * not executed).
+             */
+            bool request_too_large             = {false};
+
             inline explicit operator bool() const noexcept {
-                return !(status.error() || status.srverror());
+                return !(request_too_large || status.error() || status.srverror());
             }
         };
 
@@ -148,7 +155,9 @@ namespace tdsl { namespace detail {
          * The result set returned by query @p command can be read by providing
          * a row callback function
          *
-         * @return Number of rows affected
+         * @return Query result (number of rows affected, status). If the
+         *         command does not fit into the network buffer, nothing is
+         *         sent and `request_too_large` is set.
          */
         template <typename T, traits::enable_when::same_any_of<T, string_view, wstring_view,
                                                                struct progmem_string_view> = true>
@@ -162,8 +171,12 @@ namespace tdsl { namespace detail {
             qstate.row_callback = {row_callback, rcb_uptr};
             // Write the SQL command
             string_writer_type::write(tds_ctx, command);
-            // Send the command
-            tds_ctx.send_tds_pdu(e_tds_message_type::sql_batch);
+            // Send the command. Do not wait for a response if
+            // the command could not be sent.
+            if (not tds_ctx.send_tds_pdu(e_tds_message_type::sql_batch)) {
+                qstate.result.request_too_large = true;
+                return qstate.result;
+            }
             // Receive the response
             tds_ctx.receive_tds_pdu();
 
@@ -190,6 +203,8 @@ namespace tdsl { namespace detail {
          *
          * @returns e_rpc_error_code::invalid_mode if @p mode
          *          value is invalid
+         * @returns e_rpc_error_code::request_too_large if the request
+         *          does not fit into the network buffer (not executed)
          * @returns rows_affected if successful
          */
         template <typename T, traits::enable_when::same_any_of<T, string_view, wstring_view,
@@ -350,8 +365,11 @@ namespace tdsl { namespace detail {
             qstate              = {};
             qstate.row_callback = {row_callback, rcb_uptr};
 
-            // Send the command
-            tds_ctx.send_tds_pdu(e_tds_message_type::rpc);
+            // Send the command. Do not wait for a response if
+            // the command could not be sent.
+            if (not tds_ctx.send_tds_pdu(e_tds_message_type::rpc)) {
+                return tdsl::unexpected(e_rpc_error_code::request_too_large);
+            }
             // Receive the response
             tds_ctx.receive_tds_pdu();
             TDSL_DEBUG_PRINT("rows affected %d", qstate.result.affected_rows);

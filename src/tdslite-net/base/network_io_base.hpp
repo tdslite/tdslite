@@ -285,13 +285,31 @@ namespace tdsl {
              * Send contents of the message buffer in one or more TDS PDU's,
              * depending on negotiated packet size.
              *
+             * If any part of the message could not be written into the
+             * network buffer (i.e. the message is larger than the buffer),
+             * nothing is sent and the message is discarded.
+             *
              * @param [in] mtype The type of the message currently in
              *                   the network buffer
+             *
+             * @return true if the message is sent, false if the message
+             *         was incomplete and discarded
              */
-            void do_send_tds_pdu(tdsl::detail::e_tds_message_type mtype) noexcept {
+            TDSL_NODISCARD bool do_send_tds_pdu(tdsl::detail::e_tds_message_type mtype) noexcept {
                 TDSL_ASSERT_MSG(not(network_buffer.get_underlying_view().data() == nullptr),
                                 "The network implementation MUST initialize network_buffer "
                                 "prior any network I/O!");
+
+                if (tx_overflow) {
+                    TDSL_DEBUG_PRINTLN(
+                        "network_io_base::do_send_tds_pdu(...) -> error, the "
+                        "message does not fit into the network buffer (" TDSL_SIZET_FORMAT_SPECIFIER
+                        " bytes), discarding it",
+                        network_buffer.get_underlying_view().size_bytes());
+                    discard_tx();
+                    return false;
+                }
+
                 const int k_message_segmentation_size = (tds_packet_size - 8);
                 auto buf_rdr                          = network_buffer.get_reader();
                 auto fragment_count = (buf_rdr->remaining_bytes() / k_message_segmentation_size);
@@ -319,6 +337,18 @@ namespace tdsl {
                 } while (fragment_count--);
 
                 TDSL_ASSERT_MSG(not buf_rdr->has_bytes(1), "Send buffer must be empty after!");
+                return true;
+            }
+
+            // --------------------------------------------------------------------------------
+
+            /**
+             * Discard the message being built in the network buffer,
+             * including its overflow state.
+             */
+            inline void discard_tx() noexcept {
+                network_buffer.get_writer()->reset();
+                tx_overflow = false;
             }
 
             // --------------------------------------------------------------------------------
@@ -330,9 +360,11 @@ namespace tdsl {
              */
             template <typename T>
             inline void do_write(tdsl::span<T> data) noexcept {
-                const auto r = network_buffer.get_writer()->write(data);
-                TDSL_ASSERT(r);
-                (void) r;
+                if (not network_buffer.get_writer()->write(data)) {
+                    // Remember the failure. The incomplete message
+                    // is discarded instead of being sent.
+                    tx_overflow = true;
+                }
             }
 
             // --------------------------------------------------------------------------------
@@ -355,9 +387,9 @@ namespace tdsl {
              */
             template <typename T>
             inline void do_write(tdsl::size_t offset, tdsl::span<T> data) noexcept {
-                const auto r = network_buffer.get_writer()->write(offset, data);
-                TDSL_ASSERT(r);
-                (void) r;
+                if (not network_buffer.get_writer()->write(offset, data)) {
+                    tx_overflow = true;
+                }
             }
 
             // --------------------------------------------------------------------------------
@@ -425,6 +457,11 @@ namespace tdsl {
             // enables network driver to process TDS messages
             // where message_len > network_buffer.
             tds_packet_data_callback packet_data_cb{};
+
+            // Set when a write into the network buffer fails because
+            // the message being built does not fit. Cleared when the
+            // message is sent or discarded.
+            bool tx_overflow               = {false};
 
             // Negotiated TDS packet size. Always in [512, 32767]
             // range. Can be larger than the network buffer.

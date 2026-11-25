@@ -177,7 +177,9 @@ namespace tdsl { namespace detail {
          * @param [in] row_callback Callback to invoke for each row received as
          *             a result to the query. (optional)
          *
-         * @return tdsl::uint32_t Amount of rows affected from the query
+         * @return Query result (number of rows affected, status). If the command does
+         *         not fit into the network buffer, nothing is sent and
+         *         `request_too_large` is set.
          */
         template <typename T>
         inline auto execute_query(
@@ -202,7 +204,9 @@ namespace tdsl { namespace detail {
          * @param [in] row_callback Callback to invoke for each row received as
          *             a result to the query. (optional)
          *
-         * @return tdsl::uint32_t Amount of rows affected from the query
+         * @return Query result (number of rows affected, status). If the command does
+         *         not fit into the network buffer, nothing is sent and
+         *         `request_too_large` is set.
          */
         template <tdsl::uint32_t N>
         inline auto execute_query(
@@ -226,7 +230,9 @@ namespace tdsl { namespace detail {
          * @param [in] row_callback Callback to invoke for each row received as
          *             a result to the query. (optional)
          *
-         * @return tdsl::uint32_t Amount of rows affected from the query
+         * @return Query result (number of rows affected, status). If the command does
+         *         not fit into the network buffer, nothing is sent and
+         *         `request_too_large` is set.
          */
         template <tdsl::uint32_t N>
         inline auto execute_query(
@@ -257,6 +263,8 @@ namespace tdsl { namespace detail {
          *
          * @returns execute_rpc_result::unexpected(e_rpc_error_code::invalid_mode) if @p mode
          *          value is invalid
+         * @returns execute_rpc_result::unexpected(e_rpc_error_code::request_too_large) if the
+         *          request does not fit into the network buffer (not executed)
          * @returns rows_affected if successful
          */
         template <typename T, traits::enable_when::same_any_of<T, string_view, wstring_view,

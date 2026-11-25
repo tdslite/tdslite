@@ -193,7 +193,7 @@ TEST(test, receive_tds_pdu_chunked) {
 
 TEST(test, send_tds_pdu) {
     uut_t<my_client> the_client{buf};
-    the_client.do_send_tds_pdu(tdsl::detail::e_tds_message_type::login);
+    EXPECT_TRUE(the_client.do_send_tds_pdu(tdsl::detail::e_tds_message_type::login));
 }
 
 // --------------------------------------------------------------------------------
@@ -691,7 +691,7 @@ namespace {
         tx.clear();
         const auto data = make_pattern(n);
         net.do_write(tdsl::byte_view{data.data(), static_cast<tdsl::uint32_t>(data.size())});
-        net.do_send_tds_pdu(tdsl::detail::e_tds_message_type::sql_batch);
+        EXPECT_TRUE(net.do_send_tds_pdu(tdsl::detail::e_tds_message_type::sql_batch));
         return sent_packet_lengths(tx);
     }
 
@@ -894,4 +894,172 @@ TEST(packet_size, driver_connect_with_packet_size_larger_than_buffer) {
         ASSERT_EQ(static_cast<tdsl::int32_t>(i), rc.values [i]) << "row " << i;
     }
     EXPECT_EQ(k_row_count, result.affected_rows);
+}
+
+// --------------------------------------------------------------------------------
+// Requests larger than the network buffer
+//
+// A request that does not fit into the network buffer must not be sent at
+// all. Sending the part that fit would execute a truncated statement, e.g.
+// an UPDATE without its WHERE clause.
+// --------------------------------------------------------------------------------
+
+namespace {
+
+    /**
+     * An UPDATE statement whose WHERE clause starts after @p pad_chars
+     * characters of padding (each character is 2 bytes on the wire)
+     */
+    inline std::string make_update_stmt(tdsl::size_t pad_chars) {
+        return "UPDATE t SET v = 1 /*" + std::string(pad_chars, '.') + "*/ WHERE id = 42;";
+    }
+
+    inline tdsl::string_view as_sv(const std::string & s) {
+        return tdsl::string_view{s.data(), static_cast<tdsl::uint32_t>(s.size())};
+    }
+
+    /**
+     * Response to a single-row, single-INT-column query (value 0)
+     */
+    inline byte_vec make_small_query_response() {
+        return make_tds_packet(k_tabular_result, true, make_int_result_set(1));
+    }
+} // namespace
+
+// Network layer: a message that overflows the buffer is discarded, nothing
+// is sent, and the next message is not affected.
+TEST(request_too_large, network_layer_discards_overflowed_message) {
+    tdsl::uint8_t nbuf [512] = {0};
+    byte_vec tx;
+    recv_uut_t uut{nbuf, byte_vec{}, k_no_limit, k_no_limit, &tx};
+
+    // Too large, written in small pieces (like a string)
+    const auto big = make_pattern(600);
+    for (tdsl::size_t i = 0; i < big.size(); i += 2) {
+        uut.do_write(tdsl::byte_view{&big [i], 2});
+    }
+    EXPECT_FALSE(uut.do_send_tds_pdu(tdsl::detail::e_tds_message_type::sql_batch));
+    EXPECT_TRUE(tx.empty());
+    EXPECT_EQ(0u, uut.network_buffer.get_writer()->offset());
+
+    // Too large, in a single write
+    uut.do_write(tdsl::byte_view{big.data(), static_cast<tdsl::uint32_t>(big.size())});
+    EXPECT_FALSE(uut.do_send_tds_pdu(tdsl::detail::e_tds_message_type::sql_batch));
+    EXPECT_TRUE(tx.empty());
+
+    // Out-of-bounds write at an offset (e.g. a placeholder)
+    uut.do_write(tdsl::byte_view{big.data(), 10});
+    uut.do_write(/*offset=*/600, tdsl::byte_view{big.data(), 2});
+    EXPECT_FALSE(uut.do_send_tds_pdu(tdsl::detail::e_tds_message_type::sql_batch));
+    EXPECT_TRUE(tx.empty());
+
+    // The overflow state does not leak into the next message
+    EXPECT_EQ(k_single_packet, send_message(uut, tx, k_msg_size));
+
+    // A message that fills the buffer exactly is sent
+    EXPECT_EQ(packet_lengths{512 + 8}, send_message(uut, tx, sizeof(nbuf)));
+}
+
+// The motivating case: the WHERE clause of an UPDATE does not fit into the
+// buffer. Nothing must be sent, the query must report the failure, and the
+// connection must stay usable.
+TEST(request_too_large, execute_query_sends_nothing) {
+    tdsl::uint8_t nbuf [512] = {0};
+    byte_vec tx;
+    // The stream only holds the response to the second (small) query.
+    // If the failed query tried to receive a response, it would consume it.
+    e2e_tds_ctx_t tds_ctx{nbuf, make_small_query_response(), k_no_limit, k_no_limit, &tx};
+    e2e_cmd_ctx_t cmd_ctx{tds_ctx};
+
+    // "UPDATE t SET v = 1 /*" is 21 chars (42 bytes), the WHERE
+    // clause starts at byte 42 + 2 * (pad + 2) > 512.
+    const auto stmt = make_update_stmt(/*pad_chars=*/250);
+    ASSERT_GT(stmt.size() * 2, sizeof(nbuf));
+
+    const auto result = cmd_ctx.execute_query(as_sv(stmt));
+    EXPECT_TRUE(result.request_too_large);
+    EXPECT_FALSE(static_cast<bool>(result));
+    EXPECT_EQ(0u, result.affected_rows);
+    EXPECT_TRUE(tx.empty()) << "a truncated statement was sent";
+
+    row_collector rc;
+    const auto result2 =
+        cmd_ctx.execute_query(tdsl::string_view{"SELECT 0;"}, &row_collector::cb, &rc);
+    EXPECT_FALSE(result2.request_too_large);
+    EXPECT_TRUE(static_cast<bool>(result2));
+    EXPECT_FALSE(tx.empty());
+    ASSERT_EQ(1u, rc.values.size());
+    EXPECT_EQ(0, rc.values [0]);
+}
+
+// Same for wide-character (UTF-16) queries, which are written in one piece.
+TEST(request_too_large, execute_query_wide_sends_nothing) {
+    tdsl::uint8_t nbuf [512] = {0};
+    byte_vec tx;
+    e2e_tds_ctx_t tds_ctx{nbuf, byte_vec{}, k_no_limit, k_no_limit, &tx};
+    e2e_cmd_ctx_t cmd_ctx{tds_ctx};
+
+    const std::u16string stmt(300, u'x');
+    const auto result = cmd_ctx.execute_query(
+        tdsl::wstring_view{stmt.data(), static_cast<tdsl::uint32_t>(stmt.size())});
+    EXPECT_TRUE(result.request_too_large);
+    EXPECT_FALSE(static_cast<bool>(result));
+    EXPECT_TRUE(tx.empty());
+}
+
+// A query that fills the buffer exactly is still sent.
+TEST(request_too_large, execute_query_exactly_buffer_size_is_sent) {
+    tdsl::uint8_t nbuf [512] = {0};
+    byte_vec tx;
+    e2e_tds_ctx_t tds_ctx{nbuf, make_small_query_response(), k_no_limit, k_no_limit, &tx};
+    e2e_cmd_ctx_t cmd_ctx{tds_ctx};
+
+    const std::string stmt(sizeof(nbuf) / 2, ' ');
+    const auto result = cmd_ctx.execute_query(as_sv(stmt));
+    EXPECT_FALSE(result.request_too_large);
+    EXPECT_TRUE(static_cast<bool>(result));
+    EXPECT_EQ(packet_lengths{512 + 8}, sent_packet_lengths(tx));
+}
+
+// RPC: a parameter value that does not fit used to be dropped while its
+// length prefix was still sent (malformed request).
+TEST(request_too_large, execute_rpc_sends_nothing) {
+    tdsl::uint8_t nbuf [512] = {0};
+    byte_vec tx;
+    e2e_tds_ctx_t tds_ctx{nbuf, make_small_query_response(), k_no_limit, k_no_limit, &tx};
+    e2e_cmd_ctx_t cmd_ctx{tds_ctx};
+
+    const auto big = make_pattern(600);
+    tdsl::detail::sql_parameter_varbinary p0{};
+    p0 = tdsl::byte_view{big.data(), static_cast<tdsl::uint32_t>(big.size())};
+    tdsl::detail::sql_parameter_binding params [] = {p0};
+
+    const auto result = cmd_ctx.execute_rpc(tdsl::string_view{"SELECT @p0"}, params);
+    ASSERT_FALSE(static_cast<bool>(result));
+    EXPECT_EQ(tdsl::detail::e_rpc_error_code::request_too_large, result.error());
+    EXPECT_TRUE(tx.empty());
+
+    // The connection is still usable
+    row_collector rc;
+    const auto result2 =
+        cmd_ctx.execute_query(tdsl::string_view{"SELECT 0;"}, &row_collector::cb, &rc);
+    EXPECT_TRUE(static_cast<bool>(result2));
+    EXPECT_EQ(1u, rc.values.size());
+}
+
+// Login: a login request that does not fit is not sent, and connect()
+// reports the failure.
+TEST(request_too_large, login_sends_nothing) {
+    tdsl::uint8_t nbuf [512] = {0};
+    byte_vec tx;
+    driver_t driver{nbuf, byte_vec{}, k_no_limit, k_no_limit, &tx};
+
+    const std::string long_app_name(300, 'a');
+    driver_t::connection_parameters params;
+    params.server_name = "server";
+    params.user_name   = "user";
+    params.password    = "pass";
+    params.app_name    = as_sv(long_app_name);
+    EXPECT_EQ(driver_t::e_driver_error_code::login_failed, driver.connect(params));
+    EXPECT_TRUE(tx.empty());
 }

@@ -1052,3 +1052,67 @@ TEST(tds_command_ctx_it, packet_size_larger_than_network_buffer) {
     static_assert(32767 > k_asio_network_buffer_size, "must exceed the network buffer");
     check_large_result_set(32767);
 }
+
+// --------------------------------------------------------------------------------
+
+/**
+ * Regression test: a statement larger than the network buffer must not be
+ * executed. It used to be truncated at the buffer boundary and sent anyway,
+ * so an UPDATE whose WHERE clause did not fit updated every row.
+ */
+TEST_F(tds_command_ctx_it_fixture, request_too_large_query_is_not_executed) {
+    ASSERT_EQ(0, exec(cq("id int", "v int")));
+    ASSERT_EQ(1, exec(iq("1", "0")));
+    ASSERT_EQ(1, exec(iq("42", "0")));
+
+    const std::string table =
+        std::string("#") + ::testing::UnitTest::GetInstance()->current_test_info()->name();
+
+    // The padding pushes the WHERE clause past the end of the
+    // network buffer (2 bytes per character on the wire).
+    const owning_string_view too_large{"UPDATE " + table + " SET v = 1 /*" +
+                                       std::string(k_asio_network_buffer_size / 2, '.') +
+                                       "*/ WHERE id = 42;"};
+    const auto result = command_ctx.execute_query(static_cast<tdsl::string_view>(too_large));
+    EXPECT_TRUE(result.request_too_large);
+    EXPECT_FALSE(static_cast<bool>(result));
+    EXPECT_EQ(0, result.affected_rows);
+
+    // Nothing must have been updated, and the connection must be usable
+    EXPECT_EQ(0, exec(sq("*", "v = 1")));
+    EXPECT_EQ(2, exec(sq("*", "v = 0")));
+
+    // The same statement without the padding works
+    const owning_string_view fits{"UPDATE " + table + " SET v = 1 WHERE id = 42;"};
+    EXPECT_EQ(1, exec(fits));
+    EXPECT_EQ(1, exec(sq("*", "v = 1")));
+}
+
+// --------------------------------------------------------------------------------
+
+/**
+ * Regression test: an RPC request whose parameter value does not fit into
+ * the network buffer must not be sent (the value used to be dropped while
+ * its length prefix was still sent).
+ */
+TEST_F(tds_command_ctx_it_fixture, request_too_large_rpc_is_not_executed) {
+    const std::u16string big(k_asio_network_buffer_size / 2, u'x');
+    tdsl::detail::sql_parameter_nvarchar p0{};
+    p0 = tdsl::wstring_view{big.data(), static_cast<tdsl::uint32_t>(big.size())};
+    tdsl::detail::sql_parameter_binding params [] = {p0};
+
+    const auto result = command_ctx.execute_rpc(tdsl::string_view{"SELECT LEN(@p0)"}, params);
+    ASSERT_FALSE(static_cast<bool>(result));
+    EXPECT_EQ(tdsl::detail::e_rpc_error_code::request_too_large, result.error());
+
+    // The connection must still be usable
+    tdsl::int32_t value = {0};
+    const auto result2  = command_ctx.execute_query(
+        tdsl::string_view{"SELECT CAST(42 AS INT);"},
+        [](void * u, const tdsl::tds_colmetadata_token &, const tdsl::tdsl_row & row) {
+            *static_cast<tdsl::int32_t *>(u) = row [0].as<tdsl::int32_t>();
+        },
+        &value);
+    EXPECT_TRUE(static_cast<bool>(result2));
+    EXPECT_EQ(42, value);
+}

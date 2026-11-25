@@ -18,6 +18,7 @@
 #include <tdslite/util/tdsl_type_traits.hpp>
 #include <tdslite/util/tdsl_span.hpp>
 #include <tdslite/util/tdsl_byte_swap.hpp>
+#include <tdslite/util/tdsl_macrodef.hpp>
 
 namespace tdsl { namespace detail {
 
@@ -98,8 +99,14 @@ namespace tdsl { namespace detail {
 
         // --------------------------------------------------------------------------------
 
-        inline void send_tds_pdu(detail::e_tds_message_type mtype) noexcept {
-            static_cast<Derived &>(*this).do_send_tds_pdu(mtype);
+        /**
+         * Send the message built in the network buffer
+         *
+         * @return true if sent, false if the message did not fit
+         *         into the network buffer and was discarded
+         */
+        TDSL_NODISCARD inline bool send_tds_pdu(detail::e_tds_message_type mtype) noexcept {
+            return static_cast<Derived &>(*this).do_send_tds_pdu(mtype);
         }
 
         // --------------------------------------------------------------------------------

@@ -48,7 +48,10 @@ namespace tdsl { namespace detail {
 
     enum class e_rpc_error_code : tdsl::uint8_t
     {
-        invalid_mode = 1,
+        invalid_mode      = 1,
+        // The request does not fit into the network buffer.
+        // Nothing is sent to the server.
+        request_too_large = 2,
     };
 }} // namespace tdsl::detail
 

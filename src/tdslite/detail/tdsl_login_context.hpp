@@ -366,8 +366,13 @@ namespace tdsl {
                 // Replace the placeholder value (0) with the actual packet
                 // length.
                 len_ph.write_le(tdsl::uint32_t{total_packet_data_size});
-                // Send the login request.
-                tds_ctx.send_tds_pdu(e_tds_message_type::login);
+                // Send the login request. Do not wait for a response
+                // if the request could not be sent.
+                if (not tds_ctx.send_tds_pdu(e_tds_message_type::login)) {
+                    TDSL_DEBUG_PRINTLN("login_context::do_login(...) -> error, the login "
+                                       "request does not fit into the network buffer");
+                    return e_login_status::failure;
+                }
 
                 // Receive the login response
                 tds_ctx.receive_tds_pdu();
