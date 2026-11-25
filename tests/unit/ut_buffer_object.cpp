@@ -271,3 +271,32 @@ TEST_F(buffer_object_fixture, exclusivity) {
 }
 
 //////////////////
+
+// --------------------------------------------------------------------------------
+
+/**
+ * Regression test: a reader that consumes nothing (e.g. the buffer holds
+ * only a partial token) must leave the buffered data intact. Releasing
+ * such a reader used to zero out the whole in-use region.
+ */
+TEST_F(buffer_object_fixture, reader_consuming_nothing_keeps_data) {
+    const tdsl::uint8_t data [] = {0xD1, 0x01, 0x02};
+    {
+        auto writer = bo.get_writer();
+        ASSERT_TRUE(writer->write(tdsl::byte_view{data}));
+    }
+    {
+        // Peek, then consume nothing
+        auto reader = bo.get_reader();
+        ASSERT_EQ(sizeof(data), reader->remaining_bytes());
+        auto checkpoint = reader->checkpoint();
+        (void) reader->read(2);
+        checkpoint.restore();
+    }
+    {
+        auto reader = bo.get_reader();
+        ASSERT_EQ(sizeof(data), reader->remaining_bytes());
+        const auto v = reader->read(sizeof(data));
+        ASSERT_THAT(v, testing::ElementsAreArray(data));
+    }
+}
