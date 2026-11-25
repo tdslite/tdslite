@@ -375,15 +375,28 @@ namespace tdsl {
             }
 
             /**
+             * Smallest/largest valid TDS packet size (MS-TDS 2.2.7.9)
+             */
+            static constexpr tdsl::uint16_t k_min_tds_packet_size = {512};
+            static constexpr tdsl::uint16_t k_max_tds_packet_size = {32767};
+
+            /**
              * Update negotiated packet size
              *
-             * @param [in] value New packet size
+             * The packet size may be larger than the network buffer. Incoming
+             * packets are received in chunks, and outgoing messages are
+             * never larger than the network buffer anyway.
+             *
+             * @param [in] value New packet size. Values outside of the
+             *                   [512, 32767] range are ignored and the
+             *                   current packet size is kept.
              */
             TDSL_SYMBOL_VISIBLE inline void set_tds_packet_size(tdsl::uint16_t value) noexcept {
-                if (value > network_buffer.get_underlying_view().size_bytes()) {
-                    TDSL_ASSERT_MSG(false, "Negotiated packet size cannot be larger than the "
-                                           "network buffer itself!");
-                    TDSL_TRAP;
+                if (value < k_min_tds_packet_size || value > k_max_tds_packet_size) {
+                    TDSL_DEBUG_PRINTLN("network_io_base::set_tds_packet_size(...) -> ignoring "
+                                       "invalid packet size [%u], keeping [%u]",
+                                       value, tds_packet_size);
+                    return;
                 }
 
                 TDSL_DEBUG_PRINTLN(
@@ -413,11 +426,8 @@ namespace tdsl {
             // where message_len > network_buffer.
             tds_packet_data_callback packet_data_cb{};
 
-            // Negotiated TDS packet size
-            // The capacity of @p network_buffer MUST
-            // be equal to this value (may be greater).
-            // Otherwise, the client may not be able to
-            // receive the data from the server.
+            // Negotiated TDS packet size. Always in [512, 32767]
+            // range. Can be larger than the network buffer.
             tdsl::uint16_t tds_packet_size = {4096};
 
         protected:

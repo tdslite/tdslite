@@ -963,23 +963,17 @@ TEST_F(tds_command_ctx_it_fixture, utf16_query_string) {
 
 // --------------------------------------------------------------------------------
 
-/**
- * Regression test for the network receive path.
- *
- * When the negotiated packet size equals the size of the network buffer,
- * every row that straddles a TDS packet boundary leaves unconsumed data in
- * the buffer, so the next packet no longer fits into the remaining free
- * space and has to be received in chunks. This used to crash (buffer
- * object's in-use guard) and, past that, to desync the stream because the
- * tail of the packet was never received.
- */
-TEST(tds_command_ctx_it, result_set_packets_larger_than_free_space) {
-    // tdsl_netimpl_asio's network buffer size
-    constexpr tdsl::uint32_t k_asio_network_buffer_size = 16384;
+// tdsl_netimpl_asio's network buffer size
+static constexpr tdsl::uint32_t k_asio_network_buffer_size = 16384;
 
+/**
+ * Log in with the requested @p packet_size, receive a large (~650 KiB)
+ * result set and verify it, then verify the connection is still in sync.
+ */
+static void check_large_result_set(tdsl::uint32_t packet_size) {
     tds_ctx_t tds_ctx;
     login_ctx_t::login_parameters params = mssql_2022_creds();
-    params.packet_size                   = k_asio_network_buffer_size;
+    params.packet_size                   = packet_size;
     {
         login_ctx_t login{tds_ctx};
         ASSERT_TRUE(tds_ctx.do_connect(params.server_name, /*port=*/1433));
@@ -995,8 +989,8 @@ TEST(tds_command_ctx_it, result_set_packets_larger_than_free_space) {
         tdsl::uint64_t bad_rows = {0};
     } state;
 
-    // ~130 bytes per row, ~650 KiB in total. 16376 (packet data size)
-    // is not a multiple of the row size, so rows straddle the packets.
+    // ~130 bytes per row, ~650 KiB in total. The packet data size is
+    // not a multiple of the row size, so rows straddle the packets.
     constexpr tdsl::uint64_t k_row_count = 5000;
     const auto result                    = command_ctx.execute_query(
         tdsl::string_view{"SELECT TOP (5000) "
@@ -1031,4 +1025,30 @@ TEST(tds_command_ctx_it, result_set_packets_larger_than_free_space) {
         &value);
     EXPECT_TRUE(static_cast<bool>(result2));
     EXPECT_EQ(42, value);
+}
+
+/**
+ * Regression test for the network receive path.
+ *
+ * When the negotiated packet size equals the size of the network buffer,
+ * every row that straddles a TDS packet boundary leaves unconsumed data in
+ * the buffer, so the next packet no longer fits into the remaining free
+ * space and has to be received in chunks. This used to crash (buffer
+ * object's in-use guard) and, past that, to desync the stream because the
+ * tail of the packet was never received.
+ */
+TEST(tds_command_ctx_it, result_set_packets_larger_than_free_space) {
+    check_large_result_set(k_asio_network_buffer_size);
+}
+
+/**
+ * Regression test: a negotiated packet size larger than the network buffer.
+ *
+ * The server confirms the requested packet size (32767) in the login
+ * response, which used to trap the client because it is larger than the
+ * network buffer. Packets larger than the buffer are received in chunks.
+ */
+TEST(tds_command_ctx_it, packet_size_larger_than_network_buffer) {
+    static_assert(32767 > k_asio_network_buffer_size, "must exceed the network buffer");
+    check_large_result_set(32767);
 }

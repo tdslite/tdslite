@@ -342,16 +342,29 @@ namespace tdsl { namespace detail {
                     envchange_info.old_value = ovval.rebind_cast<char16_t>();
 
                     if (ect == envchange_type::packet_size) {
-                        auto u16v_to_u16 = [](tdsl::u16char_view v) {
+                        // Parse the packet size (UCS-2 encoded decimal string).
+                        // Returns 0 if the value is not a plain decimal number,
+                        // or if it does not fit into 16 bits. Zero is an invalid
+                        // packet size, so it's ignored by set_tds_packet_size().
+                        auto u16v_to_u16 = [](tdsl::u16char_view v) -> tdsl::uint16_t {
                             const auto as_bv   = v.rebind_cast<const tdsl::uint8_t>();
-                            tdsl::uint16_t val = {0};
-                            for (tdsl::size_t ix = 0; ix < as_bv.size_bytes(); ix += 2) {
-                                val = (val << 3) + (val << 1) + (as_bv [ix] - '0');
+                            tdsl::uint32_t val = {0};
+                            if (as_bv.size_bytes() == 0) {
+                                return 0;
                             }
-
-                            // for (char16_t c : v) {
-                            // }
-                            return val;
+                            for (tdsl::size_t ix = 0; ix + 1 < as_bv.size_bytes(); ix += 2) {
+                                // UCS-2LE: low byte first
+                                const tdsl::uint8_t lo = as_bv [ix];
+                                const tdsl::uint8_t hi = as_bv [ix + 1];
+                                if (hi != 0 || lo < '0' || lo > '9') {
+                                    return 0;
+                                }
+                                val = (val * 10) + (lo - '0');
+                                if (val > 0xFFFF) {
+                                    return 0;
+                                }
+                            }
+                            return static_cast<tdsl::uint16_t>(val);
                         };
 
                         /**

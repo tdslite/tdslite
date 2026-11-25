@@ -229,10 +229,14 @@ namespace {
      */
     struct scripted_client {
         scripted_client(const byte_vec & stream, tdsl::size_t max_read = k_no_limit,
-                        tdsl::size_t fail_at = k_no_limit) :
-            stream(stream), max_read(max_read), fail_at(fail_at) {}
+                        tdsl::size_t fail_at = k_no_limit, byte_vec * tx = nullptr) :
+            stream(stream), max_read(max_read), fail_at(fail_at), tx(tx) {}
 
-        tdsl::size_t write(const unsigned char *, tdsl::size_t len) {
+        tdsl::size_t write(const unsigned char * data, tdsl::size_t len) {
+            // Record the sent bytes, if requested
+            if (tx && len) {
+                tx->insert(tx->end(), data, data + len);
+            }
             return len;
         }
 
@@ -282,6 +286,7 @@ namespace {
         byte_vec stream;
         tdsl::size_t max_read;
         tdsl::size_t fail_at;
+        byte_vec * tx;
         tdsl::size_t pos = {0};
     };
 
@@ -645,4 +650,248 @@ TEST(recv_e2e, result_set_packets_larger_than_free_space) {
 // Same as above, with fragmented socket reads
 TEST(recv_e2e, result_set_fragmented_reads) {
     run_e2e(/*row_count=*/1000, /*packet_data_size=*/509, /*max_read=*/13);
+}
+
+// --------------------------------------------------------------------------------
+// Negotiated packet size
+//
+// The server confirms (or overrides) the requested packet size with an
+// ENVCHANGE token in the login response. The packet size may be larger than
+// the network buffer, and invalid values must not crash the client. The
+// packet size in use is observed through the segmentation of a sent message.
+// --------------------------------------------------------------------------------
+
+#include <tdslite/detail/tdsl_driver.hpp>
+
+namespace {
+
+    /**
+     * Lengths of the TDS packets in a sent byte stream
+     */
+    inline std::vector<tdsl::uint16_t> sent_packet_lengths(const byte_vec & tx) {
+        std::vector<tdsl::uint16_t> r;
+        tdsl::size_t off = 0;
+        while (off + 8 <= tx.size()) {
+            const auto len = static_cast<tdsl::uint16_t>((tx [off + 2] << 8) | tx [off + 3]);
+            r.push_back(len);
+            if (len < 8) {
+                break;
+            }
+            off += len;
+        }
+        return r;
+    }
+
+    /**
+     * Send a @p n byte message through @p net and return the
+     * lengths of the TDS packets it is segmented into
+     */
+    template <typename NetT>
+    inline std::vector<tdsl::uint16_t> send_message(NetT & net, byte_vec & tx, tdsl::size_t n) {
+        tx.clear();
+        const auto data = make_pattern(n);
+        net.do_write(tdsl::byte_view{data.data(), static_cast<tdsl::uint32_t>(data.size())});
+        net.do_send_tds_pdu(tdsl::detail::e_tds_message_type::sql_batch);
+        return sent_packet_lengths(tx);
+    }
+
+    using packet_lengths              = std::vector<tdsl::uint16_t>;
+
+    // A 510-byte message is segmented as:
+    // - packet size 512   -> 504 + 6 bytes of data (two packets)
+    // - packet size >= 518 -> a single packet
+    constexpr tdsl::size_t k_msg_size = 510;
+    const packet_lengths k_segmented_as_512{512, 14};
+    const packet_lengths k_single_packet{518};
+
+    /**
+     * UCS-2LE encode an ASCII string
+     */
+    inline byte_vec ucs2(const char * s) {
+        byte_vec r;
+        for (; *s; ++s) {
+            r.push_back(static_cast<tdsl::uint8_t>(*s));
+            r.push_back(0x00);
+        }
+        return r;
+    }
+
+    /**
+     * ENVCHANGE (packet size) token with raw UCS-2 new/old values
+     */
+    inline byte_vec make_envchange_packet_size(const byte_vec & new_value,
+                                               const byte_vec & old_value = ucs2("4096")) {
+        byte_vec body{0x04 /*packet size*/, static_cast<tdsl::uint8_t>(new_value.size() / 2)};
+        body.insert(body.end(), new_value.begin(), new_value.end());
+        body.push_back(static_cast<tdsl::uint8_t>(old_value.size() / 2));
+        body.insert(body.end(), old_value.begin(), old_value.end());
+        byte_vec token{0xE3, static_cast<tdsl::uint8_t>(body.size() & 0xFF),
+                       static_cast<tdsl::uint8_t>(body.size() >> 8)};
+        token.insert(token.end(), body.begin(), body.end());
+        return token;
+    }
+
+    inline byte_vec make_done_token(tdsl::uint32_t row_count = 0) {
+        return byte_vec{0xFD,
+                        static_cast<tdsl::uint8_t>(row_count ? 0x10 : 0x00),
+                        0x00,
+                        0xC1,
+                        0x00,
+                        static_cast<tdsl::uint8_t>(row_count),
+                        static_cast<tdsl::uint8_t>(row_count >> 8),
+                        static_cast<tdsl::uint8_t>(row_count >> 16),
+                        static_cast<tdsl::uint8_t>(row_count >> 24)};
+    }
+
+    /**
+     * Receive a response with the given ENVCHANGE (packet size) values through
+     * a tds_context with a 512-byte network buffer, then send a message and
+     * return its segmentation.
+     */
+    inline packet_lengths packet_lengths_after_envchange(std::initializer_list<byte_vec> values,
+                                                         tdsl::size_t * envchange_count = nullptr) {
+        byte_vec tokens;
+        for (const auto & v : values) {
+            const auto t = make_envchange_packet_size(v);
+            tokens.insert(tokens.end(), t.begin(), t.end());
+        }
+        const auto done = make_done_token();
+        tokens.insert(tokens.end(), done.begin(), done.end());
+
+        tdsl::uint8_t nbuf [512] = {0};
+        byte_vec tx;
+        e2e_tds_ctx_t tds_ctx{nbuf, make_tds_packet(k_tabular_result, true, tokens), k_no_limit,
+                              k_no_limit, &tx};
+        tdsl::size_t count           = {0};
+        tds_ctx.callbacks.envinfochg = {[](void * u, const tdsl::tds_envchange_token &) {
+                                            ++*static_cast<tdsl::size_t *>(u);
+                                        },
+                                        &count};
+        tds_ctx.receive_tds_pdu();
+        if (envchange_count) {
+            *envchange_count = count;
+        }
+        return send_message(tds_ctx, tx, k_msg_size);
+    }
+
+} // namespace
+
+// The packet size must be settable to a value larger than the network buffer.
+TEST(packet_size, larger_than_network_buffer_is_accepted) {
+    tdsl::uint8_t nbuf [512] = {0};
+    byte_vec tx;
+    recv_uut_t uut{nbuf, byte_vec{}, k_no_limit, k_no_limit, &tx};
+
+    uut.set_tds_packet_size(512);
+    EXPECT_EQ(k_segmented_as_512, send_message(uut, tx, k_msg_size));
+
+    uut.set_tds_packet_size(2048);
+    EXPECT_EQ(k_single_packet, send_message(uut, tx, k_msg_size));
+
+    uut.set_tds_packet_size(512);
+    uut.set_tds_packet_size(32767);
+    EXPECT_EQ(k_single_packet, send_message(uut, tx, k_msg_size));
+}
+
+// Out-of-range values must be ignored (e.g. a packet size <= 8 would make
+// the message segment size zero or negative).
+TEST(packet_size, out_of_range_values_are_ignored) {
+    for (tdsl::uint16_t v : {0, 1, 7, 8, 9, 100, 511, 32768, 65535}) {
+        tdsl::uint8_t nbuf [512] = {0};
+        byte_vec tx;
+        recv_uut_t uut{nbuf, byte_vec{}, k_no_limit, k_no_limit, &tx};
+        uut.set_tds_packet_size(512);
+        uut.set_tds_packet_size(v);
+        EXPECT_EQ(k_segmented_as_512, send_message(uut, tx, k_msg_size)) << "value=" << v;
+    }
+}
+
+// ENVCHANGE with a valid packet size is applied.
+TEST(packet_size, envchange_valid_value_is_applied) {
+    tdsl::size_t count = {0};
+    EXPECT_EQ(k_segmented_as_512, packet_lengths_after_envchange({ucs2("512")}, &count));
+    EXPECT_EQ(1u, count);
+}
+
+// ENVCHANGE with a packet size larger than the network buffer (512) is
+// applied, without crashing the client.
+TEST(packet_size, envchange_value_larger_than_network_buffer_is_applied) {
+    EXPECT_EQ(k_segmented_as_512, packet_lengths_after_envchange({ucs2("512")}));
+    EXPECT_EQ(k_single_packet, packet_lengths_after_envchange({ucs2("512"), ucs2("4096")}));
+    EXPECT_EQ(k_single_packet, packet_lengths_after_envchange({ucs2("512"), ucs2("32767")}));
+}
+
+// ENVCHANGE with an invalid packet size is ignored. The previous (valid)
+// packet size stays in effect, and the ENVCHANGE callback is still invoked.
+TEST(packet_size, envchange_invalid_values_are_ignored) {
+    const byte_vec invalid_values [] = {
+        ucs2(""), // empty
+        ucs2("abc"), // not a number
+        ucs2("5 12"), // embedded space
+        ucs2("-512"), // sign
+        ucs2("8"), // too small (would make the segment size zero)
+        ucs2("511"), // too small
+        ucs2("32768"), // too large
+        ucs2("70000"), // does not fit into 16 bits (used to wrap to 4464)
+        ucs2("4294967808"), // does not fit into 32 bits (used to wrap to 512)
+        byte_vec{'5', 0x01, '1', 0x00, '2', 0x00}, // non-ASCII code unit
+    };
+    for (const auto & v : invalid_values) {
+        tdsl::size_t count = {0};
+        EXPECT_EQ(k_segmented_as_512, packet_lengths_after_envchange({ucs2("512"), v}, &count))
+            << "value bytes=" << v.size();
+        EXPECT_EQ(2u, count);
+    }
+}
+
+// --------------------------------------------------------------------------------
+
+namespace {
+    using driver_t = tdsl::detail::tdsl_driver<tdsl::net::tdsl_netimpl_arduino<scripted_client>>;
+
+    inline byte_vec make_loginack_token() {
+        const auto progname = ucs2("test");
+        byte_vec body{0x01,                    // interface
+                      0x71, 0x00, 0x00, 0x01}; // tds version
+        body.push_back(static_cast<tdsl::uint8_t>(progname.size() / 2));
+        body.insert(body.end(), progname.begin(), progname.end());
+        body.insert(body.end(), {0x10, 0x00, 0x00, 0x00}); // program version
+        byte_vec token{0xAD, static_cast<tdsl::uint8_t>(body.size() & 0xFF),
+                       static_cast<tdsl::uint8_t>(body.size() >> 8)};
+        token.insert(token.end(), body.begin(), body.end());
+        return token;
+    }
+} // namespace
+
+// The reported scenario: a network buffer smaller than the requested
+// (default, 4096) packet size. The server confirms 4096 at login, which
+// used to trap. Login must succeed, and a result set sent in 4096-byte
+// packets must be received completely through the 512-byte buffer.
+TEST(packet_size, driver_connect_with_packet_size_larger_than_buffer) {
+    constexpr tdsl::uint32_t k_row_count = 1000;
+
+    const auto login_response            = concat(
+        {make_envchange_packet_size(ucs2("4096")), make_loginack_token(), make_done_token()});
+    const auto stream        = concat({make_tds_packet(k_tabular_result, true, login_response),
+                                       packetize(make_int_result_set(k_row_count), 4096 - 8)});
+
+    tdsl::uint8_t nbuf [512] = {0};
+    byte_vec tx;
+    driver_t driver{nbuf, stream, k_no_limit, k_no_limit, &tx};
+
+    driver_t::connection_parameters params;
+    params.server_name = "server";
+    params.user_name   = "user";
+    params.password    = "pass";
+    ASSERT_EQ(4096u, params.packet_size); // the default
+    ASSERT_EQ(driver_t::e_driver_error_code::success, driver.connect(params));
+
+    row_collector rc;
+    const auto result = driver.execute_query("SELECT n FROM t;", &row_collector::cb, &rc);
+    EXPECT_EQ(0u, rc.bad_rows);
+    ASSERT_EQ(k_row_count, rc.values.size());
+    for (tdsl::uint32_t i = 0; i < k_row_count; i++) {
+        ASSERT_EQ(static_cast<tdsl::int32_t>(i), rc.values [i]) << "row " << i;
+    }
+    EXPECT_EQ(k_row_count, result.affected_rows);
 }
