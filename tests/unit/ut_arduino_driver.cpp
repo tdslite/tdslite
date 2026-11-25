@@ -11,6 +11,15 @@
  */
 
 #include <functional>
+#include <cstring>
+
+// PROGMEM mocks (program memory is regular memory on desktop)
+#define PROGMEM
+#define pgm_read_byte_near(x) *(x)
+
+void * memcpy_P(void * __restrict dest, const void * __restrict src, size_t n) {
+    return std::memcpy(dest, src, n);
+}
 
 std::function<void(int)> delay = [](int ms) {
     (void) ms;
@@ -1482,4 +1491,81 @@ TEST(server_error, execute_query_error_in_earlier_statement_is_kept) {
     // The rest of the batch is still processed
     EXPECT_EQ((std::vector<tdsl::int32_t>{0}), rc.values);
     EXPECT_EQ(1u, r.affected_rows);
+}
+
+// --------------------------------------------------------------------------------
+// Host name passed to Client::connect
+//
+// The host name is copied into the network buffer (it may be a PROGMEM
+// string) and passed to `connect(const char*, port)`, which expects a
+// NUL-terminated string. The network buffer may contain stale data.
+// --------------------------------------------------------------------------------
+
+namespace {
+
+    struct host_recording_client : public my_client {
+        int connect(const char * host, unsigned short) {
+            // Reads up to the NUL terminator, like a real Client
+            last_host = host;
+            ++calls;
+            return 1;
+        }
+
+        static std::string last_host;
+        static int calls;
+    };
+
+    std::string host_recording_client::last_host;
+    int host_recording_client::calls = 0;
+
+    struct host_uut_t : public uut_t<host_recording_client> {
+        using uut_t<host_recording_client>::uut_t;
+        using uut_t<host_recording_client>::network_buffer;
+    };
+
+    const char PROGMEM k_progmem_host [] = "progmem.host";
+} // namespace
+
+TEST(connect_host, host_is_nul_terminated) {
+    tdsl::uint8_t nbuf [64];
+    std::memset(nbuf, 0xAA, sizeof(nbuf)); // stale data
+    host_uut_t uut{nbuf};
+    host_recording_client::calls = 0;
+    ASSERT_TRUE(static_cast<bool>(uut.connect(tdsl::string_view{"db.local"}, 1433)));
+    EXPECT_EQ(1, host_recording_client::calls);
+    EXPECT_EQ("db.local", host_recording_client::last_host);
+}
+
+TEST(connect_host, progmem_host_is_nul_terminated) {
+    tdsl::uint8_t nbuf [64];
+    std::memset(nbuf, 0xAA, sizeof(nbuf));
+    host_uut_t uut{nbuf};
+    ASSERT_TRUE(static_cast<bool>(uut.connect(tdsl::progmem_string_view{k_progmem_host}, 1433)));
+    EXPECT_EQ("progmem.host", host_recording_client::last_host);
+}
+
+// Stale data from an earlier message must not leak into the host name
+TEST(connect_host, host_is_nul_terminated_after_discarded_message) {
+    tdsl::uint8_t nbuf [64] = {0};
+    host_uut_t uut{nbuf};
+    const auto junk = make_pattern(40, 0x41);
+    uut.do_write(tdsl::byte_view{junk.data(), static_cast<tdsl::uint32_t>(junk.size())});
+    uut.network_buffer.get_writer()->reset(); // like a discarded message
+    ASSERT_TRUE(static_cast<bool>(uut.connect(tdsl::string_view{"db"}, 1433)));
+    EXPECT_EQ("db", host_recording_client::last_host);
+}
+
+// A host name that fills the buffer leaves no space for the NUL terminator
+TEST(connect_host, host_filling_the_buffer_is_rejected) {
+    tdsl::uint8_t nbuf [8];
+    std::memset(nbuf, 0xAA, sizeof(nbuf));
+    host_uut_t uut{nbuf};
+    host_recording_client::calls = 0;
+    EXPECT_FALSE(static_cast<bool>(uut.connect(tdsl::string_view{"12345678"}, 1433)));
+    EXPECT_EQ(0, host_recording_client::calls);
+
+    // One character less fits
+    ASSERT_TRUE(static_cast<bool>(uut.connect(tdsl::string_view{"1234567"}, 1433)));
+    EXPECT_EQ(1, host_recording_client::calls);
+    EXPECT_EQ("1234567", host_recording_client::last_host);
 }

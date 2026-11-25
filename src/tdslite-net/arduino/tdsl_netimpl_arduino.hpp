@@ -108,13 +108,18 @@ namespace tdsl { namespace net {
             // a new buffer, we use the network buffer since it's sufficiently
             // large free space not yet in use for anything.
 
-            if (target.size_bytes() <= this->network_buffer.get_writer()->remaining_bytes()) {
+            // `connect` expects a NUL-terminated string, so there must be
+            // space for the NUL terminator as well.
+            if (target.size_bytes() < this->network_buffer.get_writer()->remaining_bytes()) {
 
                 auto w = this->network_buffer.get_writer();
                 for (auto c : target) {
                     auto wr = w->write(c);
                     (void) wr;
                 }
+                // The buffer may contain stale data after the host name
+                auto wr = w->write(char{'\0'});
+                (void) wr;
                 destination_host = w->inuse_span().template rebind_cast<const char>();
             }
             else {
