@@ -292,7 +292,7 @@ TEST_F(buffer_object_fixture, reader_consuming_nothing_keeps_data) {
         auto reader = bo.get_reader();
         ASSERT_EQ(sizeof(data), reader->remaining_bytes());
         auto checkpoint = reader->checkpoint();
-        (void) reader->read(2);
+        ASSERT_EQ(2u, reader->read(2).size());
         checkpoint.restore();
     }
     {

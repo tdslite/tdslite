@@ -268,8 +268,7 @@ namespace tdsl { namespace net {
                     break;
                 }
 
-                if (static_cast<tdsl::uint32_t>(static_cast<tdsl::uint32_t>(millis()) - start) >=
-                    timeout) {
+                if ((static_cast<tdsl::uint32_t>(millis()) - start) >= timeout) {
                     // timeout
                     TDSL_DEBUG_PRINTLN("tdsl_netimpl_arduino::do_recv(...) -> error, time out!");
                     return tdsl::unexpected(static_cast<int>(errc::timeout));

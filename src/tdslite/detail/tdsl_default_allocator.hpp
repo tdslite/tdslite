@@ -41,7 +41,7 @@ namespace tdsl {
     inline TDSL_NODISCARD void * tdsl_default_malloc(unsigned long amount) noexcept {
         // ::malloc's size_t may be narrower than unsigned long (e.g. on AVR)
         using platform_size_t = decltype(sizeof(int));
-        if (amount > static_cast<unsigned long>(~platform_size_t{0})) {
+        if (amount > ~platform_size_t{0}) {
             return nullptr;
         }
         return ::malloc(static_cast<platform_size_t>(amount));

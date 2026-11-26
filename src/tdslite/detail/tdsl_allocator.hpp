@@ -110,7 +110,7 @@ namespace tdsl {
             if (n_elems > (k_max_size / sizeof(T))) {
                 return nullptr;
             }
-            void * mem = tdslite_malloc(static_cast<unsigned long>(n_elems * sizeof(T)));
+            void * mem = tdslite_malloc(n_elems * sizeof(T));
             if (nullptr == mem) {
                 return nullptr;
             }
