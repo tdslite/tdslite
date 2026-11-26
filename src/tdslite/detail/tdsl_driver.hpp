@@ -48,7 +48,8 @@ namespace tdsl { namespace detail {
             connection_failed,
             login_failed,
             connection_param_server_name_empty,
-            connection_param_packet_size_invalid
+            connection_param_packet_size_invalid,
+            connection_param_retry_invalid
         };
 
         // --------------------------------------------------------------------------------
@@ -72,6 +73,9 @@ namespace tdsl { namespace detail {
              * @returns e_driver_error_code::connection_param_packet_size_invalid
              *          if packet_size is smaller or larger than allowed
              *          (must be >=512 && <=32767)
+             * @returns e_driver_error_code::connection_param_retry_invalid
+             *          if conn_retry_count or conn_retry_delay_ms is larger
+             *          than 65535
              */
             inline auto validate() const noexcept -> e_driver_error_code {
 
@@ -83,6 +87,11 @@ namespace tdsl { namespace detail {
                 // TDS packet size must be in >= 512 && <= 32767 range
                 if (this->packet_size < 512 || this->packet_size > 32767) {
                     return e_driver_error_code::connection_param_packet_size_invalid;
+                }
+
+                // The network layer stores these as 16-bit values
+                if (conn_retry_count > 0xFFFF || conn_retry_delay_ms > 0xFFFF) {
+                    return e_driver_error_code::connection_param_retry_invalid;
                 }
 
                 return e_driver_error_code::success;
@@ -120,6 +129,8 @@ namespace tdsl { namespace detail {
          * @returns e_driver_error_code::connection_param_packet_size_invalid
          *          if packet_size is smaller or larger than allowed
          *          (must be >=512 && <=32767)
+         * @returns e_driver_error_code::connection_param_retry_invalid
+         *          if conn_retry_count or conn_retry_delay_ms is larger than 65535
          */
         template <typename T>
         inline auto connect(const connection_parameters_base<T> & p) noexcept
@@ -134,7 +145,9 @@ namespace tdsl { namespace detail {
             // A (re)connect always starts a new, unauthenticated session.
             tds_ctx.flags.authenticated = {false};
 
-            tds_ctx.set_connection_timeout_params(p.conn_retry_count, p.conn_retry_delay_ms);
+            tds_ctx.set_connection_timeout_params(
+                static_cast<tdsl::uint16_t>(p.conn_retry_count),
+                static_cast<tdsl::uint16_t>(p.conn_retry_delay_ms));
 
             if (not tds_ctx.connect(p.server_name, p.port)) {
                 return e_driver_error_code::connection_failed;
@@ -177,7 +190,9 @@ namespace tdsl { namespace detail {
          * @param [in] row_callback Callback to invoke for each row received as
          *             a result to the query. (optional)
          *
-         * @return tdsl::uint32_t Amount of rows affected from the query
+         * @return Query result (number of rows affected, status). If the command does
+         *         not fit into the network buffer, nothing is sent and
+         *         `request_too_large` is set.
          */
         template <typename T>
         inline auto execute_query(
@@ -202,7 +217,9 @@ namespace tdsl { namespace detail {
          * @param [in] row_callback Callback to invoke for each row received as
          *             a result to the query. (optional)
          *
-         * @return tdsl::uint32_t Amount of rows affected from the query
+         * @return Query result (number of rows affected, status). If the command does
+         *         not fit into the network buffer, nothing is sent and
+         *         `request_too_large` is set.
          */
         template <tdsl::uint32_t N>
         inline auto execute_query(
@@ -226,7 +243,9 @@ namespace tdsl { namespace detail {
          * @param [in] row_callback Callback to invoke for each row received as
          *             a result to the query. (optional)
          *
-         * @return tdsl::uint32_t Amount of rows affected from the query
+         * @return Query result (number of rows affected, status). If the command does
+         *         not fit into the network buffer, nothing is sent and
+         *         `request_too_large` is set.
          */
         template <tdsl::uint32_t N>
         inline auto execute_query(
@@ -257,6 +276,16 @@ namespace tdsl { namespace detail {
          *
          * @returns execute_rpc_result::unexpected(e_rpc_error_code::invalid_mode) if @p mode
          *          value is invalid
+         * @returns execute_rpc_result::unexpected(e_rpc_error_code::request_too_large) if the
+         *          request does not fit into the network buffer (not executed)
+         * @returns execute_rpc_result::unexpected(e_rpc_error_code::invalid_response) if the
+         *          response could not be processed completely
+         * @returns execute_rpc_result::unexpected(e_rpc_error_code::server_error) if the
+         *          server reported an error while executing the request
+         * @returns execute_rpc_result::unexpected(e_rpc_error_code::network_error) if
+         *          sending the request or receiving the response failed
+         * @returns execute_rpc_result::unexpected(e_rpc_error_code::invalid_parameter) if a
+         *          parameter has an unsupported type or an invalid size (not executed)
          * @returns rows_affected if successful
          */
         template <typename T, traits::enable_when::same_any_of<T, string_view, wstring_view,

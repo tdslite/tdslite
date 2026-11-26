@@ -53,7 +53,10 @@ namespace {
 
         inline void do_receive_tds_pdu() {}
 
-        inline void do_send_tds_pdu(tdsl::detail::e_tds_message_type) {}
+        inline tdsl::detail::e_send_status
+        do_send_tds_pdu(tdsl::detail::e_tds_message_type) noexcept {
+            return tdsl::detail::e_send_status::success;
+        }
 
         inline void set_tds_packet_size(tdsl::uint16_t) {}
 
@@ -205,6 +208,7 @@ TEST_F(tdsl_login_ctx_ut_fixture, test_mdac) {
     ASSERT_EQ(sizeof(expected_packet_bytes), tds_ctx.buffer.size());
     ASSERT_THAT(tds_ctx.buffer, testing::ElementsAreArray(expected_packet_bytes));
 }
+
 // --------------------------------------------------------------------------------
 
 /**

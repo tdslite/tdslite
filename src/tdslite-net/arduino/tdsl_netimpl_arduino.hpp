@@ -71,7 +71,7 @@ namespace tdsl { namespace net {
          *
          * @param [in] network_io_buffer Network I/O buffer
          */
-        template <typename Z, typename... Args>
+        template <typename... Args>
         inline tdsl_netimpl_arduino(tdsl::byte_span network_io_buffer, Args &&... args) :
             client(TDSL_FORWARD(args)...) {
             this->network_buffer = tdsl::tdsl_buffer_object{network_io_buffer};
@@ -108,13 +108,18 @@ namespace tdsl { namespace net {
             // a new buffer, we use the network buffer since it's sufficiently
             // large free space not yet in use for anything.
 
-            if (target.size_bytes() <= this->network_buffer.get_writer()->remaining_bytes()) {
+            // `connect` expects a NUL-terminated string, so there must be
+            // space for the NUL terminator as well.
+            if (target.size_bytes() < this->network_buffer.get_writer()->remaining_bytes()) {
 
                 auto w = this->network_buffer.get_writer();
                 for (auto c : target) {
                     auto wr = w->write(c);
                     (void) wr;
                 }
+                // The buffer may contain stale data after the host name
+                auto wr = w->write(char{'\0'});
+                (void) wr;
                 destination_host = w->inuse_span().template rebind_cast<const char>();
             }
             else {
@@ -162,10 +167,22 @@ namespace tdsl { namespace net {
          *
          * (scatter-gather I/O)
          */
-        TDSL_SYMBOL_VISIBLE void do_send(byte_view header, byte_view message) noexcept {
-            client.write(header.data(), header.size_bytes());
-            client.write(message.data(), message.size_bytes());
+        TDSL_SYMBOL_VISIBLE tdsl::int32_t do_send(byte_view header, byte_view message) noexcept {
+            const auto all_written = [this](byte_view v) -> bool {
+                return v.size_bytes() == 0 ||
+                       static_cast<tdsl::size_t>(client.write(v.data(), v.size_bytes())) ==
+                           v.size_bytes();
+            };
+            if (not all_written(header) || not all_written(message)) {
+                // A partially written packet leaves the connection in an
+                // unknown state, so it can't be used anymore.
+                TDSL_DEBUG_PRINTLN("tdsl_netimpl_arduino::do_send(...) -> error, write failed, "
+                                   "disconnecting");
+                do_disconnect();
+                return -1;
+            }
             client.flush();
+            return 0;
         }
 
         // --------------------------------------------------------------------------------
@@ -193,12 +210,14 @@ namespace tdsl { namespace net {
                 return tdsl::unexpected(static_cast<int>(errc::not_enough_capacity));
             }
 
-            // When we should give up on trying to receive
-            const tdsl::uint32_t wait_till = millis() + timeout;
+            // When we started waiting. The elapsed time is calculated with
+            // unsigned subtraction, which gives the correct result even if
+            // millis() wraps around (every ~49.7 days with 32-bit millis()).
+            const tdsl::uint32_t start = static_cast<tdsl::uint32_t>(millis());
 
             // amount of bytes we've been able to
             // pull from the client so far
-            tdsl::uint32_t bytes_recvd     = {0};
+            tdsl::uint32_t bytes_recvd = {0};
 
             do {
 
@@ -243,7 +262,13 @@ namespace tdsl { namespace net {
                     }
                 }
 
-                if (millis() >= wait_till) {
+                // Do not report a timeout if all the data has arrived. The
+                // received data would be lost otherwise.
+                if (bytes_recvd == transfer_exactly) {
+                    break;
+                }
+
+                if ((static_cast<tdsl::uint32_t>(millis()) - start) >= timeout) {
                     // timeout
                     TDSL_DEBUG_PRINTLN("tdsl_netimpl_arduino::do_recv(...) -> error, time out!");
                     return tdsl::unexpected(static_cast<int>(errc::timeout));

@@ -13,11 +13,13 @@
 #define TDSL_DETAIL_NET_SEND_IF_MIXIN_HPP
 
 #include <tdslite/detail/tdsl_message_type.hpp>
+#include <tdslite/detail/tdsl_send_status.hpp>
 
 #include <tdslite/util/tdsl_inttypes.hpp>
 #include <tdslite/util/tdsl_type_traits.hpp>
 #include <tdslite/util/tdsl_span.hpp>
 #include <tdslite/util/tdsl_byte_swap.hpp>
+#include <tdslite/util/tdsl_macrodef.hpp>
 
 namespace tdsl { namespace detail {
 
@@ -98,8 +100,17 @@ namespace tdsl { namespace detail {
 
         // --------------------------------------------------------------------------------
 
-        inline void send_tds_pdu(detail::e_tds_message_type mtype) noexcept {
-            static_cast<Derived &>(*this).do_send_tds_pdu(mtype);
+        /**
+         * Send the message built in the network buffer
+         *
+         * @return e_send_status::success if sent
+         * @return e_send_status::request_too_large if the message did not fit
+         *         into the network buffer and was discarded
+         * @return e_send_status::network_error if sending failed
+         */
+        TDSL_NODISCARD inline e_send_status
+        send_tds_pdu(detail::e_tds_message_type mtype) noexcept {
+            return static_cast<Derived &>(*this).do_send_tds_pdu(mtype);
         }
 
         // --------------------------------------------------------------------------------

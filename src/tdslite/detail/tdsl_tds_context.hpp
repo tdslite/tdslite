@@ -101,7 +101,18 @@ namespace tdsl { namespace detail {
             // Indicates that the tds_context is authenticated against
             // the connected server.
             bool authenticated : 1;
-            bool reserved : 7;
+            // The current response could not be processed completely
+            // (e.g. malformed data, unsupported column type, out of memory).
+            // Reset at the start of each response.
+            bool response_error : 1;
+            // The rest of the current response cannot be parsed (the parser
+            // lost track of the token boundaries), so it's discarded.
+            // Reset at the start of each response.
+            bool stop_parsing : 1;
+            // The final DONE token of the current response is received.
+            // Reset at the start of each response.
+            bool response_complete : 1;
+            bool reserved : 4;
         } flags = {};
 
     public:
@@ -113,6 +124,44 @@ namespace tdsl { namespace detail {
          */
         inline bool is_authenticated() const noexcept {
             return flags.authenticated;
+        }
+
+        // --------------------------------------------------------------------------------
+
+        /**
+         * Whether the last received response could not be processed
+         * completely, e.g. because it contained malformed data or an
+         * unsupported column type, or memory allocation failed.
+         */
+        inline bool has_response_error() const noexcept {
+            return flags.response_error;
+        }
+
+        // --------------------------------------------------------------------------------
+
+        /**
+         * Whether the final DONE token of the last received response has
+         * been received. If not, the response is incomplete (e.g. the
+         * connection was lost, or the response could not be parsed).
+         */
+        inline bool is_response_complete() const noexcept {
+            return flags.response_complete;
+        }
+
+        // --------------------------------------------------------------------------------
+
+        /**
+         * Receive one, complete TDS response.
+         *
+         * Shadows NetworkImplementation::do_receive_tds_pdu() in order to
+         * reset the per-response parse state first.
+         */
+        inline auto do_receive_tds_pdu()
+            -> decltype(traits::declval<NetworkImplementation &>().do_receive_tds_pdu()) {
+            flags.response_error    = false;
+            flags.stop_parsing      = false;
+            flags.response_complete = false;
+            return NetworkImplementation::do_receive_tds_pdu();
         }
 
         // --------------------------------------------------------------------------------
@@ -185,6 +234,14 @@ namespace tdsl { namespace detail {
             using e_token_type                   = tdsl::detail::e_tds_message_token_type;
 
             constexpr int k_min_token_need_bytes = 3;
+
+            // The parser has lost track of the token boundaries earlier
+            // in this response. Discard the rest of the response.
+            if (flags.stop_parsing) {
+                msg_rdr.advance(static_cast<tdsl::ssize_t>(msg_rdr.remaining_bytes()));
+                return 0;
+            }
+
             // start parsing tokens
             while (msg_rdr.has_bytes(/*amount_of_bytes=*/k_min_token_need_bytes)) {
 
@@ -207,15 +264,31 @@ namespace tdsl { namespace detail {
 
                 if (callbacks.sub_token_handler) {
                     const auto sth_r = callbacks.sub_token_handler(token_type, msg_rdr);
-                    if (not(sth_r.status == token_handler_status::unhandled)) {
-                        if (sth_r.needed_bytes) {
-                            // Restore message reader back to the checkpoint
-                            // so the data we've read until now doesn't
-                            // get discarded by the network layer
-                            checkpoint.restore();
-                            return sth_r.needed_bytes;
-                        }
+                    if (sth_r.status == token_handler_status::success) {
                         continue;
+                    }
+                    if (sth_r.status == token_handler_status::not_enough_bytes) {
+                        // Restore message reader back to the checkpoint
+                        // so the data we've read until now doesn't
+                        // get discarded by the network layer
+                        checkpoint.restore();
+                        return sth_r.needed_bytes ? sth_r.needed_bytes : 1;
+                    }
+                    if (not(sth_r.status == token_handler_status::unhandled)) {
+                        // The handler failed in the middle of a token that has no
+                        // length information (e.g. COLMETADATA, ROW), so the
+                        // position of the next token is unknown. Parsing the rest
+                        // would interpret token data as tokens. Give up on the
+                        // rest of the response instead.
+                        TDSL_DEBUG_PRINTLN("tds_context::handle_tabular_result_msg(...) -> "
+                                           "token [%d] handler failed (%d), discarding the "
+                                           "rest of the response",
+                                           static_cast<int>(token_type),
+                                           static_cast<int>(sth_r.status));
+                        flags.response_error = true;
+                        flags.stop_parsing   = true;
+                        msg_rdr.advance(static_cast<tdsl::ssize_t>(msg_rdr.remaining_bytes()));
+                        return 0;
                     }
                 }
 
@@ -278,9 +351,14 @@ namespace tdsl { namespace detail {
                 // Advance to the next token
                 msg_rdr.advance(current_token_size);
 
-                // If we need more bytes to proceed, ask for more bytes
+                // The token data is complete (checked above), so a handler
+                // that needs more bytes means the token is malformed. Since
+                // its length is known, skip it and carry on with the next one.
                 if (subhandler_nb > 0) {
-                    return subhandler_nb;
+                    TDSL_DEBUG_PRINTLN("tds_context::handle_tabular_result_msg(...) -> "
+                                       "malformed token [%d], skipped",
+                                       static_cast<int>(token_type));
+                    flags.response_error = true;
                 }
             }
 
@@ -315,8 +393,9 @@ namespace tdsl { namespace detail {
         inline tdsl::uint32_t
         handle_envchange_token(tdsl::binary_reader<tdsl::endian::little> & rr) noexcept {
             using envchange_type = tdsl::detail::e_tds_envchange_type;
+            TDSL_RETIF_LESS_BYTES(rr, 1);
             // Read ENVCHANGE type
-            const auto ect       = static_cast<envchange_type>(rr.read<tdsl::uint8_t>());
+            const auto ect = static_cast<envchange_type>(rr.read<tdsl::uint8_t>());
             switch (ect) {
 
                 // Handle envchange types in OLD = B_VARHAR, NEW = B_VARCHAR form
@@ -342,16 +421,29 @@ namespace tdsl { namespace detail {
                     envchange_info.old_value = ovval.rebind_cast<char16_t>();
 
                     if (ect == envchange_type::packet_size) {
-                        auto u16v_to_u16 = [](tdsl::u16char_view v) {
+                        // Parse the packet size (UCS-2 encoded decimal string).
+                        // Returns 0 if the value is not a plain decimal number,
+                        // or if it does not fit into 16 bits. Zero is an invalid
+                        // packet size, so it's ignored by set_tds_packet_size().
+                        auto u16v_to_u16 = [](tdsl::u16char_view v) -> tdsl::uint16_t {
                             const auto as_bv   = v.rebind_cast<const tdsl::uint8_t>();
-                            tdsl::uint16_t val = {0};
-                            for (tdsl::size_t ix = 0; ix < as_bv.size_bytes(); ix += 2) {
-                                val = (val << 3) + (val << 1) + (as_bv [ix] - '0');
+                            tdsl::uint32_t val = {0};
+                            if (as_bv.size_bytes() == 0) {
+                                return 0;
                             }
-
-                            // for (char16_t c : v) {
-                            // }
-                            return val;
+                            for (tdsl::size_t ix = 0; ix + 1 < as_bv.size_bytes(); ix += 2) {
+                                // UCS-2LE: low byte first
+                                const tdsl::uint8_t lo = as_bv [ix];
+                                const tdsl::uint8_t hi = as_bv [ix + 1];
+                                if (hi != 0 || lo < '0' || lo > '9') {
+                                    return 0;
+                                }
+                                val = (val * 10) + (lo - '0');
+                                if (val > 0xFFFF) {
+                                    return 0;
+                                }
+                            }
+                            return static_cast<tdsl::uint16_t>(val);
                         };
 
                         /**
@@ -402,7 +494,9 @@ namespace tdsl { namespace detail {
          * any. The return value would be non-zero only if the reader has partial token data.
          */
         inline tdsl::uint32_t handle_info_token(tdsl::binary_reader<tdsl::endian::little> & rr) {
-            static constexpr auto k_min_info_bytes = 14;
+            // Number (4), State (1), Class (1), MsgText (2+), ServerName (1+),
+            // ProcName (1+), LineNumber (2, TDS 7.1)
+            static constexpr auto k_min_info_bytes = 12;
             if (not rr.has_bytes(k_min_info_bytes)) {
                 return k_min_info_bytes - rr.remaining_bytes();
             }
@@ -418,6 +512,7 @@ namespace tdsl { namespace detail {
             TDSL_TRY_READ_U8_VARCHAR(server_name, rr);
             TDSL_TRY_READ_U8_VARCHAR(proc_name, rr);
 
+            TDSL_RETIF_LESS_BYTES(rr, sizeof(tdsl::uint16_t));
             info_msg.line_number = rr.read<tdsl::uint16_t>();
 
             info_msg.msgtext     = msgtext.rebind_cast<char16_t>();
@@ -526,6 +621,9 @@ namespace tdsl { namespace detail {
             TDSL_DEBUG_PRINTLN(
                 "received done token -> status [%d] | cur_cmd [%d] | done_row_count [%d]",
                 token.status.value, token.curcmd, token.done_row_count);
+            if (not token.status.more()) {
+                flags.response_complete = true;
+            }
             callbacks.done(token);
             return 0;
         }

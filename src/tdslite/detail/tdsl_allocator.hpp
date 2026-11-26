@@ -102,6 +102,14 @@ namespace tdsl {
         // --------------------------------------------------------------------------------
 
         static TDSL_NODISCARD auto allocate(tdsl::uint32_t n_elems) noexcept -> T * {
+            // The total size must be representable in the platform's size_t
+            // (16 bits on AVR), otherwise it would wrap around and a smaller
+            // buffer than requested would be allocated.
+            using platform_size_t                = decltype(sizeof(T));
+            constexpr platform_size_t k_max_size = ~platform_size_t{0};
+            if (n_elems > (k_max_size / sizeof(T))) {
+                return nullptr;
+            }
             void * mem = tdslite_malloc(n_elems * sizeof(T));
             if (nullptr == mem) {
                 return nullptr;

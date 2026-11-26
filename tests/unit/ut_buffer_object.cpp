@@ -10,6 +10,8 @@
  * ____________________________________________________
  */
 
+#include <utility>
+#include <type_traits>
 #include <tdslite/util/tdsl_buffer_object.hpp>
 #include <tdslite/util/tdsl_hex_dump.hpp>
 
@@ -271,3 +273,73 @@ TEST_F(buffer_object_fixture, exclusivity) {
 }
 
 //////////////////
+
+// --------------------------------------------------------------------------------
+
+/**
+ * Regression test: a reader that consumes nothing (e.g. the buffer holds
+ * only a partial token) must leave the buffered data intact. Releasing
+ * such a reader used to zero out the whole in-use region.
+ */
+TEST_F(buffer_object_fixture, reader_consuming_nothing_keeps_data) {
+    const tdsl::uint8_t data [] = {0xD1, 0x01, 0x02};
+    {
+        auto writer = bo.get_writer();
+        ASSERT_TRUE(writer->write(tdsl::byte_view{data}));
+    }
+    {
+        // Peek, then consume nothing
+        auto reader = bo.get_reader();
+        ASSERT_EQ(sizeof(data), reader->remaining_bytes());
+        auto checkpoint = reader->checkpoint();
+        ASSERT_EQ(2u, reader->read(2).size());
+        checkpoint.restore();
+    }
+    {
+        auto reader = bo.get_reader();
+        ASSERT_EQ(sizeof(data), reader->remaining_bytes());
+        const auto v = reader->read(sizeof(data));
+        ASSERT_THAT(v, testing::ElementsAreArray(data));
+    }
+}
+
+// --------------------------------------------------------------------------------
+
+// The guards must not be copyable (a copy would commit the consumed bytes
+// twice, or release the buffer early), but movable
+static_assert(
+    !std::is_copy_constructible<tdsl::tdsl_buffer_object::progressive_binary_reader>::value,
+    "progressive_binary_reader must not be copyable");
+static_assert(
+    !std::is_copy_constructible<tdsl::tdsl_buffer_object::progressive_binary_writer>::value,
+    "progressive_binary_writer must not be copyable");
+static_assert(
+    std::is_move_constructible<tdsl::tdsl_buffer_object::progressive_binary_reader>::value,
+    "progressive_binary_reader must be movable");
+
+TEST_F(buffer_object_fixture, moved_reader_commits_once) {
+    const tdsl::uint8_t data [4] = {1, 2, 3, 4};
+    ASSERT_TRUE(bo.get_writer()->write(tdsl::byte_view{data}));
+    {
+        auto r1 = bo.get_reader();
+        EXPECT_EQ(1, r1->read<tdsl::uint8_t>());
+        auto r2 = std::move(r1); // r1 becomes inactive
+        EXPECT_EQ(2, r2->read<tdsl::uint8_t>());
+    }
+    // Exactly the two bytes read are consumed
+    auto w = bo.get_writer();
+    EXPECT_EQ(2u, w->offset());
+    EXPECT_EQ(3, buf [0]);
+    EXPECT_EQ(4, buf [1]);
+}
+
+TEST_F(buffer_object_fixture, moved_writer_releases_once) {
+    {
+        auto w1 = bo.get_writer();
+        auto w2 = std::move(w1);
+        (void) w2;
+    }
+    // The buffer is free again (a second guard would trap otherwise)
+    auto r = bo.get_reader();
+    (void) r;
+}

@@ -10,6 +10,8 @@
  * ____________________________________________________
  */
 
+#include <string>
+#include <algorithm>
 #include <tdslite/detail/tdsl_command_context.hpp>
 #include <tdslite/util/tdsl_hex_dump.hpp>
 
@@ -50,7 +52,10 @@ namespace {
 
         inline void do_send(void) noexcept {}
 
-        inline void do_send_tds_pdu(tdsl::detail::e_tds_message_type) noexcept {}
+        inline tdsl::detail::e_send_status
+        do_send_tds_pdu(tdsl::detail::e_tds_message_type) noexcept {
+            return tdsl::detail::e_send_status::success;
+        }
 
         inline void do_receive_tds_pdu() {}
 
@@ -187,6 +192,7 @@ TEST_F(tdsl_command_ctx_ut_fixture, test_rpc) {
     // Expected
     tdsl::util::hexdump(expected_packet_bytes.data(), expected_packet_bytes.size());
 }
+
 // --------------------------------------------------------------------------------
 
 /**
@@ -207,4 +213,166 @@ TEST(tdsl_command_ctx_ut, callbacks_unregistered_on_destruction) {
 
     // Must be a no-op now (was a stack-use-after-scope write before the fix)
     tds_ctx.callbacks.done(tdsl::tds_done_token{});
+}
+
+// --------------------------------------------------------------------------------
+// RPC parameter declarations and validation
+// --------------------------------------------------------------------------------
+
+namespace {
+
+    /**
+     * sql_parameter_binding has a default member initializer, so it isn't an
+     * aggregate (no brace initialization) in C++11.
+     */
+    inline tdsl::detail::sql_parameter_binding make_binding(tdsl::detail::e_tds_data_type type,
+                                                            tdsl::byte_view value,
+                                                            tdsl::uint32_t type_size) {
+        tdsl::detail::sql_parameter_binding pb{};
+        pb.type      = type;
+        pb.value     = value;
+        pb.type_size = type_size;
+        return pb;
+    }
+
+    /**
+     * UTF-16LE bytes of an ASCII string
+     */
+    inline std::vector<tdsl::uint8_t> u16le(const std::string & s) {
+        std::vector<tdsl::uint8_t> r;
+        for (const char c : s) {
+            r.push_back(static_cast<tdsl::uint8_t>(c));
+            r.push_back(0x00);
+        }
+        return r;
+    }
+
+    /**
+     * Whether the sent request contains the parameter declaration
+     * string @p decl
+     */
+    inline bool request_contains(const std::vector<tdsl::uint8_t> & buf, const std::string & decl) {
+        const auto needle = u16le(decl);
+        return std::search(buf.begin(), buf.end(), needle.begin(), needle.end()) != buf.end();
+    }
+
+    struct rpc_param_fixture : public ::testing::Test {
+        uut_t::execute_rpc_result rpc(tdsl::detail::sql_parameter_binding pb) {
+            tdsl::detail::sql_parameter_binding params [] = {pb};
+            return command_ctx.execute_rpc(tdsl::string_view{"SELECT @p0"}, params);
+        }
+
+        tds_ctx_t tds_ctx;
+        uut_t command_ctx{tds_ctx};
+    };
+
+    const std::u16string k_hello = u"hello";
+} // namespace
+
+// The NVARCHAR length used to be the byte count (NVARCHAR(10) for 5 chars)
+TEST_F(rpc_param_fixture, nvarchar_length_is_in_characters) {
+    tdsl::detail::sql_parameter_nvarchar p{};
+    p = tdsl::wstring_view{k_hello.data(), static_cast<tdsl::uint32_t>(k_hello.size())};
+    (void) rpc(p);
+    EXPECT_TRUE(request_contains(tds_ctx.send_buffer, "@p0 NVARCHAR(5)"));
+}
+
+// Empty strings used to be declared as NVARCHAR(0)/VARCHAR(0), which are invalid
+TEST_F(rpc_param_fixture, empty_string_is_declared_with_length_one) {
+    tdsl::detail::sql_parameter_nvarchar p{};
+    p = tdsl::wstring_view{u""};
+    (void) rpc(p);
+    EXPECT_TRUE(request_contains(tds_ctx.send_buffer, "@p0 NVARCHAR(1)"));
+
+    tds_ctx.send_buffer.clear();
+    tdsl::detail::sql_parameter_varchar v{};
+    v = tdsl::string_view{""};
+    (void) rpc(v);
+    EXPECT_TRUE(request_contains(tds_ctx.send_buffer, "@p0 VARCHAR(1)"));
+}
+
+TEST_F(rpc_param_fixture, longest_nvarchar_is_accepted) {
+    const std::u16string s(4000, u'x');
+    tdsl::detail::sql_parameter_nvarchar p{};
+    p = tdsl::wstring_view{s.data(), static_cast<tdsl::uint32_t>(s.size())};
+    (void) rpc(p);
+    EXPECT_TRUE(request_contains(tds_ctx.send_buffer, "@p0 NVARCHAR(4000)"));
+}
+
+// Values longer than 8000 bytes used to be sent with a truncated length
+TEST_F(rpc_param_fixture, too_long_values_are_rejected) {
+    const std::u16string s(4001, u'x');
+    tdsl::detail::sql_parameter_nvarchar p{};
+    p            = tdsl::wstring_view{s.data(), static_cast<tdsl::uint32_t>(s.size())};
+    const auto r = rpc(p);
+    ASSERT_FALSE(static_cast<bool>(r));
+    EXPECT_EQ(tdsl::detail::e_rpc_error_code::invalid_parameter, r.error());
+    EXPECT_TRUE(tds_ctx.send_buffer.empty()) << "nothing must be written";
+
+    const std::vector<tdsl::uint8_t> b(8001, 0x01);
+    tdsl::detail::sql_parameter_varbinary vb{};
+    vb            = tdsl::byte_view{b.data(), static_cast<tdsl::uint32_t>(b.size())};
+    const auto r2 = rpc(vb);
+    ASSERT_FALSE(static_cast<bool>(r2));
+    EXPECT_EQ(tdsl::detail::e_rpc_error_code::invalid_parameter, r2.error());
+}
+
+// These used to trap (TDSL_CANNOT_HAPPEN / TDSL_NOT_YET_IMPLEMENTED)
+TEST_F(rpc_param_fixture, unsupported_parameters_are_rejected) {
+    const tdsl::uint8_t three [3]                    = {1, 2, 3};
+    const tdsl::uint8_t five [5]                     = {1, 0, 0, 0, 0};
+    const tdsl::uint8_t four [4]                     = {0x61, 0x00, 0x62, 0x00};
+
+    const tdsl::detail::sql_parameter_binding bad [] = {
+        // INTN with an invalid size
+        make_binding(tdsl::detail::e_tds_data_type::INTNTYPE, tdsl::byte_view{three}, 3),
+        // DECIMAL
+        make_binding(tdsl::detail::e_tds_data_type::DECIMALNTYPE, tdsl::byte_view{five}, 5),
+        // TEXT
+        make_binding(tdsl::detail::e_tds_data_type::NTEXTTYPE, tdsl::byte_view{four}, 4),
+        // Unknown type
+        make_binding(static_cast<tdsl::detail::e_tds_data_type>(0xF1), tdsl::byte_view{four}, 4),
+        // GUID with a wrong size
+        make_binding(tdsl::detail::e_tds_data_type::GUIDTYPE, tdsl::byte_view{four}, 4),
+        // NVARCHAR with an odd byte count
+        make_binding(tdsl::detail::e_tds_data_type::NVARCHARTYPE, tdsl::byte_view{three}, 3),
+    };
+    for (const auto & pb : bad) {
+        SCOPED_TRACE(static_cast<int>(pb.type));
+        tds_ctx.send_buffer.clear();
+        const auto r = rpc(pb);
+        ASSERT_FALSE(static_cast<bool>(r));
+        EXPECT_EQ(tdsl::detail::e_rpc_error_code::invalid_parameter, r.error());
+        EXPECT_TRUE(tds_ctx.send_buffer.empty());
+    }
+}
+
+// MONEY and BIT(N) used to trap in the declaration writer
+TEST_F(rpc_param_fixture, money_and_bitn_parameters_are_declared) {
+    const tdsl::uint8_t eight [8] = {0};
+    const tdsl::uint8_t one [1]   = {1};
+    (void) rpc(make_binding(tdsl::detail::e_tds_data_type::MONEYNTYPE, tdsl::byte_view{eight}, 8));
+    EXPECT_TRUE(request_contains(tds_ctx.send_buffer, "@p0 MONEY"));
+    tds_ctx.send_buffer.clear();
+    (void) rpc(make_binding(tdsl::detail::e_tds_data_type::BITNTYPE, tdsl::byte_view{one}, 1));
+    EXPECT_TRUE(request_contains(tds_ctx.send_buffer, "@p0 BIT"));
+}
+
+// prepexec used to trap (TDSL_NOT_YET_IMPLEMENTED)
+TEST_F(rpc_param_fixture, prepexec_mode_is_rejected) {
+    const auto r = command_ctx.execute_rpc(tdsl::string_view{"SELECT 1"}, {},
+                                           tdsl::detail::e_rpc_mode::prepexec);
+    ASSERT_FALSE(static_cast<bool>(r));
+    EXPECT_EQ(tdsl::detail::e_rpc_error_code::invalid_mode, r.error());
+    EXPECT_TRUE(tds_ctx.send_buffer.empty());
+}
+
+// The command is sent as NVARCHAR(4000)
+TEST_F(rpc_param_fixture, command_longer_than_4000_chars_is_rejected) {
+    const std::string cmd(4001, ' ');
+    const auto r = command_ctx.execute_rpc(
+        tdsl::string_view{cmd.data(), static_cast<tdsl::uint32_t>(cmd.size())});
+    ASSERT_FALSE(static_cast<bool>(r));
+    EXPECT_EQ(tdsl::detail::e_rpc_error_code::request_too_large, r.error());
+    EXPECT_TRUE(tds_ctx.send_buffer.empty());
 }

@@ -189,6 +189,9 @@ namespace tdsl {
 // --------------------------------------------------------------------------------
 
 #define TDSL_TRY_READ_VARCHAR(TYPE, VARNAME, READER)                                               \
+    if (not READER.has_bytes(sizeof(TYPE))) {                                                      \
+        return sizeof(TYPE) - READER.remaining_bytes();                                            \
+    }                                                                                              \
     const auto VARNAME##_octets = (READER.read<TYPE>() * 2);                                       \
     if (not READER.has_bytes(VARNAME##_octets)) {                                                  \
         return VARNAME##_octets - READER.remaining_bytes();                                        \

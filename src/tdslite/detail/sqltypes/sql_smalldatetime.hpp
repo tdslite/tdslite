@@ -35,7 +35,10 @@ namespace tdsl {
         inline explicit sql_smalldatetime(tdsl::byte_view v,
                                           const tdsl::tds_column_info & col) noexcept {
             (void) col;
-            TDSL_ASSERT(v.size_bytes() == (sizeof(tdsl::uint16_t) * 2));
+            // NULL (no data), or malformed value: leave it as zero
+            if (not(v.size_bytes() == (sizeof(tdsl::uint16_t) * 2))) {
+                return;
+            }
             tdsl::binary_reader<tdsl::endian::little> br{v};
             days_elapsed    = br.read<tdsl::uint16_t>();
             minutes_elapsed = br.read<tdsl::uint16_t>();
@@ -60,10 +63,10 @@ namespace tdsl {
 
         // One 2-byte unsigned integer that represents the
         // number of days since January 1, 1900.
-        tdsl::uint16_t days_elapsed;
+        tdsl::uint16_t days_elapsed    = {0};
         // One 2-byte unsigned integer that represents the
         // number of minutes elapsed since 12 AM that day.
-        tdsl::uint16_t minutes_elapsed;
+        tdsl::uint16_t minutes_elapsed = {0};
     };
 
 } // namespace tdsl

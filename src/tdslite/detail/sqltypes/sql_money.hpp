@@ -32,7 +32,16 @@ namespace tdsl {
          */
         inline explicit sql_money(tdsl::byte_view v, const tdsl::tds_column_info & col) noexcept {
             (void) col;
-            TDSL_ASSERT(v.size_bytes() == (sizeof(tdsl::uint32_t) * 2));
+            // smallmoney is represented as a 4-byte signed integer. The TDS
+            // value is the smallmoney value multiplied by 10^4.
+            if (v.size_bytes() == sizeof(tdsl::int32_t)) {
+                value = tdsl::binary_reader<tdsl::endian::little>{v}.read<tdsl::int32_t>();
+                return;
+            }
+            // NULL (no data), or malformed value: leave it as zero
+            if (not(v.size_bytes() == (sizeof(tdsl::uint32_t) * 2))) {
+                return;
+            }
             // money is represented as an 8-byte signed integer. The TDS value is the money
             // value multiplied by 10^4. The 8-byte signed integer itself is represented in the
             // following sequence:
@@ -77,7 +86,7 @@ namespace tdsl {
         }
 
     private:
-        tdsl::int64_t value;
+        tdsl::int64_t value = {0};
     };
 } // namespace tdsl
 

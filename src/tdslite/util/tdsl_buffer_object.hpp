@@ -54,7 +54,24 @@ namespace tdsl {
                 in_use_flag = {true};
             }
 
+            // Not copyable: a copy would commit the consumed bytes twice.
+            // Movable: the moved-from object becomes inactive (this is
+            // needed for returning it by value in C++11, where copy elision
+            // is not guaranteed).
+            progressive_binary_reader(const progressive_binary_reader &)             = delete;
+            progressive_binary_reader & operator=(const progressive_binary_reader &) = delete;
+            progressive_binary_reader & operator=(progressive_binary_reader &&)      = delete;
+
+            inline progressive_binary_reader(progressive_binary_reader && other) noexcept :
+                writer(other.writer), reader(other.reader), in_use_flag(other.in_use_flag),
+                active(other.active) {
+                other.active = false;
+            }
+
             inline ~progressive_binary_reader() noexcept {
+                if (not active) {
+                    return;
+                }
                 writer.shift_left(reader.offset());
                 in_use_flag = {false};
                 TDSL_DEBUG_PRINTLN("netbuf: [consumed `" TDSL_SIZET_FORMAT_SPECIFIER
@@ -76,6 +93,7 @@ namespace tdsl {
             binary_writer_type & writer;
             binary_reader_type reader{};
             bool & in_use_flag;
+            bool active = {true};
         };
 
         /**
@@ -92,8 +110,21 @@ namespace tdsl {
                 in_use_flag = {true};
             }
 
+            // Not copyable: a copy would release the buffer early.
+            // Movable: the moved-from object becomes inactive.
+            progressive_binary_writer(const progressive_binary_writer &)             = delete;
+            progressive_binary_writer & operator=(const progressive_binary_writer &) = delete;
+            progressive_binary_writer & operator=(progressive_binary_writer &&)      = delete;
+
+            inline progressive_binary_writer(progressive_binary_writer && other) noexcept :
+                writer(other.writer), in_use_flag(other.in_use_flag), active(other.active) {
+                other.active = false;
+            }
+
             inline ~progressive_binary_writer() noexcept {
-                in_use_flag = {false};
+                if (active) {
+                    in_use_flag = {false};
+                }
             }
 
             inline TDSL_NODISCARD binary_writer_type * operator->() noexcept {
@@ -103,6 +134,7 @@ namespace tdsl {
         private:
             binary_writer_type & writer;
             bool & in_use_flag;
+            bool active = {true};
         };
 
         /**

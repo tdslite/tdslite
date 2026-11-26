@@ -48,7 +48,24 @@ namespace tdsl { namespace detail {
 
     enum class e_rpc_error_code : tdsl::uint8_t
     {
-        invalid_mode = 1,
+        invalid_mode      = 1,
+        // The request does not fit into the network buffer.
+        // Nothing is sent to the server.
+        request_too_large = 2,
+        // The response could not be processed completely (e.g. it
+        // contained malformed data or an unsupported column type,
+        // or memory allocation failed).
+        invalid_response  = 3,
+        // The server reported an error while executing the request.
+        // The error message(s) are delivered to the info callback.
+        server_error      = 4,
+        // Sending the request or receiving the response failed
+        // (e.g. the connection is lost). The request might or
+        // might not have been executed.
+        network_error     = 5,
+        // A parameter has an unsupported type (e.g. DECIMAL, TEXT),
+        // or an invalid size. Nothing is sent to the server.
+        invalid_parameter = 6,
     };
 }} // namespace tdsl::detail
 

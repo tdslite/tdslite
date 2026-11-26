@@ -19,6 +19,9 @@
 #include <tdslite/util/tdsl_hex_dump.hpp>
 #include <tdslite/detail/sqltypes/sql_decimal.hpp>
 #include <tdslite/detail/sqltypes/sql_money.hpp>
+#include <vector>
+#include <tdslite/detail/sqltypes/sql_datetime.hpp>
+#include <tdslite/detail/sqltypes/sql_smalldatetime.hpp>
 
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
@@ -79,6 +82,23 @@ static inline auto mssql_2022_creds() -> const login_ctx_t::login_parameters & {
  * Otherwise, concurrent tests running in parallel can step
  * each other's feet.
  */
+namespace {
+    /**
+     * sql_parameter_binding has a default member initializer, so it isn't an
+     * aggregate (no brace initialization) in C++11.
+     */
+    inline tdsl::detail::sql_parameter_binding make_binding(tdsl::detail::e_tds_data_type type,
+                                                            tdsl::byte_view value,
+                                                            tdsl::uint32_t type_size) {
+        tdsl::detail::sql_parameter_binding pb{};
+        pb.type      = type;
+        pb.value     = value;
+        pb.type_size = type_size;
+        return pb;
+    }
+
+} // namespace
+
 struct tds_command_ctx_it_fixture : public ::testing::Test {
 
     virtual void SetUp() override {
@@ -959,4 +979,495 @@ TEST_F(tds_command_ctx_it_fixture, utf16_query_string) {
         },
         &called);
     ASSERT_TRUE(called);
+}
+
+// --------------------------------------------------------------------------------
+
+// tdsl_netimpl_asio's network buffer size
+static constexpr tdsl::uint32_t k_asio_network_buffer_size = 16384;
+
+/**
+ * Log in with the requested @p packet_size, receive a large (~650 KiB)
+ * result set and verify it, then verify the connection is still in sync.
+ */
+static void check_large_result_set(tdsl::uint32_t packet_size) {
+    tds_ctx_t tds_ctx;
+    login_ctx_t::login_parameters params = mssql_2022_creds();
+    params.packet_size                   = packet_size;
+    {
+        login_ctx_t login{tds_ctx};
+        ASSERT_TRUE(tds_ctx.do_connect(params.server_name, /*port=*/1433));
+        ASSERT_EQ(login.do_login(params), login_ctx_t::e_login_status::success);
+        ASSERT_TRUE(tds_ctx.is_authenticated());
+    }
+
+    uut_t command_ctx{tds_ctx};
+
+    struct result_state {
+        tdsl::uint64_t rows     = {0};
+        tdsl::uint64_t sum      = {0};
+        tdsl::uint64_t bad_rows = {0};
+    } state;
+
+    // ~130 bytes per row, ~650 KiB in total. The packet data size is
+    // not a multiple of the row size, so rows straddle the packets.
+    constexpr tdsl::uint64_t k_row_count = 5000;
+    const auto result                    = command_ctx.execute_query(
+        tdsl::string_view{"SELECT TOP (5000) "
+                          "CAST(ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS INT) AS n, "
+                          "REPLICATE(N'x', 61) AS pad "
+                          "FROM sys.all_columns a CROSS JOIN sys.all_columns b;"},
+        [](void * u, const tdsl::tds_colmetadata_token & colmd, const tdsl::tdsl_row & row) {
+            auto & st = *static_cast<result_state *>(u);
+            st.rows++;
+            if (colmd.columns.size() != 2 || row.size() != 2 || row [0].size_bytes() != 4 ||
+                row [1].size_bytes() != 61 * sizeof(char16_t)) {
+                st.bad_rows++;
+                return;
+            }
+            st.sum += static_cast<tdsl::uint64_t>(row [0].as<tdsl::int32_t>());
+        },
+        &state);
+
+    EXPECT_TRUE(static_cast<bool>(result));
+    EXPECT_EQ(k_row_count, result.affected_rows);
+    EXPECT_EQ(k_row_count, state.rows);
+    EXPECT_EQ(0u, state.bad_rows);
+    EXPECT_EQ((k_row_count * (k_row_count + 1)) / 2, state.sum);
+
+    // The connection must still be in sync after the large result set
+    tdsl::int32_t value = {0};
+    const auto result2  = command_ctx.execute_query(
+        tdsl::string_view{"SELECT CAST(42 AS INT);"},
+        [](void * u, const tdsl::tds_colmetadata_token &, const tdsl::tdsl_row & row) {
+            *static_cast<tdsl::int32_t *>(u) = row [0].as<tdsl::int32_t>();
+        },
+        &value);
+    EXPECT_TRUE(static_cast<bool>(result2));
+    EXPECT_EQ(42, value);
+}
+
+/**
+ * Regression test for the network receive path.
+ *
+ * When the negotiated packet size equals the size of the network buffer,
+ * every row that straddles a TDS packet boundary leaves unconsumed data in
+ * the buffer, so the next packet no longer fits into the remaining free
+ * space and has to be received in chunks. This used to crash (buffer
+ * object's in-use guard) and, past that, to desync the stream because the
+ * tail of the packet was never received.
+ */
+TEST(tds_command_ctx_it, result_set_packets_larger_than_free_space) {
+    check_large_result_set(k_asio_network_buffer_size);
+}
+
+/**
+ * Regression test: a negotiated packet size larger than the network buffer.
+ *
+ * The server confirms the requested packet size (32767) in the login
+ * response, which used to trap the client because it is larger than the
+ * network buffer. Packets larger than the buffer are received in chunks.
+ */
+TEST(tds_command_ctx_it, packet_size_larger_than_network_buffer) {
+    static_assert(32767 > k_asio_network_buffer_size, "must exceed the network buffer");
+    check_large_result_set(32767);
+}
+
+// --------------------------------------------------------------------------------
+
+/**
+ * Regression test: a statement larger than the network buffer must not be
+ * executed. It used to be truncated at the buffer boundary and sent anyway,
+ * so an UPDATE whose WHERE clause did not fit updated every row.
+ */
+TEST_F(tds_command_ctx_it_fixture, request_too_large_query_is_not_executed) {
+    ASSERT_EQ(0, exec(cq("id int", "v int")));
+    ASSERT_EQ(1, exec(iq("1", "0")));
+    ASSERT_EQ(1, exec(iq("42", "0")));
+
+    const std::string table =
+        std::string("#") + ::testing::UnitTest::GetInstance()->current_test_info()->name();
+
+    // The padding pushes the WHERE clause past the end of the
+    // network buffer (2 bytes per character on the wire).
+    const owning_string_view too_large{"UPDATE " + table + " SET v = 1 /*" +
+                                       std::string(k_asio_network_buffer_size / 2, '.') +
+                                       "*/ WHERE id = 42;"};
+    const auto result = command_ctx.execute_query(static_cast<tdsl::string_view>(too_large));
+    EXPECT_TRUE(result.request_too_large);
+    EXPECT_FALSE(static_cast<bool>(result));
+    EXPECT_EQ(0, result.affected_rows);
+
+    // Nothing must have been updated, and the connection must be usable
+    EXPECT_EQ(0, exec(sq("*", "v = 1")));
+    EXPECT_EQ(2, exec(sq("*", "v = 0")));
+
+    // The same statement without the padding works
+    const owning_string_view fits{"UPDATE " + table + " SET v = 1 WHERE id = 42;"};
+    EXPECT_EQ(1, exec(fits));
+    EXPECT_EQ(1, exec(sq("*", "v = 1")));
+}
+
+// --------------------------------------------------------------------------------
+
+/**
+ * Regression test: an RPC request whose parameter value does not fit into
+ * the network buffer must not be sent (the value used to be dropped while
+ * its length prefix was still sent).
+ */
+TEST_F(tds_command_ctx_it_fixture, request_too_large_rpc_is_not_executed) {
+    const std::u16string big(k_asio_network_buffer_size / 2, u'x');
+    tdsl::detail::sql_parameter_nvarchar p0{};
+    p0 = tdsl::wstring_view{big.data(), static_cast<tdsl::uint32_t>(big.size())};
+    tdsl::detail::sql_parameter_binding params [] = {p0};
+
+    const auto result = command_ctx.execute_rpc(tdsl::string_view{"SELECT LEN(@p0)"}, params);
+    ASSERT_FALSE(static_cast<bool>(result));
+    EXPECT_EQ(tdsl::detail::e_rpc_error_code::request_too_large, result.error());
+
+    // The connection must still be usable
+    tdsl::int32_t value = {0};
+    const auto result2  = command_ctx.execute_query(
+        tdsl::string_view{"SELECT CAST(42 AS INT);"},
+        [](void * u, const tdsl::tds_colmetadata_token &, const tdsl::tdsl_row & row) {
+            *static_cast<tdsl::int32_t *>(u) = row [0].as<tdsl::int32_t>();
+        },
+        &value);
+    EXPECT_TRUE(static_cast<bool>(result2));
+    EXPECT_EQ(42, value);
+}
+
+// --------------------------------------------------------------------------------
+
+/**
+ * Log in with the smallest packet size (512) and run @p query, whose
+ * COLMETADATA token spans several packets.
+ *
+ * Regression test: a COLMETADATA token cut at a packet boundary used to be
+ * accepted with the remaining columns missing, and the rest of the token was
+ * parsed as tokens.
+ */
+template <typename State>
+static void run_with_min_packet_size(const std::string & query, State & state,
+                                     void (*cb)(void *, const tdsl::tds_colmetadata_token &,
+                                                const tdsl::tdsl_row &),
+                                     tdsl::uint32_t expected_affected_rows) {
+    tds_ctx_t tds_ctx;
+    login_ctx_t::login_parameters params = mssql_2022_creds();
+    params.packet_size                   = 512;
+    {
+        login_ctx_t login{tds_ctx};
+        ASSERT_TRUE(tds_ctx.do_connect(params.server_name, /*port=*/1433));
+        ASSERT_EQ(login.do_login(params), login_ctx_t::e_login_status::success);
+        ASSERT_TRUE(tds_ctx.is_authenticated());
+    }
+
+    uut_t command_ctx{tds_ctx};
+    const tdsl::string_view q{query.data(), static_cast<tdsl::uint32_t>(query.size())};
+    const auto result = command_ctx.execute_query(q, cb, &state);
+    EXPECT_FALSE(result.response_error);
+    EXPECT_TRUE(static_cast<bool>(result));
+    EXPECT_EQ(expected_affected_rows, result.affected_rows);
+
+    // The connection must still be in sync
+    tdsl::int32_t value = {0};
+    const auto result2  = command_ctx.execute_query(
+        tdsl::string_view{"SELECT CAST(42 AS INT);"},
+        [](void * u, const tdsl::tds_colmetadata_token &, const tdsl::tdsl_row & row) {
+            *static_cast<tdsl::int32_t *>(u) = row [0].as<tdsl::int32_t>();
+        },
+        &value);
+    EXPECT_TRUE(static_cast<bool>(result2));
+    EXPECT_EQ(42, value);
+}
+
+// --------------------------------------------------------------------------------
+
+// ~40 * 54 bytes of column metadata, in 504-byte packets
+TEST(tds_command_ctx_it, colmetadata_larger_than_packet) {
+    constexpr int k_column_count = 40;
+    std::string query            = "SELECT ";
+    for (int i = 0; i < k_column_count; i++) {
+        query += (i ? ", " : "") + std::string("CAST(") + std::to_string(i) +
+                 " AS INT) AS a_rather_long_column_name_" + std::to_string(100 + i);
+    }
+    query += ";";
+
+    struct state_t {
+        int rows     = {0};
+        int bad_rows = {0};
+    } state;
+
+    run_with_min_packet_size(
+        query, state,
+        [](void * u, const tdsl::tds_colmetadata_token & colmd, const tdsl::tdsl_row & row) {
+            auto & st = *static_cast<state_t *>(u);
+            st.rows++;
+            if (colmd.columns.size() != k_column_count || row.size() != k_column_count) {
+                st.bad_rows++;
+                return;
+            }
+            for (int i = 0; i < k_column_count; i++) {
+                if (row [i].as<tdsl::int32_t>() != i) {
+                    st.bad_rows++;
+                    return;
+                }
+            }
+        },
+        1);
+    EXPECT_EQ(1, state.rows);
+    EXPECT_EQ(0, state.bad_rows);
+}
+
+// --------------------------------------------------------------------------------
+
+// Same, with TEXT columns (collation and table name in their metadata)
+TEST(tds_command_ctx_it, text_colmetadata_larger_than_packet) {
+    constexpr int k_column_count = 40;
+    std::string query            = "SELECT TOP (0) ";
+    for (int i = 0; i < k_column_count; i++) {
+        query += (i ? ", " : "") + std::string("CAST(NULL AS TEXT) AS a_rather_long_column_name_") +
+                 std::to_string(100 + i);
+    }
+    query += ";";
+
+    int rows = 0;
+    run_with_min_packet_size(
+        query, rows,
+        [](void * u, const tdsl::tds_colmetadata_token &, const tdsl::tdsl_row &) {
+            ++*static_cast<int *>(u);
+        },
+        0);
+    EXPECT_EQ(0, rows);
+}
+
+// --------------------------------------------------------------------------------
+
+/**
+ * Regression test: a result set with a column type the library can't parse
+ * (sql_variant) must be reported as an error, and the rest of the response
+ * must be discarded instead of being parsed as tokens.
+ */
+TEST_F(tds_command_ctx_it_fixture, unsupported_column_type_is_reported) {
+    int rows          = 0;
+    const auto result = command_ctx.execute_query(
+        tdsl::string_view{"SELECT CAST(1 AS SQL_VARIANT) AS v, CAST(2 AS INT) AS n;"},
+        [](void * u, const tdsl::tds_colmetadata_token &, const tdsl::tdsl_row &) {
+            ++*static_cast<int *>(u);
+        },
+        &rows);
+    EXPECT_TRUE(result.response_error);
+    EXPECT_FALSE(static_cast<bool>(result));
+    EXPECT_EQ(0, rows);
+
+    // The connection must still be usable
+    tdsl::int32_t value = {0};
+    const auto result2  = command_ctx.execute_query(
+        tdsl::string_view{"SELECT CAST(42 AS INT);"},
+        [](void * u, const tdsl::tds_colmetadata_token &, const tdsl::tdsl_row & row) {
+            *static_cast<tdsl::int32_t *>(u) = row [0].as<tdsl::int32_t>();
+        },
+        &value);
+    EXPECT_FALSE(result2.response_error);
+    EXPECT_TRUE(static_cast<bool>(result2));
+    EXPECT_EQ(42, value);
+}
+
+// --------------------------------------------------------------------------------
+
+/**
+ * Regression test: an RPC that fails on the server must report the error.
+ * It used to report success with 0 affected rows.
+ */
+TEST_F(tds_command_ctx_it_fixture, rpc_server_error_is_reported) {
+    ASSERT_TRUE(static_cast<bool>(
+        command_ctx.execute_query(tdsl::string_view{"CREATE TABLE #rpc_err(id INT PRIMARY KEY)"})));
+    ASSERT_TRUE(static_cast<bool>(
+        command_ctx.execute_query(tdsl::string_view{"INSERT INTO #rpc_err VALUES(1)"})));
+
+    tdsl::detail::sql_parameter_int p0{};
+    p0                                            = 1;
+    tdsl::detail::sql_parameter_binding params [] = {p0};
+
+    // Primary key violation
+    auto r1 =
+        command_ctx.execute_rpc(tdsl::string_view{"INSERT INTO #rpc_err VALUES(@p0)"}, params);
+    ASSERT_FALSE(static_cast<bool>(r1));
+    EXPECT_EQ(tdsl::detail::e_rpc_error_code::server_error, r1.error());
+
+    // The error does not leak into the next command
+    p0                                             = 2;
+    tdsl::detail::sql_parameter_binding params2 [] = {p0};
+    auto r2 =
+        command_ctx.execute_rpc(tdsl::string_view{"INSERT INTO #rpc_err VALUES(@p0)"}, params2);
+    ASSERT_TRUE(static_cast<bool>(r2));
+    EXPECT_EQ(1u, *r2);
+}
+
+// --------------------------------------------------------------------------------
+
+/**
+ * Regression test: a batch whose first statement fails (statement-terminating
+ * error, the batch continues) must report the error. It used to be hidden by
+ * the DONE token of the second, successful statement.
+ */
+TEST_F(tds_command_ctx_it_fixture, query_error_in_earlier_statement_is_reported) {
+    ASSERT_TRUE(static_cast<bool>(command_ctx.execute_query(
+        tdsl::string_view{"CREATE TABLE #batch_err(id INT PRIMARY KEY)"})));
+    ASSERT_TRUE(static_cast<bool>(
+        command_ctx.execute_query(tdsl::string_view{"INSERT INTO #batch_err VALUES(1)"})));
+
+    const auto r = command_ctx.execute_query(
+        tdsl::string_view{"INSERT INTO #batch_err VALUES(1); INSERT INTO #batch_err VALUES(2);"});
+    EXPECT_FALSE(static_cast<bool>(r));
+    EXPECT_TRUE(r.status.error());
+
+    // The second statement was still executed
+    tdsl::int32_t count = {0};
+    const auto r2       = command_ctx.execute_query(
+        tdsl::string_view{"SELECT CAST(COUNT(*) AS INT) FROM #batch_err;"},
+        [](void * u, const tdsl::tds_colmetadata_token &, const tdsl::tdsl_row & row) {
+            *static_cast<tdsl::int32_t *>(u) = row [0].as<tdsl::int32_t>();
+        },
+        &count);
+    EXPECT_TRUE(static_cast<bool>(r2));
+    EXPECT_EQ(2, count);
+}
+
+// --------------------------------------------------------------------------------
+
+/**
+ * Regression test: a request of exactly N packets' worth of data used to be
+ * followed by an empty end-of-message packet.
+ */
+TEST(tds_command_ctx_it, query_of_exact_packet_multiple) {
+    // 504 bytes of data per 512-byte packet; 2 * 504 bytes = 504 characters
+    std::string query = "SELECT CAST(42 AS INT) AS v; --";
+    query.resize(504, 'x');
+    tdsl::int32_t value = 0;
+    run_with_min_packet_size(
+        query, value,
+        [](void * u, const tdsl::tds_colmetadata_token &, const tdsl::tdsl_row & row) {
+            *static_cast<tdsl::int32_t *>(u) = row [0].as<tdsl::int32_t>();
+        },
+        1);
+    EXPECT_EQ(42, value);
+}
+
+// --------------------------------------------------------------------------------
+
+/**
+ * Regression test: a NULL NTEXT value used to be read with a timestamp that
+ * isn't there, consuming the next column's data.
+ */
+TEST_F(tds_command_ctx_it_fixture, null_ntext_value) {
+    struct state_t {
+        std::vector<bool> nulls;
+        std::vector<std::u16string> texts;
+        std::vector<tdsl::int32_t> ints;
+    } st;
+
+    const auto r = command_ctx.execute_query(
+        tdsl::string_view{"SELECT CAST(NULL AS NTEXT) AS t, CAST(7 AS INT) AS n "
+                          "UNION ALL SELECT CAST(N'hi' AS NTEXT), CAST(8 AS INT);"},
+        [](void * u, const tdsl::tds_colmetadata_token &, const tdsl::tdsl_row & row) {
+            auto & s = *static_cast<state_t *>(u);
+            s.nulls.push_back(row [0].is_null());
+            const auto t = row [0].as<tdsl::u16char_view>();
+            s.texts.push_back(std::u16string(t.data(), t.size()));
+            s.ints.push_back(row [1].as<tdsl::int32_t>());
+        },
+        &st);
+    EXPECT_TRUE(static_cast<bool>(r));
+    EXPECT_EQ((std::vector<bool>{true, false}), st.nulls);
+    EXPECT_EQ((std::vector<std::u16string>{u"", u"hi"}), st.texts);
+    EXPECT_EQ((std::vector<tdsl::int32_t>{7, 8}), st.ints);
+}
+
+// --------------------------------------------------------------------------------
+
+/**
+ * Regression test: an empty string parameter used to be declared as
+ * NVARCHAR(0), and one longer than 2000 characters as NVARCHAR(2 * length).
+ * Both are rejected by the server.
+ */
+TEST_F(tds_command_ctx_it_fixture, rpc_nvarchar_parameter_lengths) {
+    for (const tdsl::uint32_t len : {0u, 1u, 2500u, 4000u}) {
+        SCOPED_TRACE(len);
+        const std::u16string s(len, u'x');
+        tdsl::detail::sql_parameter_nvarchar p0{};
+        p0                                            = tdsl::wstring_view{s.data(), len};
+        tdsl::detail::sql_parameter_binding params [] = {p0};
+
+        tdsl::int32_t value                           = -1;
+        auto r                                        = command_ctx.execute_rpc(
+            tdsl::string_view{"SELECT CAST(LEN(@p0) AS INT)"}, params,
+            tdsl::detail::e_rpc_mode::executesql,
+            [](void * u, const tdsl::tds_colmetadata_token &, const tdsl::tdsl_row & row) {
+                *static_cast<tdsl::int32_t *>(u) = row [0].as<tdsl::int32_t>();
+            },
+            &value);
+        ASSERT_TRUE(static_cast<bool>(r));
+        EXPECT_EQ(static_cast<tdsl::int32_t>(len), value);
+    }
+}
+
+// --------------------------------------------------------------------------------
+
+/**
+ * Regression test: unsupported parameters (DECIMAL) used to trap.
+ */
+TEST_F(tds_command_ctx_it_fixture, rpc_unsupported_parameter_is_rejected) {
+    const tdsl::uint8_t dec [5]                   = {1, 1, 0, 0, 0};
+    tdsl::detail::sql_parameter_binding params [] = {
+        make_binding(tdsl::detail::e_tds_data_type::DECIMALNTYPE, tdsl::byte_view{dec}, 5)};
+    const auto r = command_ctx.execute_rpc(tdsl::string_view{"SELECT @p0"}, params);
+    ASSERT_FALSE(static_cast<bool>(r));
+    EXPECT_EQ(tdsl::detail::e_rpc_error_code::invalid_parameter, r.error());
+
+    // Nothing was sent, the connection is still usable
+    EXPECT_TRUE(static_cast<bool>(command_ctx.execute_query(tdsl::string_view{"SELECT 1;"})));
+}
+
+// --------------------------------------------------------------------------------
+
+/**
+ * Regression test: reading NULL money/datetime values, SMALLMONEY values,
+ * and decimals with precision > 18 used to trap.
+ */
+TEST_F(tds_command_ctx_it_fixture, read_null_and_unsupported_values) {
+    struct state_t {
+        int rows                = {0};
+        tdsl::int64_t money     = {-1};
+        tdsl::int64_t smallm    = {-1};
+        bool dec_valid          = {true};
+        bool null_money_is_null = {false};
+        tdsl::uint64_t dt_ts    = {1};
+        tdsl::uint64_t sdt_ts   = {1};
+        tdsl::int32_t null_int  = {-1};
+    } st;
+
+    const auto r = command_ctx.execute_query(
+        tdsl::string_view{"SELECT CAST(NULL AS MONEY), CAST(12.5 AS SMALLMONEY), "
+                          "CAST(1 AS DECIMAL(20, 0)), CAST(NULL AS DATETIME), "
+                          "CAST(NULL AS SMALLDATETIME), CAST(NULL AS INT);"},
+        [](void * u, const tdsl::tds_colmetadata_token &, const tdsl::tdsl_row & row) {
+            auto & s = *static_cast<state_t *>(u);
+            s.rows++;
+            s.null_money_is_null = row [0].is_null();
+            s.money              = row [0].as<tdsl::sql_money>().integer();
+            s.smallm             = row [1].as<tdsl::sql_money>().integer();
+            s.dec_valid          = row [2].as<tdsl::sql_decimal>().is_valid();
+            s.dt_ts              = row [3].as<tdsl::sql_datetime>().to_unix_timestamp();
+            s.sdt_ts             = row [4].as<tdsl::sql_smalldatetime>().to_unix_timestamp();
+            s.null_int           = row [5].as<tdsl::int32_t>();
+        },
+        &st);
+    EXPECT_TRUE(static_cast<bool>(r));
+    EXPECT_EQ(1, st.rows);
+    EXPECT_TRUE(st.null_money_is_null);
+    EXPECT_EQ(0, st.money);
+    EXPECT_EQ(12, st.smallm);
+    EXPECT_FALSE(st.dec_valid);
+    EXPECT_EQ(0, st.null_int);
 }

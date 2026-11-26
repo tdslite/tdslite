@@ -10,6 +10,10 @@
  * ____________________________________________________
  */
 
+#include <tdslite/detail/sqltypes/sql_smalldatetime.hpp>
+#include <tdslite/detail/sqltypes/sql_datetime.hpp>
+#include <tdslite/detail/sqltypes/sql_money.hpp>
+#include <tdslite/detail/sqltypes/sql_decimal.hpp>
 #include <tdslite/detail/tdsl_field.hpp>
 #include <tdslite/util/tdsl_span.hpp>
 #include <gtest/gtest.h>
@@ -500,4 +504,85 @@ TEST_F(tdsl_field_to_string_fixture, field_to_string_guid_false) {
     THEN {
         ASSERT_STREQ(out.data(), "<INVALID>");
     }
+}
+
+// --------------------------------------------------------------------------------
+// NULL and short fields
+//
+// Reading a NULL field, or one with fewer bytes than the requested type,
+// used to trap (unchecked read).
+// --------------------------------------------------------------------------------
+
+TEST_F(tdsl_field_fixture, arithmetic_as_on_null_field_is_zero) {
+    // The fixture's field is NULL (no data)
+    EXPECT_EQ(0, field.as<tdsl::int32_t>());
+    EXPECT_EQ(0u, field.as<tdsl::uint64_t>());
+    EXPECT_EQ(0.0, field.as<double>());
+}
+
+TEST_F(tdsl_field_fixture, arithmetic_as_on_narrower_field_is_zero) {
+    tdsl::uint8_t buf [2] = {0x01, 0x02};
+    field                 = buf;
+    EXPECT_EQ(0, field.as<tdsl::int32_t>());
+    EXPECT_EQ(tdsl::uint16_t{513}, field.as<tdsl::uint16_t>());
+}
+
+TEST(tdsl_field_sqltypes, null_values_read_as_zero) {
+    tdsl::tds_column_info c{};
+    const tdsl::tdsl_field null_field{c, nullptr, nullptr};
+    EXPECT_EQ(0, null_field.as<tdsl::sql_money>().integer());
+    EXPECT_EQ(0u, null_field.as<tdsl::sql_datetime>().to_unix_timestamp());
+    EXPECT_EQ(0u, null_field.as<tdsl::sql_smalldatetime>().to_unix_timestamp());
+
+    c.typeprops.ps.precision = 5;
+    c.typeprops.ps.scale     = 2;
+    const auto d             = null_field.as<tdsl::sql_decimal>();
+    EXPECT_FALSE(d.is_valid());
+    EXPECT_EQ(0, d.integer());
+}
+
+TEST(tdsl_field_sqltypes, decimal_values) {
+    tdsl::tds_column_info c{};
+    c.typeprops.ps.precision = 5;
+    c.typeprops.ps.scale     = 2;
+    // 123.45, nonnegative
+    tdsl::uint8_t buf [5]    = {0x01, 0x39, 0x30, 0x00, 0x00};
+    const tdsl::tdsl_field f{c, tdsl::byte_view{buf}};
+    const auto d = f.as<tdsl::sql_decimal>();
+    EXPECT_TRUE(d.is_valid());
+    EXPECT_EQ(123, d.integer());
+    EXPECT_EQ(45, d.fraction());
+
+    // Negative
+    buf [0]       = 0x00;
+    const auto d2 = f.as<tdsl::sql_decimal>();
+    EXPECT_TRUE(d2.is_valid());
+    EXPECT_EQ(-123, d2.integer());
+}
+
+// Precision > 18 used to trap (TDSL_NOT_YET_IMPLEMENTED)
+TEST(tdsl_field_sqltypes, decimal_with_unsupported_precision_is_invalid) {
+    tdsl::tds_column_info c{};
+    c.typeprops.ps.precision = 20;
+    tdsl::uint8_t buf [13]   = {0x01, 0x01};
+    const tdsl::tdsl_field f{c, tdsl::byte_view{buf}};
+    EXPECT_FALSE(f.as<tdsl::sql_decimal>().is_valid());
+}
+
+// A value shorter than its precision requires used to trap
+TEST(tdsl_field_sqltypes, decimal_with_short_value_is_invalid) {
+    tdsl::tds_column_info c{};
+    c.typeprops.ps.precision = 15; // needs 8 bytes
+    tdsl::uint8_t buf [5]    = {0x01, 0x01, 0x00, 0x00, 0x00};
+    const tdsl::tdsl_field f{c, tdsl::byte_view{buf}};
+    EXPECT_FALSE(f.as<tdsl::sql_decimal>().is_valid());
+}
+
+// SMALLMONEY (4 bytes) used to trap
+TEST(tdsl_field_sqltypes, smallmoney_values) {
+    tdsl::tds_column_info c{};
+    // 12.3456 * 10^4 = 123456
+    tdsl::uint8_t buf [4] = {0x40, 0xE2, 0x01, 0x00};
+    const tdsl::tdsl_field f{c, tdsl::byte_view{buf}};
+    EXPECT_EQ(12, f.as<tdsl::sql_money>().integer());
 }

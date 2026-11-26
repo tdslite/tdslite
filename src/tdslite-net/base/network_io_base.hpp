@@ -17,6 +17,7 @@
 
 #include <tdslite/detail/tdsl_callback.hpp>
 #include <tdslite/detail/tdsl_message_type.hpp>
+#include <tdslite/detail/tdsl_send_status.hpp>
 #include <tdslite/detail/tdsl_message_token_type.hpp>
 #include <tdslite/detail/tdsl_envchange_type.hpp>
 #include <tdslite/detail/tdsl_packet_handler_result.hpp>
@@ -152,7 +153,18 @@ namespace tdsl {
                     // so the second read call becomes a `read_exactly` call too,
                     // which allows us to avoid dealing with fragmentation at TCP
                     // level.
-                    impl().do_recv(tds_hbuf_s.size_bytes(), tds_hbuf_s);
+                    const auto hdr_recv_result =
+                        impl().do_recv(tds_hbuf_s.size_bytes(), tds_hbuf_s);
+                    if (not hdr_recv_result) {
+                        TDSL_DEBUG_PRINTLN(
+                            "network_io_base::do_receive_tds_pdu(...) -> error, cannot "
+                            "receive TDS header, receive error %d",
+                            static_cast<int>(hdr_recv_result.error()));
+                        // Whatever remains in the buffer belongs to a message
+                        // that we can no longer complete, so discard it.
+                        network_buffer.get_writer()->reset();
+                        return processed_tds_message_count;
+                    }
                     auto thdr_rdr = binary_reader<tdsl::endian::big>{tds_hbuf};
 
                     // Type defines the type of message. Type is a 1-byte unsigned char.
@@ -184,84 +196,65 @@ namespace tdsl {
                     // Length field includes the header length too, so subtract it
                     auto packet_data_size = length - sizeof(detail::tds_header);
 
-                    // (mgilor): Instead of trying to pull a complete TDS packet,
-                    // we can try to pull remaining space amount from the buffer.
-                    // this will deliberately
-                    // We might try to pull whatever we got in the buffer.
+                    // Pull the packet data into the network buffer and pass it down
+                    // to the packet data callback. The network buffer may already
+                    // contain unconsumed data from the previous packet(s) (e.g. a token
+                    // that spans multiple packets), or the packet itself may simply be
+                    // larger than the network buffer. Therefore, the packet data is
+                    // received in chunks of at most `free space` bytes. After each chunk,
+                    // the callback consumes all the complete tokens, which frees up
+                    // space for the next chunk.
+                    while (packet_data_size > 0) {
+                        // NOTE: The writer object must not outlive this statement. The
+                        // network implementation's do_recv() obtains its own writer, and
+                        // there can only be one active reader/writer at a time.
+                        const tdsl::size_t free_space =
+                            network_buffer.get_writer()->remaining_bytes();
 
-                    // If we can't pull whole packet, try to pull whatever we can from the
-                    // network
-
-                    if (packet_data_size > network_buffer.get_writer()->remaining_bytes()) {
-                        TDSL_DEBUG_PRINTLN("Cannot fit complete message into network "
-                                           "buffer " TDSL_SIZET_FORMAT_SPECIFIER
-                                           " > " TDSL_SIZET_FORMAT_SPECIFIER " "
-                                           "will try partial pull",
-                                           packet_data_size,
-                                           network_buffer.get_writer()->remaining_bytes());
-                        do {
-                            if (network_buffer.get_writer()->remaining_bytes() == 0) {
-                                TDSL_DEBUG_PRINTLN("Cannot pull " TDSL_SIZET_FORMAT_SPECIFIER
-                                                   " byte(s) of data from network, network "
-                                                   "buffer exhausted!",
-                                                   packet_data_size);
-                                // There's no point keeping the data around, so reset the buffer
-                                network_buffer.get_writer()->reset();
-                                return processed_tds_message_count;
-                            }
-                            const auto recv_result =
-                                impl().do_recv(network_buffer.get_writer()->remaining_bytes());
-                            if (recv_result) {
-                                auto nmsg_rdr           = network_buffer.get_reader();
-                                const auto needed_bytes = packet_data_cb(message_type, *nmsg_rdr);
-                                (void) needed_bytes;
-                                packet_data_size -= recv_result.get();
-                            }
-                            else {
-                                TDSL_DEBUG_PRINTLN("Cannot receive " TDSL_SIZET_FORMAT_SPECIFIER
-                                                   " byte(s) of data from "
-                                                   "network, receive error %u ",
-                                                   packet_data_size, recv_result.error());
-                                // There's no point keeping the data around, so reset the buffer
-                                network_buffer.get_writer()->reset();
-                                return processed_tds_message_count;
-                            }
-                        } while (packet_data_size > network_buffer.get_writer()->remaining_bytes());
-                    }
-                    else {
-                        impl().do_recv(packet_data_size); // FIXME: Check for errors
-                                                          // This is a netbuf_reader instance.
-                        // Read operations on this will be committed
-                        // to underlying buffer on object destruction
-                        // e.g. nmsg_rdr.read(2) will cause 2 bytes from
-                        // the start of the underlying buffer to be removed
-                        auto nmsg_rdr = network_buffer.get_reader();
-
-                        // pass current buffer down
-                        if (not nmsg_rdr->has_bytes(packet_data_size)) {
+                        if (free_space == 0) {
+                            // The callback could not consume anything from a full
+                            // buffer, which means a single token is larger than the
+                            // network buffer itself. We cannot make progress.
                             TDSL_DEBUG_PRINTLN(
-                                "network_io_base::do_receive_tds_pdu(...) -> error, receive buffer "
-                                "does not contain expected amount of bytes "
-                                "(" TDSL_SIZET_FORMAT_SPECIFIER " < " TDSL_SIZET_FORMAT_SPECIFIER
-                                ") ",
-                                nmsg_rdr->remaining_bytes(), packet_data_size);
-                            // this should not happen
-                            TDSL_ASSERT_MSG(
-                                0, "The receive buffer does not contain expected amount of "
-                                   "bytes, something is wrong!");
+                                "network_io_base::do_receive_tds_pdu(...) -> error, cannot "
+                                "pull " TDSL_SIZET_FORMAT_SPECIFIER
+                                " byte(s) of data from network, network buffer exhausted!",
+                                packet_data_size);
+                            // There's no point keeping the data around, so reset the buffer
+                            network_buffer.get_writer()->reset();
                             return processed_tds_message_count;
                         }
 
-                        // TODO: check if downstream consumed the message
-                        // TODO: Check if we got enough space to pull the next message
-                        const auto needed_bytes = packet_data_cb(message_type, *nmsg_rdr);
-                        if (needed_bytes) {
-                            TDSL_DEBUG_PRINTLN("network_impl_base::do_receive_tds_pdu(...) -> "
-                                               "packet_data_cb needs `%d` more bytes",
-                                               needed_bytes);
+                        const tdsl::size_t chunk_size =
+                            packet_data_size < free_space ? packet_data_size : free_space;
+
+                        const auto recv_result =
+                            impl().do_recv(static_cast<tdsl::uint32_t>(chunk_size));
+                        if (not recv_result) {
+                            TDSL_DEBUG_PRINTLN(
+                                "network_io_base::do_receive_tds_pdu(...) -> error, cannot "
+                                "receive " TDSL_SIZET_FORMAT_SPECIFIER
+                                " byte(s) of data from network, receive error %d",
+                                chunk_size, static_cast<int>(recv_result.error()));
+                            // There's no point keeping the data around, so reset the buffer
+                            network_buffer.get_writer()->reset();
+                            return processed_tds_message_count;
                         }
 
-                        (void) needed_bytes;
+                        packet_data_size -= chunk_size;
+
+                        // This is a progressive reader instance. Read operations on it
+                        // are committed to the underlying buffer on destruction, e.g.
+                        // nmsg_rdr->read(2) causes 2 bytes from the start of the
+                        // underlying buffer to be removed. Unconsumed data (e.g. a
+                        // partial token) stays in the buffer for the next round.
+                        auto nmsg_rdr           = network_buffer.get_reader();
+                        const auto needed_bytes = packet_data_cb(message_type, *nmsg_rdr);
+                        if (needed_bytes) {
+                            TDSL_TRACE_PRINTLN("network_io_base::do_receive_tds_pdu(...) -> "
+                                               "packet_data_cb needs `%u` more bytes",
+                                               static_cast<unsigned>(needed_bytes));
+                        }
                     }
 
                     eom_flag = status.end_of_message;
@@ -293,21 +286,50 @@ namespace tdsl {
              * Send contents of the message buffer in one or more TDS PDU's,
              * depending on negotiated packet size.
              *
+             * If any part of the message could not be written into the
+             * network buffer (i.e. the message is larger than the buffer),
+             * nothing is sent and the message is discarded.
+             *
              * @param [in] mtype The type of the message currently in
              *                   the network buffer
+             *
+             * If sending a packet fails, the rest of the message is discarded.
+             *
+             * @return e_send_status::success if the message is sent
+             * @return e_send_status::request_too_large if the message was
+             *         incomplete and discarded (nothing is sent)
+             * @return e_send_status::network_error if sending failed
              */
-            void do_send_tds_pdu(tdsl::detail::e_tds_message_type mtype) noexcept {
+            TDSL_NODISCARD tdsl::detail::e_send_status
+            do_send_tds_pdu(tdsl::detail::e_tds_message_type mtype) noexcept {
+                using tdsl::detail::e_send_status;
                 TDSL_ASSERT_MSG(not(network_buffer.get_underlying_view().data() == nullptr),
                                 "The network implementation MUST initialize network_buffer "
                                 "prior any network I/O!");
-                const int k_message_segmentation_size = (tds_packet_size - 8);
-                auto buf_rdr                          = network_buffer.get_reader();
-                auto fragment_count = (buf_rdr->remaining_bytes() / k_message_segmentation_size);
+
+                if (tx_overflow) {
+                    TDSL_DEBUG_PRINTLN(
+                        "network_io_base::do_send_tds_pdu(...) -> error, the "
+                        "message does not fit into the network buffer (" TDSL_SIZET_FORMAT_SPECIFIER
+                        " bytes), discarding it",
+                        network_buffer.get_underlying_view().size_bytes());
+                    discard_tx();
+                    return e_send_status::request_too_large;
+                }
+
+                const tdsl::size_t k_message_segmentation_size =
+                    (tds_packet_size - sizeof(detail::tds_header));
+                auto buf_rdr = network_buffer.get_reader();
+                // Send the message in packets of at most `tds_packet_size` bytes.
+                // The last packet carrying data has the end-of-message flag set.
+                // An empty message is sent as a single, empty packet.
                 do {
-                    auto segment_size = buf_rdr->has_bytes(k_message_segmentation_size)
-                                            ? k_message_segmentation_size
-                                            : buf_rdr->remaining_bytes();
-                    auto segment      = buf_rdr->read(segment_size);
+                    const tdsl::size_t remaining     = buf_rdr->remaining_bytes();
+                    const tdsl::size_t segment_size  = remaining > k_message_segmentation_size
+                                                           ? k_message_segmentation_size
+                                                           : remaining;
+                    const bool is_last               = (segment_size == remaining);
+                    auto segment                     = buf_rdr->read(segment_size);
                     const tdsl::uint16_t segsize_nbo = host_to_network(static_cast<tdsl::uint16_t>(
                         segment.size_bytes() + sizeof(detail::tds_header)));
                     const tdsl::uint8_t(&segsize_nbo_b) [2] =
@@ -315,7 +337,7 @@ namespace tdsl {
 
                     const tdsl::uint8_t tds_hbuf [sizeof(detail::tds_header)] = {
                         static_cast<tdsl::uint8_t>(mtype),
-                        static_cast<tdsl::uint8_t>(fragment_count == 0),
+                        static_cast<tdsl::uint8_t>(is_last),
                         segsize_nbo_b [0],
                         segsize_nbo_b [1],
                         0x00,
@@ -323,10 +345,27 @@ namespace tdsl {
                         0x00,
                         0x00};
 
-                    impl().do_send(byte_view{tds_hbuf}, segment);
-                } while (fragment_count--);
+                    if (not(impl().do_send(byte_view{tds_hbuf}, segment) == 0)) {
+                        TDSL_DEBUG_PRINTLN("network_io_base::do_send_tds_pdu(...) -> error, send "
+                                           "failed, discarding the rest of the message");
+                        // Consume the rest so the buffer is empty afterwards
+                        buf_rdr->advance(static_cast<tdsl::ssize_t>(buf_rdr->remaining_bytes()));
+                        return e_send_status::network_error;
+                    }
+                } while (buf_rdr->has_bytes(1));
 
-                TDSL_ASSERT_MSG(not buf_rdr->has_bytes(1), "Send buffer must be empty after!");
+                return e_send_status::success;
+            }
+
+            // --------------------------------------------------------------------------------
+
+            /**
+             * Discard the message being built in the network buffer,
+             * including its overflow state.
+             */
+            inline void discard_tx() noexcept {
+                network_buffer.get_writer()->reset();
+                tx_overflow = false;
             }
 
             // --------------------------------------------------------------------------------
@@ -338,9 +377,11 @@ namespace tdsl {
              */
             template <typename T>
             inline void do_write(tdsl::span<T> data) noexcept {
-                const auto r = network_buffer.get_writer()->write(data);
-                TDSL_ASSERT(r);
-                (void) r;
+                if (not network_buffer.get_writer()->write(data)) {
+                    // Remember the failure. The incomplete message
+                    // is discarded instead of being sent.
+                    tx_overflow = true;
+                }
             }
 
             // --------------------------------------------------------------------------------
@@ -363,9 +404,9 @@ namespace tdsl {
              */
             template <typename T>
             inline void do_write(tdsl::size_t offset, tdsl::span<T> data) noexcept {
-                const auto r = network_buffer.get_writer()->write(offset, data);
-                TDSL_ASSERT(r);
-                (void) r;
+                if (not network_buffer.get_writer()->write(offset, data)) {
+                    tx_overflow = true;
+                }
             }
 
             // --------------------------------------------------------------------------------
@@ -383,15 +424,28 @@ namespace tdsl {
             }
 
             /**
+             * Smallest/largest valid TDS packet size (MS-TDS 2.2.7.9)
+             */
+            static constexpr tdsl::uint16_t k_min_tds_packet_size = {512};
+            static constexpr tdsl::uint16_t k_max_tds_packet_size = {32767};
+
+            /**
              * Update negotiated packet size
              *
-             * @param [in] value New packet size
+             * The packet size may be larger than the network buffer. Incoming
+             * packets are received in chunks, and outgoing messages are
+             * never larger than the network buffer anyway.
+             *
+             * @param [in] value New packet size. Values outside of the
+             *                   [512, 32767] range are ignored and the
+             *                   current packet size is kept.
              */
             TDSL_SYMBOL_VISIBLE inline void set_tds_packet_size(tdsl::uint16_t value) noexcept {
-                if (value > network_buffer.get_underlying_view().size_bytes()) {
-                    TDSL_ASSERT_MSG(false, "Negotiated packet size cannot be larger than the "
-                                           "network buffer itself!");
-                    TDSL_TRAP;
+                if (value < k_min_tds_packet_size || value > k_max_tds_packet_size) {
+                    TDSL_DEBUG_PRINTLN("network_io_base::set_tds_packet_size(...) -> ignoring "
+                                       "invalid packet size [%u], keeping [%u]",
+                                       value, tds_packet_size);
+                    return;
                 }
 
                 TDSL_DEBUG_PRINTLN(
@@ -421,11 +475,13 @@ namespace tdsl {
             // where message_len > network_buffer.
             tds_packet_data_callback packet_data_cb{};
 
-            // Negotiated TDS packet size
-            // The capacity of @p network_buffer MUST
-            // be equal to this value (may be greater).
-            // Otherwise, the client may not be able to
-            // receive the data from the server.
+            // Set when a write into the network buffer fails because
+            // the message being built does not fit. Cleared when the
+            // message is sent or discarded.
+            bool tx_overflow               = {false};
+
+            // Negotiated TDS packet size. Always in [512, 32767]
+            // range. Can be larger than the network buffer.
             tdsl::uint16_t tds_packet_size = {4096};
 
         protected:

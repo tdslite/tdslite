@@ -53,43 +53,46 @@ namespace tdsl {
             // The actual size of this integer could be less than the maximum size, depending on
             // the value. In all cases, the integer part MUST be 4, 8, 12, or 16 bytes.
             // https://github.com/microsoft/referencesource/blob/master/System.Data/System/Data/SQLTypes/SQLDecimal.cs
-            tdsl::binary_reader<tdsl::endian::little> br{v};
-
-            flags.sign                = br.read<bool>();
+            flags.precision           = col.typeprops.ps.precision;
+            flags.scale               = col.typeprops.ps.scale;
 
             // https://www.h-schmidt.net/FloatConverter/IEEE754.html
             tdsl::uint8_t read_length = 0;
             if (col.typeprops.ps.precision >= 1 && col.typeprops.ps.precision <= 9) {
-                TDSL_ASSERT(v.size_bytes() == 5);
                 read_length = 4;
             }
-            else if (col.typeprops.ps.precision <= 18) {
-                TDSL_ASSERT(v.size_bytes() == 9);
+            else if (col.typeprops.ps.precision >= 10 && col.typeprops.ps.precision <= 18) {
                 read_length = 8;
             }
-            // Precision values larger than 18 is not supported.
-            else if (col.typeprops.ps.precision <= 28) {
-                TDSL_NOT_YET_IMPLEMENTED;
-                TDSL_ASSERT(v.size_bytes() == 13);
-                read_length = 12;
-            }
-            else if (col.typeprops.ps.precision <= 38) {
-                // These are not supported
-                TDSL_NOT_YET_IMPLEMENTED;
-                TDSL_ASSERT(v.size_bytes() == 17);
-                read_length = 16;
-            }
             else {
-                TDSL_ASSERT_MSG(false, "Invalid precision value for decimal/numeric!");
+                // Precision values larger than 18 are not supported (yet),
+                // the value would not fit into 64 bits.
+                return;
+            }
+
+            // NULL (no data), or malformed value
+            if (v.size_bytes() < (1u + read_length)) {
+                return;
             }
 
             TDSL_ASSERT(read_length <= sizeof(stor.raw));
 
-            flags.precision            = col.typeprops.ps.precision;
-            flags.scale                = col.typeprops.ps.scale;
-
+            tdsl::binary_reader<tdsl::endian::little> br{v};
+            flags.sign                 = not(br.read<tdsl::uint8_t>() == 0);
             const tdsl::byte_view data = br.read(read_length);
             memcpy(stor.raw, data.data(), data.size_bytes());
+            flags.valid = true;
+        }
+
+        // --------------------------------------------------------------------------------
+
+        /**
+         * Whether the value could be read. The value is invalid (and reads as
+         * zero) if the field is NULL, its precision is larger than 18
+         * (not supported), or it's malformed.
+         */
+        inline TDSL_NODISCARD bool is_valid() const noexcept {
+            return flags.valid;
         }
 
         // --------------------------------------------------------------------------------
@@ -122,7 +125,7 @@ namespace tdsl {
         struct flags {
             tdsl::uint8_t precision : 6; // 0/31
             bool sign : 1;               // 0 - negative, 1 - positive
-            bool reserved_1 : 1;
+            bool valid : 1;              // see is_valid()
             tdsl::uint8_t scale : 6;
             bool reserved_2 : 2;
             tdsl::uint64_t reserved_3 : 48;

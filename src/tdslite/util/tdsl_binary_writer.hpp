@@ -126,8 +126,12 @@ namespace tdsl {
                 return false;
             }
 
-            memcpy(this->current(), data.data(), data.size_bytes());
-            this->do_advance(data.size_bytes());
+            // memcpy's arguments must not be null, even when copying nothing
+            // (an empty span may have a null data pointer)
+            if (data.size_bytes() > 0) {
+                memcpy(this->current(), data.data(), data.size_bytes());
+                this->do_advance(data.size_bytes());
+            }
             return true;
         }
 
@@ -152,9 +156,10 @@ namespace tdsl {
             }
 
             memcpy(this->data() + start_offset, data.data(), data.size_bytes());
+            // Writing past the current offset extends the written region
             if (start_offset + data.size_bytes() > this->offset()) {
-                const auto advance_amount = (start_offset + data.size_bytes());
-                this->do_advance(advance_amount);
+                const auto advance_amount = (start_offset + data.size_bytes()) - this->offset();
+                this->do_advance(static_cast<tdsl::ssize_t>(advance_amount));
             }
 
             return true;
@@ -213,7 +218,7 @@ namespace tdsl {
             // This is for complying the strict aliasing rules
             // for type T. The compiler should optimize this
             // call away.
-            memcpy(&value, this->current(), sizeof(T));
+            memcpy(this->current(), &value, sizeof(T));
             this->do_advance(sizeof(T));
             return true;
         }

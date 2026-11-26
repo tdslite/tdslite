@@ -203,3 +203,16 @@ TEST(span, shift_left_oversize) {
     EXPECT_EQ(buf_span.shift_left(buf.size() + 1), 0);
     ASSERT_THAT(buf, testing::ElementsAreArray(expected_buf));
 }
+
+// --------------------------------------------------------------------------------
+
+TEST(span, shift_left_zero_keeps_contents) {
+    tdsl::uint8_t buf []          = {0x01, 0x02, 0x03, 0x04, 0x05};
+    tdsl::uint8_t expected_buf [] = {0x01, 0x02, 0x03, 0x04, 0x05};
+    tdsl::byte_span buf_span{buf};
+    EXPECT_EQ(sizeof(buf), buf_span.shift_left(/*count=*/0));
+    ASSERT_THAT(buf, testing::ElementsAreArray(expected_buf));
+    // With an explicit bound
+    EXPECT_EQ(3, buf_span.shift_left(/*count=*/0, /*bound=*/3));
+    ASSERT_THAT(buf, testing::ElementsAreArray(expected_buf));
+}

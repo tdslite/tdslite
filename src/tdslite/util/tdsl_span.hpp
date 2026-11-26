@@ -84,6 +84,12 @@ namespace tdsl {
                 // How many elements we need to shift left?
                 const auto n_elements_to_shift = sb - count;
 
+                // Nothing to do. Note that falling through to the loop below
+                // with count == 0 would zero out every element in place.
+                if (count == 0) {
+                    return n_elements_to_shift;
+                }
+
                 for (SizeT i = 0; i < n_elements_to_shift; i++) {
                     TDSL_ASSERT((i + count) < sb);
                     static_cast<Derived &>(*this) [i] = static_cast<Derived &>(*this) [i + count];
