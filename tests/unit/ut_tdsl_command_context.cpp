@@ -222,6 +222,20 @@ TEST(tdsl_command_ctx_ut, callbacks_unregistered_on_destruction) {
 namespace {
 
     /**
+     * sql_parameter_binding has a default member initializer, so it isn't an
+     * aggregate (no brace initialization) in C++11.
+     */
+    inline tdsl::detail::sql_parameter_binding make_binding(tdsl::detail::e_tds_data_type type,
+                                                            tdsl::byte_view value,
+                                                            tdsl::uint32_t type_size) {
+        tdsl::detail::sql_parameter_binding pb{};
+        pb.type      = type;
+        pb.value     = value;
+        pb.type_size = type_size;
+        return pb;
+    }
+
+    /**
      * UTF-16LE bytes of an ASCII string
      */
     inline std::vector<tdsl::uint8_t> u16le(const std::string & s) {
@@ -311,17 +325,17 @@ TEST_F(rpc_param_fixture, unsupported_parameters_are_rejected) {
 
     const tdsl::detail::sql_parameter_binding bad [] = {
         // INTN with an invalid size
-        {tdsl::detail::e_tds_data_type::INTNTYPE,          tdsl::byte_view{three}, 3},
+        make_binding(tdsl::detail::e_tds_data_type::INTNTYPE, tdsl::byte_view{three}, 3),
         // DECIMAL
-        {tdsl::detail::e_tds_data_type::DECIMALNTYPE,      tdsl::byte_view{five},  5},
+        make_binding(tdsl::detail::e_tds_data_type::DECIMALNTYPE, tdsl::byte_view{five}, 5),
         // TEXT
-        {tdsl::detail::e_tds_data_type::NTEXTTYPE,         tdsl::byte_view{four},  4},
+        make_binding(tdsl::detail::e_tds_data_type::NTEXTTYPE, tdsl::byte_view{four}, 4),
         // Unknown type
-        {static_cast<tdsl::detail::e_tds_data_type>(0xF1), tdsl::byte_view{four},  4},
+        make_binding(static_cast<tdsl::detail::e_tds_data_type>(0xF1), tdsl::byte_view{four}, 4),
         // GUID with a wrong size
-        {tdsl::detail::e_tds_data_type::GUIDTYPE,          tdsl::byte_view{four},  4},
+        make_binding(tdsl::detail::e_tds_data_type::GUIDTYPE, tdsl::byte_view{four}, 4),
         // NVARCHAR with an odd byte count
-        {tdsl::detail::e_tds_data_type::NVARCHARTYPE,      tdsl::byte_view{three}, 3},
+        make_binding(tdsl::detail::e_tds_data_type::NVARCHARTYPE, tdsl::byte_view{three}, 3),
     };
     for (const auto & pb : bad) {
         SCOPED_TRACE(static_cast<int>(pb.type));
@@ -337,10 +351,10 @@ TEST_F(rpc_param_fixture, unsupported_parameters_are_rejected) {
 TEST_F(rpc_param_fixture, money_and_bitn_parameters_are_declared) {
     const tdsl::uint8_t eight [8] = {0};
     const tdsl::uint8_t one [1]   = {1};
-    (void) rpc({tdsl::detail::e_tds_data_type::MONEYNTYPE, tdsl::byte_view{eight}, 8});
+    (void) rpc(make_binding(tdsl::detail::e_tds_data_type::MONEYNTYPE, tdsl::byte_view{eight}, 8));
     EXPECT_TRUE(request_contains(tds_ctx.send_buffer, "@p0 MONEY"));
     tds_ctx.send_buffer.clear();
-    (void) rpc({tdsl::detail::e_tds_data_type::BITNTYPE, tdsl::byte_view{one}, 1});
+    (void) rpc(make_binding(tdsl::detail::e_tds_data_type::BITNTYPE, tdsl::byte_view{one}, 1));
     EXPECT_TRUE(request_contains(tds_ctx.send_buffer, "@p0 BIT"));
 }
 

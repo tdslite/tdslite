@@ -126,8 +126,12 @@ namespace tdsl {
                 return false;
             }
 
-            memcpy(this->current(), data.data(), data.size_bytes());
-            this->do_advance(data.size_bytes());
+            // memcpy's arguments must not be null, even when copying nothing
+            // (an empty span may have a null data pointer)
+            if (data.size_bytes() > 0) {
+                memcpy(this->current(), data.data(), data.size_bytes());
+                this->do_advance(data.size_bytes());
+            }
             return true;
         }
 

@@ -82,6 +82,23 @@ static inline auto mssql_2022_creds() -> const login_ctx_t::login_parameters & {
  * Otherwise, concurrent tests running in parallel can step
  * each other's feet.
  */
+namespace {
+    /**
+     * sql_parameter_binding has a default member initializer, so it isn't an
+     * aggregate (no brace initialization) in C++11.
+     */
+    inline tdsl::detail::sql_parameter_binding make_binding(tdsl::detail::e_tds_data_type type,
+                                                            tdsl::byte_view value,
+                                                            tdsl::uint32_t type_size) {
+        tdsl::detail::sql_parameter_binding pb{};
+        pb.type      = type;
+        pb.value     = value;
+        pb.type_size = type_size;
+        return pb;
+    }
+
+} // namespace
+
 struct tds_command_ctx_it_fixture : public ::testing::Test {
 
     virtual void SetUp() override {
@@ -1403,8 +1420,7 @@ TEST_F(tds_command_ctx_it_fixture, rpc_nvarchar_parameter_lengths) {
 TEST_F(tds_command_ctx_it_fixture, rpc_unsupported_parameter_is_rejected) {
     const tdsl::uint8_t dec [5]                   = {1, 1, 0, 0, 0};
     tdsl::detail::sql_parameter_binding params [] = {
-        {tdsl::detail::e_tds_data_type::DECIMALNTYPE, tdsl::byte_view{dec}, 5}
-    };
+        make_binding(tdsl::detail::e_tds_data_type::DECIMALNTYPE, tdsl::byte_view{dec}, 5)};
     const auto r = command_ctx.execute_rpc(tdsl::string_view{"SELECT @p0"}, params);
     ASSERT_FALSE(static_cast<bool>(r));
     EXPECT_EQ(tdsl::detail::e_rpc_error_code::invalid_parameter, r.error());
@@ -1426,6 +1442,9 @@ TEST_F(tds_command_ctx_it_fixture, read_null_and_unsupported_values) {
         tdsl::int64_t smallm    = {-1};
         bool dec_valid          = {true};
         bool null_money_is_null = {false};
+        tdsl::uint64_t dt_ts    = {1};
+        tdsl::uint64_t sdt_ts   = {1};
+        tdsl::int32_t null_int  = {-1};
     } st;
 
     const auto r = command_ctx.execute_query(
@@ -1439,9 +1458,9 @@ TEST_F(tds_command_ctx_it_fixture, read_null_and_unsupported_values) {
             s.money              = row [0].as<tdsl::sql_money>().integer();
             s.smallm             = row [1].as<tdsl::sql_money>().integer();
             s.dec_valid          = row [2].as<tdsl::sql_decimal>().is_valid();
-            (void) row [3].as<tdsl::sql_datetime>().to_unix_timestamp();
-            (void) row [4].as<tdsl::sql_smalldatetime>().to_unix_timestamp();
-            (void) row [5].as<tdsl::int32_t>();
+            s.dt_ts              = row [3].as<tdsl::sql_datetime>().to_unix_timestamp();
+            s.sdt_ts             = row [4].as<tdsl::sql_smalldatetime>().to_unix_timestamp();
+            s.null_int           = row [5].as<tdsl::int32_t>();
         },
         &st);
     EXPECT_TRUE(static_cast<bool>(r));
@@ -1450,4 +1469,5 @@ TEST_F(tds_command_ctx_it_fixture, read_null_and_unsupported_values) {
     EXPECT_EQ(0, st.money);
     EXPECT_EQ(12, st.smallm);
     EXPECT_FALSE(st.dec_valid);
+    EXPECT_EQ(0, st.null_int);
 }

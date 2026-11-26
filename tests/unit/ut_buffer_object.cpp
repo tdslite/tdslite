@@ -322,9 +322,9 @@ TEST_F(buffer_object_fixture, moved_reader_commits_once) {
     ASSERT_TRUE(bo.get_writer()->write(tdsl::byte_view{data}));
     {
         auto r1 = bo.get_reader();
-        (void) r1->read<tdsl::uint8_t>();
+        EXPECT_EQ(1, r1->read<tdsl::uint8_t>());
         auto r2 = std::move(r1); // r1 becomes inactive
-        (void) r2->read<tdsl::uint8_t>();
+        EXPECT_EQ(2, r2->read<tdsl::uint8_t>());
     }
     // Exactly the two bytes read are consumed
     auto w = bo.get_writer();
